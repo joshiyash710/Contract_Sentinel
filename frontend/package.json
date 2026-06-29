@@ -1,0 +1,21 @@
+{
+  "name": "contractsentinel-frontend",
+  "version": "0.1.0",
+  "description": "Frontend for ContractSentinel - autonomous contract-risk-analysis agent",
+  "main": "index.js",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "latest",
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "eslint": "latest",
+    "eslint-config-next": "latest"
+  }
+}
