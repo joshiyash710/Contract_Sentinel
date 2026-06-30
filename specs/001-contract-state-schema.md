@@ -86,6 +86,7 @@ class ContractState(TypedDict):
     extracted_text: str  # Full extracted text from document
     ocr_used: bool  # Whether OCR was needed for extraction
     ocr_confidence: Optional[float]  # OCR confidence score if OCR was used
+    ingest_error: Optional[Dict[str, str]]  # Error information if ingestion failed
     
     # Consolidated clause information (added progressively by different nodes)
     clauses: Annotated[Dict[str, Dict[str, Any]], merge_nested_clause_dicts]
@@ -139,10 +140,12 @@ Fields that use LangGraph reducers (accumulate values):
 - `mcp_delivery_status` - Dict that accumulates delivery status information using merge_dicts
 
 Fields that are simple overwrites:
-- `document_id`, `document_path`, `original_filename`, `uploaded_at`, `extracted_text`, `ocr_used`, `ocr_confidence`
+- `document_id`, `document_path`, `original_filename`, `uploaded_at`, `extracted_text`, `ocr_used`, `ocr_confidence`, `ingest_error`
 - `report_path`
 - `current_node`
 - `processing_started_at`, `processing_completed_at`
+
+Note: `ingest_error` is a simple overwrite, not an accumulating field. A new ingest attempt (e.g. on retry) fully replaces any prior error state rather than merging with it — there is no scenario where multiple ingest errors for the same document should be preserved simultaneously.
 
 ## 5. Node Implementation Guidance
 
@@ -205,3 +208,8 @@ Based on the revision, the following decisions have been made for the open quest
 
 7. ~~Is the current structure for storing OCR metadata sufficient, or do we need additional details about the OCR process?~~
    **DECISION**: Keep as-is for now; ocr_used + ocr_confidence is sufficient until a real scanned contract reveals the need for more granular detail.
+
+8. ~~Ingest Error Field Addition~~
+   **DECISION**: Added `ingest_error` field to track ingestion failures. This field is populated by IngestAgent when encountering unsupported formats, corrupted files, permission failures, or timeouts. The addition was made per the constitution's spec-first-change rule as specified in specs/003-ingest-agent/spec.md. Classified as a simple overwrite field in section 4 — see the note there.
+
+No remaining open questions. This spec is considered final.
