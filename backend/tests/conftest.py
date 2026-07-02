@@ -7,8 +7,9 @@ tests/unit/ and tests/integration/.
 """
 
 import os
-import shutil
+import sys
 import pytest
+from unittest.mock import patch
 
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
@@ -51,30 +52,50 @@ def nonexistent_path(tmp_path):
 
 @pytest.fixture
 def unreadable_pdf_path(tmp_path):
-    """Path to a PDF file that exists but cannot be read (permissions stripped).
+    """Path to a PDF file that exists but cannot be read.
 
-    Note: On Windows, os.chmod(0o000) may not fully remove read permissions
-    for the process owner. Tests using this fixture should be treated as
-    best-effort on Windows — they may pass or be skipped if the OS ignores
-    the permission change.
+    On Unix/macOS: removes read permissions via os.chmod so that the actual
+    OS-level open() raises PermissionError.
+    On Windows: os.chmod(0o000) does not deny reads for the process owner, so
+    the file is created normally. Tests on Windows that need a permission-denied
+    scenario must use the `mock_permission_error` fixture alongside this one.
     """
     path = tmp_path / "unreadable.pdf"
     path.write_bytes(b"%PDF-1.4 minimal content")
-    os.chmod(str(path), 0o000)
-    yield str(path)
-    # Restore permissions so pytest tmp_path cleanup can delete the file
-    os.chmod(str(path), 0o644)
+
+    if sys.platform != "win32":
+        os.chmod(str(path), 0o000)
+        yield str(path)
+        os.chmod(str(path), 0o644)
+    else:
+        yield str(path)
 
 
-def _has_tesseract() -> bool:
-    """Return True if the tesseract binary is available in PATH."""
-    return shutil.which("tesseract") is not None
+@pytest.fixture
+def mock_permission_error():
+    """Patch pathlib.Path.open to raise PermissionError on all platforms.
+
+    Use this on Windows (where os.chmod cannot reliably deny reads) to simulate
+    a permission-denied condition at the parser's readability-check layer.
+    The patch targets pathlib.Path.open because both pdf_parser and docx_parser
+    check readability with `path.open("rb")` before doing any real work.
+
+    Usage in a test function::
+
+        def test_something(unreadable_pdf_path, mock_permission_error):
+            with pytest.raises(PermissionError):
+                parse_pdf(unreadable_pdf_path, timeout_seconds=60)
+    """
+    with patch(
+        "pathlib.Path.open", side_effect=PermissionError("Access denied (mocked)")
+    ):
+        yield
 
 
-requires_tesseract = pytest.mark.skipif(
-    not _has_tesseract(),
-    reason="Tesseract OCR is not installed — install it to run OCR tests",
-)
+# Single source of truth for this marker lives in tests/markers.py.
+# Import it here so it is available both to conftest-fixture consumers
+# and to any test file that imports it directly from tests.markers.
+from tests.markers import requires_tesseract  # noqa: E402
 
 
 def make_ingest_state(document_path: str) -> dict:

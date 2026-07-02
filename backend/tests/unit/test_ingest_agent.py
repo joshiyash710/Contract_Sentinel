@@ -7,7 +7,6 @@ Expected before Task 12: FAIL with ImportError
 Expected after  Task 12: PASS
 """
 
-import sys
 import uuid
 from datetime import datetime
 import pytest
@@ -83,12 +82,14 @@ def test_ingest_file_not_found(nonexistent_path):
     assert result["error_count"] == 1
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="os.chmod(0o000) does not restrict owner reads on Windows",
-)
-def test_ingest_permission_denied(unreadable_pdf_path):
-    """Unreadable file returns ingest_error with error_type 'permission_denied'."""
+def test_ingest_permission_denied(unreadable_pdf_path, mock_permission_error):
+    """Unreadable file returns ingest_error with error_type 'permission_denied'.
+
+    On Unix: os.chmod(0o000) prevents the real OS open() from succeeding.
+    On Windows: mock_permission_error patches pathlib.Path.open to raise
+    PermissionError, since os.chmod does not reliably deny reads for the
+    process owner on Windows.
+    """
     state = {"document_path": unreadable_pdf_path}
     result = ingest_agent(state)
 

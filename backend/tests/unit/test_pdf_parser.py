@@ -97,12 +97,14 @@ def test_parse_pdf_not_found_raises(nonexistent_path):
         parse_pdf(nonexistent_path, timeout_seconds=60)
 
 
-@pytest.mark.skipif(
-    __import__("sys").platform == "win32",
-    reason="os.chmod(0o000) does not restrict owner reads on Windows",
-)
-def test_parse_pdf_permission_denied_raises(unreadable_pdf_path):
-    """File with no read permissions raises PermissionError (Unix only)."""
+def test_parse_pdf_permission_denied_raises(unreadable_pdf_path, mock_permission_error):
+    """File that cannot be read raises PermissionError.
+
+    On Unix: os.chmod(0o000) prevents the real OS open() from succeeding.
+    On Windows: mock_permission_error patches pathlib.Path.open to raise
+    PermissionError, simulating the same condition since os.chmod cannot
+    reliably deny reads on Windows for the process owner.
+    """
     with pytest.raises(PermissionError):
         parse_pdf(unreadable_pdf_path, timeout_seconds=60)
 

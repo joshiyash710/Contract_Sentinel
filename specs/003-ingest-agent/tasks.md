@@ -226,6 +226,22 @@ with open("tests/fixtures/unsupported.txt", "w") as f:
     f.write("This is a plain text file, not a valid contract format.")
 ```
 
+### 5g: Create `tests/markers.py`
+
+- [ ] Create file `tests/markers.py` — single source of truth for shared pytest markers:
+
+```python
+import pytest
+import shutil
+
+requires_tesseract = pytest.mark.skipif(
+    not shutil.which("tesseract"),
+    reason="Tesseract OCR is not installed"
+)
+```
+
+**Why**: Keeps `requires_tesseract` in one place so both `test_docx_parser.py` and `test_ingest_agent.py` import it as `from tests.markers import requires_tesseract` instead of from `conftest`, which is not a valid import path when running pytest from `backend/`.
+
 ### 5f: Create `tests/conftest.py`
 
 - [ ] Create file `tests/conftest.py` (at the `tests/` root, NOT inside `fixtures/`)
@@ -302,10 +318,10 @@ def _has_tesseract():
     return shutil.which("tesseract") is not None
 
 
-requires_tesseract = pytest.mark.skipif(
-    not _has_tesseract(),
-    reason="Tesseract OCR is not installed — install it to run OCR tests"
-)
+# Import from tests.markers — single source of truth for this marker.
+# Do NOT redefine it here; importing ensures conftest and test files share
+# the exact same marker object.
+from tests.markers import requires_tesseract  # noqa: E402
 
 
 def make_ingest_state(document_path: str) -> dict:
@@ -526,7 +542,7 @@ from app.graph.nodes.parsers import ParseResult
 import pytest
 from app.graph.nodes.parsers import ParseResult
 from app.graph.nodes.parsers.docx_parser import parse_docx
-from conftest import requires_tesseract
+from tests.markers import requires_tesseract
 
 
 def test_parse_docx_digital_text(sample_docx_path):
@@ -730,10 +746,11 @@ def test_ingest_permission_denied(unreadable_pdf_path):
 def test_ingest_timeout(sample_pdf_path, monkeypatch):
     """Slow processing → ingest_error with error_type 'timeout'.
     
-    Monkeypatch INGEST_TIMEOUT_SECONDS to a very small value to force timeout.
+    Monkeypatch INGEST_TIMEOUT_SECONDS on the module-level copy that
+    ingest_agent.py actually reads at call time, not app.config directly.
     """
-    import app.config
-    monkeypatch.setattr(app.config, "INGEST_TIMEOUT_SECONDS", 0.001)
+    import app.graph.nodes.ingest_agent as ingest_mod
+    monkeypatch.setattr(ingest_mod, "INGEST_TIMEOUT_SECONDS", 0.001)
 
     state = make_ingest_state(sample_pdf_path)
     result = ingest_agent(state)
@@ -1088,7 +1105,13 @@ def test_graph_checkpointing(sample_pdf_path, tmp_path):
     
     Uses langgraph-checkpoint-sqlite to verify checkpointing works.
     """
-    from langgraph.checkpoint.sqlite import SqliteSaver
+    try:
+        from langgraph.checkpoint.sqlite import SqliteSaver
+    except ImportError:
+        pytest.skip(
+            "langgraph-checkpoint-sqlite not available or API changed "
+            "— verify import path"
+        )
 
     db_path = str(tmp_path / "checkpoints.db")
 
