@@ -2,27 +2,49 @@
 Integration tests: IngestAgent wired into the full LangGraph graph.
 
 These tests invoke the compiled graph end-to-end and verify:
-  - That the graph runs IngestAgent and reaches END with correct state.
+  - That the graph runs IngestAgent and reaches END with populated state.
   - That ingest_error short-circuits the pipeline correctly.
   - That LangGraph checkpointing with SqliteSaver works with our state schema.
 
+Note: ollama.chat is mocked so no running Ollama instance is needed and
+the LLM timeout fallback (120s) is not hit in CI.
+
 Run: python -m pytest tests/integration/test_ingest_graph.py -v
 """
+
+import json
+from unittest.mock import patch
 
 import pytest
 from app.graph.builder import build_graph
 
 
+def _llm_response(text="Test clause."):
+    return {
+        "message": {
+            "content": json.dumps(
+                {
+                    "clauses": [
+                        {"text": text, "section_number": None, "clause_type": None}
+                    ]
+                }
+            )
+        }
+    }
+
+
 def test_graph_ingest_success_to_end(sample_pdf_path):
-    """Graph runs IngestAgent on valid PDF and reaches END with populated state."""
+    """Graph runs IngestAgent → ClauseSplitterAgent on valid PDF; reaches END."""
     graph = build_graph()
     initial_state = {"document_path": sample_pdf_path}
 
-    final_state = graph.invoke(initial_state)
+    with patch("ollama.chat", return_value=_llm_response()):
+        final_state = graph.invoke(initial_state)
 
     assert final_state["ingest_error"] is None
     assert len(final_state["extracted_text"]) >= 200
-    assert final_state["current_node"] == "ingest_agent"
+    # current_node is now set by ClauseSplitterAgent (the last node to run)
+    assert final_state["current_node"] == "clause_splitter"
     assert final_state["document_path"] == sample_pdf_path
     assert final_state["original_filename"] == "sample.pdf"
 

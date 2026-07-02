@@ -95,7 +95,7 @@ def mock_permission_error():
 # Single source of truth for this marker lives in tests/markers.py.
 # Import it here so it is available both to conftest-fixture consumers
 # and to any test file that imports it directly from tests.markers.
-from tests.markers import requires_tesseract  # noqa: E402
+from tests.markers import requires_tesseract  # noqa: E402,F401
 
 
 def make_ingest_state(document_path: str) -> dict:

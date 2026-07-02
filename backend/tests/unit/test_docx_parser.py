@@ -7,6 +7,8 @@ Expected before Task 10: FAIL with ImportError
 Expected after  Task 10: PASS (OCR tests skipped if Tesseract absent)
 """
 
+from unittest.mock import patch
+
 import pytest
 from docx import Document as DocxDocument
 
@@ -58,17 +60,21 @@ def test_parse_docx_ocr_rendering_failure_graceful(tmp_path):
     """If pymupdf cannot render DOCX for OCR, fall back to direct text gracefully.
 
     Creates a DOCX whose char density is low (60 chars / 1 page = 60 < 100)
-    so OCR is triggered. Even if fitz.open fails on the DOCX, the parser
-    must return the direct-extracted text with ocr_used=False, not raise.
+    so OCR is triggered. When fitz.open raises (e.g. unsupported variant),
+    the parser must return the direct-extracted text with ocr_used=False, not raise.
     """
     doc = DocxDocument()
     doc.add_paragraph("A" * 60)  # 60 chars, 1 page → density 60 < 100
     path = str(tmp_path / "rendertest.docx")
     doc.save(path)
 
-    result = parse_docx(path, timeout_seconds=60)
+    # Simulate pymupdf failing to render the DOCX (the scenario named in this test)
+    with patch("fitz.open", side_effect=RuntimeError("Cannot render this DOCX variant")):
+        result = parse_docx(path, timeout_seconds=60)
+
     assert isinstance(result, ParseResult)
-    # Direct text must be preserved regardless of OCR outcome
+    assert result.ocr_used is False
+    # Direct text must be preserved when OCR rendering fails
     assert "A" * 60 in result.text
 
 

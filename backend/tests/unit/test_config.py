@@ -36,3 +36,33 @@ def test_thresholds_are_correct_types():
     assert isinstance(MIN_CHAR_DENSITY_THRESHOLD, int)
     assert isinstance(OCR_LOW_CONFIDENCE_THRESHOLD, float)
     assert isinstance(INGEST_TIMEOUT_SECONDS, int)
+
+
+def test_clause_splitter_constants_match_spec():
+    """Verify ClauseSplitterAgent constants match specs/004 §6."""
+    from app.config import (
+        OLLAMA_MODEL_NAME,
+        CLAUSE_SPLITTER_TIMEOUT_SECONDS,
+        MIN_CLAUSE_LENGTH,
+        MAX_CLAUSES_LIMIT,
+    )
+
+    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+    assert CLAUSE_SPLITTER_TIMEOUT_SECONDS == 120
+    assert MIN_CLAUSE_LENGTH == 100
+    assert MAX_CLAUSES_LIMIT == 500
+
+
+def test_clause_splitter_constants_correct_types():
+    """Verify types: str for model name, int for timeout/length/limit."""
+    from app.config import (
+        OLLAMA_MODEL_NAME,
+        CLAUSE_SPLITTER_TIMEOUT_SECONDS,
+        MIN_CLAUSE_LENGTH,
+        MAX_CLAUSES_LIMIT,
+    )
+
+    assert isinstance(OLLAMA_MODEL_NAME, str)
+    assert isinstance(CLAUSE_SPLITTER_TIMEOUT_SECONDS, int)
+    assert isinstance(MIN_CLAUSE_LENGTH, int)
+    assert isinstance(MAX_CLAUSES_LIMIT, int)
