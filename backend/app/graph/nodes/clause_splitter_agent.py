@@ -88,7 +88,7 @@ def clause_splitter_agent(state: ContractState) -> dict:
         refined = refine_with_llm(
             regex_clauses, CLAUSE_SPLITTER_TIMEOUT_SECONDS, OLLAMA_MODEL_NAME
         )
-        return _build_return(refined, start_time, current_node, llm_used=True)
+        return _build_return(refined, start_time, current_node, llm_used=refined is not regex_clauses)
 
     # ── Normal path ───────────────────────────────────────────────────────────
     regex_clauses = split_by_regex(extracted_text)

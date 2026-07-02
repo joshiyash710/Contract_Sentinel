@@ -6,14 +6,14 @@ These tests invoke the compiled graph end-to-end and verify:
   - That ingest_error short-circuits the pipeline correctly.
   - That LangGraph checkpointing with SqliteSaver works with our state schema.
 
-Note: ollama.chat is mocked so no running Ollama instance is needed and
+Note: ollama.Client is mocked so no running Ollama instance is needed and
 the LLM timeout fallback (120s) is not hit in CI.
 
 Run: python -m pytest tests/integration/test_ingest_graph.py -v
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from app.graph.builder import build_graph
@@ -38,7 +38,9 @@ def test_graph_ingest_success_to_end(sample_pdf_path):
     graph = build_graph()
     initial_state = {"document_path": sample_pdf_path}
 
-    with patch("ollama.chat", return_value=_llm_response()):
+    mock_client = MagicMock()
+    mock_client.chat.return_value = _llm_response(text="Test clause. " * 50)
+    with patch("ollama.Client", return_value=mock_client):
         final_state = graph.invoke(initial_state)
 
     assert final_state["ingest_error"] is None

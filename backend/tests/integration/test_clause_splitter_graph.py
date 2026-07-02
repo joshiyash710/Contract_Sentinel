@@ -7,13 +7,13 @@ These tests invoke the compiled graph end-to-end and verify:
   - LLM timeout/failure causes regex-only fallback (graph does not crash).
   - State is checkpointed after ClauseSplitterAgent completes.
 
-ollama.chat is mocked — no running Ollama instance required.
+ollama.Client is mocked — no running Ollama instance required.
 
 Run: python -m pytest tests/integration/test_clause_splitter_graph.py -v
 """
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from app.graph.builder import build_graph
@@ -24,12 +24,20 @@ def _make_llm_response(clauses: list) -> dict:
     return {"message": {"content": json.dumps({"clauses": clauses})}}
 
 
+def _make_mock_client(clauses: list) -> MagicMock:
+    """Return a mock ollama.Client whose .chat() returns the given clauses response."""
+    client = MagicMock()
+    client.chat.return_value = _make_llm_response(clauses)
+    return client
+
+
 def test_graph_ingest_then_clause_splitter_success(sample_pdf_path):
     """Graph runs IngestAgent → ClauseSplitterAgent on valid PDF; clauses dict populated."""
-    llm_response = _make_llm_response(
+    # Use enough text so the preservation guard doesn't force a regex fallback
+    mock_client = _make_mock_client(
         [
             {
-                "text": "Sample clause text from the PDF.",
+                "text": "Sample clause text from the PDF document. " * 15,
                 "section_number": None,
                 "clause_type": "general",
             },
@@ -37,7 +45,7 @@ def test_graph_ingest_then_clause_splitter_success(sample_pdf_path):
     )
     graph = build_graph()
 
-    with patch("ollama.chat", return_value=llm_response):
+    with patch("ollama.Client", return_value=mock_client):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
@@ -57,9 +65,10 @@ def test_graph_ingest_error_skips_clause_splitter(unsupported_txt_path):
     """IngestAgent error short-circuits to END; ClauseSplitterAgent not reached."""
     graph = build_graph()
 
-    # ollama.chat should NOT be called — patch it to raise if called
+    # ollama.Client should NOT be instantiated — raise AssertionError if it is
     with patch(
-        "ollama.chat", side_effect=AssertionError("LLM called despite ingest error")
+        "ollama.Client",
+        side_effect=AssertionError("LLM called despite ingest error"),
     ):
         final_state = graph.invoke({"document_path": unsupported_txt_path})
 
@@ -70,27 +79,13 @@ def test_graph_ingest_error_skips_clause_splitter(unsupported_txt_path):
 
 
 def test_graph_clause_splitter_llm_fallback(sample_pdf_path):
-    """With Ollama timing out, ClauseSplitterAgent uses regex-only output; graph completes."""
-    import time
-
-    def slow_llm(*args, **kwargs):
-        time.sleep(2)  # sleep longer than the patched timeout below
-        return _make_llm_response([])
-
+    """LLM call failing (client-level error) → regex-only fallback; graph completes."""
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = TimeoutError("Connection timed out")
     graph = build_graph()
 
-    import app.graph.nodes.clause_splitter_agent as node_module
-
-    original_timeout = node_module.CLAUSE_SPLITTER_TIMEOUT_SECONDS
-    node_module.CLAUSE_SPLITTER_TIMEOUT_SECONDS = (
-        0.5  # tiny timeout so the sleep triggers it
-    )
-
-    try:
-        with patch("ollama.chat", side_effect=slow_llm):
-            final_state = graph.invoke({"document_path": sample_pdf_path})
-    finally:
-        node_module.CLAUSE_SPLITTER_TIMEOUT_SECONDS = original_timeout
+    with patch("ollama.Client", return_value=mock_client):
+        final_state = graph.invoke({"document_path": sample_pdf_path})
 
     # Graph must complete without crashing
     assert final_state["current_node"] == "clause_splitter"
@@ -114,10 +109,10 @@ def test_graph_checkpointing_after_clause_splitter(sample_pdf_path, tmp_path):
     from app.graph.nodes.clause_splitter_agent import clause_splitter_agent
 
     db_path = str(tmp_path / "checkpoints_004.db")
-    llm_response = _make_llm_response(
+    mock_client = _make_mock_client(
         [
             {
-                "text": "Clause from checkpointing test.",
+                "text": "Clause from checkpointing test. " * 20,
                 "section_number": None,
                 "clause_type": None,
             },
@@ -145,7 +140,7 @@ def test_graph_checkpointing_after_clause_splitter(sample_pdf_path, tmp_path):
 
         config = {"configurable": {"thread_id": "integration-004-thread-1"}}
 
-        with patch("ollama.chat", return_value=llm_response):
+        with patch("ollama.Client", return_value=mock_client):
             final_state = compiled.invoke(
                 {"document_path": sample_pdf_path}, config=config
             )

@@ -63,7 +63,7 @@ def refine_with_llm(
     all failures fall back to returning regex_clauses unchanged.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_ollama, regex_clauses, model_name)
+        future = executor.submit(_call_ollama, regex_clauses, model_name, timeout_seconds)
         try:
             return future.result(timeout=timeout_seconds)
         except concurrent.futures.TimeoutError:
@@ -79,7 +79,7 @@ def refine_with_llm(
             return regex_clauses
 
 
-def _call_ollama(regex_clauses: list, model_name: str) -> list:
+def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> list:
     """Submit clauses to Ollama and parse/validate the response.
 
     Raises on any error so the caller's except block can fall back.
@@ -98,7 +98,8 @@ def _call_ollama(regex_clauses: list, model_name: str) -> list:
     )
     prompt = _LLM_PROMPT.format(clauses_json=clauses_json)
 
-    response = ollama.chat(
+    client = ollama.Client(timeout=timeout_seconds)
+    response = client.chat(
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
         format="json",
@@ -125,6 +126,9 @@ def _parse_response(raw_content: str, regex_clauses: list) -> list:
             f"LLM response missing 'clauses' list (first 500 chars): {raw_content[:500]!r}"
         )
 
+    if not data["clauses"]:
+        raise ValueError("LLM returned empty clauses list, falling back to regex output")
+
     refined = []
     for i, item in enumerate(data["clauses"], start=1):
         text = item.get("text", "")
@@ -147,6 +151,14 @@ def _parse_response(raw_content: str, regex_clauses: list) -> list:
                 section_number=item.get("section_number"),
                 clause_type=validated_type,
             )
+        )
+
+    input_chars = sum(len(c.text) for c in regex_clauses)
+    output_chars = sum(len(b.text) for b in refined)
+    if input_chars > 0 and output_chars < input_chars * 0.5:
+        raise ValueError(
+            f"LLM dropped too much text: output {output_chars} chars vs "
+            f"input {input_chars} chars, falling back to regex output"
         )
 
     return refined

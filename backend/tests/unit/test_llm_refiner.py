@@ -1,16 +1,15 @@
 """
 Unit tests for app.graph.nodes.splitters.llm_refiner.refine_with_llm().
 
-All tests mock ollama.chat — no real Ollama instance required.
+All tests mock ollama.Client — no real Ollama instance required.
 Written BEFORE the implementation (TDD red phase).
 
 Run: python -m pytest tests/unit/test_llm_refiner.py -v
 Expected before Task 7: FAIL (ImportError)
-Expected after Task 7:  all 13 PASS
+Expected after Task 7:  all 15 PASS
 """
 
 import json
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -43,17 +42,11 @@ def two_clauses():
     ]
 
 
-def _mock_response(clauses_list: list) -> MagicMock:
-    """Build a mock ollama.chat return value with the given clauses."""
-    content = json.dumps({"clauses": clauses_list})
-    mock = MagicMock()
-    mock.__getitem__ = lambda self, key: {
-        "message": MagicMock(
-            **{"__getitem__": lambda s, k: content if k == "content" else None}
-        )
-    }[key]
-    # More reliable: use a real dict structure
-    return {"message": {"content": content}}
+def _mock_client(response_body: dict) -> MagicMock:
+    """Return a mock ollama.Client instance whose .chat() returns response_body."""
+    client = MagicMock()
+    client.chat.return_value = {"message": {"content": json.dumps(response_body)}}
+    return client
 
 
 # ── Tests ──────────────────────────────────────────────────────────────────────
@@ -70,10 +63,7 @@ def test_refine_merges_fragments(two_clauses):
             }
         ]
     }
-    with patch(
-        "ollama.chat",
-        return_value={"message": {"content": json.dumps(merged_response)}},
-    ):
+    with patch("ollama.Client", return_value=_mock_client(merged_response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -103,9 +93,7 @@ def test_refine_splits_runon(two_clauses):
             },
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(split_response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(split_response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -120,20 +108,18 @@ def test_refine_infers_clause_type(two_clauses):
     response = {
         "clauses": [
             {
-                "text": "Definitions here.",
+                "text": two_clauses[0].text,
                 "section_number": "1",
                 "clause_type": "definitions",
             },
             {
-                "text": "Payment is due.",
+                "text": two_clauses[1].text,
                 "section_number": "2",
                 "clause_type": "payment",
             },
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -145,13 +131,11 @@ def test_refine_null_clause_type_accepted(two_clauses):
     """LLM returning null clause_type yields None in output."""
     response = {
         "clauses": [
-            {"text": "Some clause.", "section_number": None, "clause_type": None},
-            {"text": "Another clause.", "section_number": None, "clause_type": None},
+            {"text": two_clauses[0].text, "section_number": None, "clause_type": None},
+            {"text": two_clauses[1].text, "section_number": None, "clause_type": None},
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -163,17 +147,15 @@ def test_refine_invalid_clause_type_becomes_none(two_clauses):
     """Unrecognised clause_type string → None (not stored as-is)."""
     response = {
         "clauses": [
-            {"text": "Some clause.", "section_number": None, "clause_type": "banana"},
+            {"text": two_clauses[0].text, "section_number": None, "clause_type": "banana"},
             {
-                "text": "Another clause.",
+                "text": two_clauses[1].text,
                 "section_number": None,
                 "clause_type": "XYZ_INVALID",
             },
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -198,9 +180,7 @@ def test_refine_clause_ids_renumbered():
             {"text": "Third.", "section_number": None, "clause_type": None},
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
         result = refine_with_llm(
             regex_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -211,22 +191,23 @@ def test_refine_clause_ids_renumbered():
 
 
 def test_refine_timeout_returns_regex_output(two_clauses):
-    """Timeout → returns input regex_clauses unchanged."""
+    """HTTP-level client timeout → returns input regex_clauses unchanged, immediately."""
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = TimeoutError("ollama client timed out")
 
-    def slow_chat(*args, **kwargs):
-        time.sleep(5)
-        return {"message": {"content": '{"clauses": []}'}}
-
-    with patch("ollama.chat", side_effect=slow_chat):
+    with patch("ollama.Client", return_value=mock_client):
         result = refine_with_llm(
-            two_clauses, timeout_seconds=0.05, model_name="qwen3:14b"
+            two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
     assert result is two_clauses
 
 
 def test_refine_malformed_json_returns_regex_output(two_clauses, caplog):
     """Invalid JSON response → fallback to regex output, warning logged."""
-    with patch("ollama.chat", return_value={"message": {"content": "NOT_VALID_JSON"}}):
+    mock_client = MagicMock()
+    mock_client.chat.return_value = {"message": {"content": "NOT_VALID_JSON"}}
+
+    with patch("ollama.Client", return_value=mock_client):
         with caplog.at_level("WARNING"):
             result = refine_with_llm(
                 two_clauses, timeout_seconds=10, model_name="qwen3:14b"
@@ -243,9 +224,18 @@ def test_refine_malformed_json_returns_regex_output(two_clauses, caplog):
 def test_refine_missing_clauses_key_returns_regex_output(two_clauses, caplog):
     """JSON without 'clauses' key → fallback to regex output."""
     response = {"wrong_key": []}
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
+        with caplog.at_level("WARNING"):
+            result = refine_with_llm(
+                two_clauses, timeout_seconds=10, model_name="qwen3:14b"
+            )
+    assert result is two_clauses
+
+
+def test_refine_empty_clauses_list_returns_regex_output(two_clauses, caplog):
+    """Empty 'clauses' list from LLM → fallback to regex output (not empty dict wipe)."""
+    response = {"clauses": []}
+    with patch("ollama.Client", return_value=_mock_client(response)):
         with caplog.at_level("WARNING"):
             result = refine_with_llm(
                 two_clauses, timeout_seconds=10, model_name="qwen3:14b"
@@ -260,9 +250,23 @@ def test_refine_empty_clause_text_returns_regex_output(two_clauses, caplog):
             {"text": "", "section_number": None, "clause_type": None},
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
+        with caplog.at_level("WARNING"):
+            result = refine_with_llm(
+                two_clauses, timeout_seconds=10, model_name="qwen3:14b"
+            )
+    assert result is two_clauses
+
+
+def test_refine_text_dropped_returns_regex_output(two_clauses, caplog):
+    """LLM returning < 50% of input chars → fallback to regex output."""
+    # two_clauses total ~84 chars; "Tiny." is 5 chars (6% — well below 50% threshold)
+    response = {
+        "clauses": [
+            {"text": "Tiny.", "section_number": None, "clause_type": None},
+        ]
+    }
+    with patch("ollama.Client", return_value=_mock_client(response)):
         with caplog.at_level("WARNING"):
             result = refine_with_llm(
                 two_clauses, timeout_seconds=10, model_name="qwen3:14b"
@@ -272,7 +276,10 @@ def test_refine_empty_clause_text_returns_regex_output(two_clauses, caplog):
 
 def test_refine_connection_error_returns_regex_output(two_clauses, caplog):
     """Ollama unreachable (ConnectionError) → fallback to regex output, warning logged."""
-    with patch("ollama.chat", side_effect=ConnectionError("Connection refused")):
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = ConnectionError("Connection refused")
+
+    with patch("ollama.Client", return_value=mock_client):
         with caplog.at_level("WARNING"):
             result = refine_with_llm(
                 two_clauses, timeout_seconds=10, model_name="qwen3:14b"
@@ -300,9 +307,7 @@ def test_refine_preserves_all_text(two_clauses):
             },
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ):
+    with patch("ollama.Client", return_value=_mock_client(response)):
         result = refine_with_llm(
             two_clauses, timeout_seconds=10, model_name="qwen3:14b"
         )
@@ -312,19 +317,18 @@ def test_refine_preserves_all_text(two_clauses):
 
 
 def test_refine_json_mode_used(two_clauses):
-    """Ollama call includes format='json' parameter."""
+    """Ollama client.chat() call includes format='json' parameter."""
     response = {
         "clauses": [
-            {"text": "Some text.", "section_number": None, "clause_type": None},
+            {"text": two_clauses[0].text, "section_number": None, "clause_type": None},
+            {"text": two_clauses[1].text, "section_number": None, "clause_type": None},
         ]
     }
-    with patch(
-        "ollama.chat", return_value={"message": {"content": json.dumps(response)}}
-    ) as mock_chat:
+    mock_client = _mock_client(response)
+    with patch("ollama.Client", return_value=mock_client):
         refine_with_llm(two_clauses, timeout_seconds=10, model_name="qwen3:14b")
-    mock_chat.assert_called_once()
-    call_kwargs = mock_chat.call_args
-    # format="json" may be positional or keyword
+    mock_client.chat.assert_called_once()
+    call_kwargs = mock_client.chat.call_args
     assert call_kwargs.kwargs.get("format") == "json" or (
         len(call_kwargs.args) > 2 and call_kwargs.args[2] == "json"
     )
