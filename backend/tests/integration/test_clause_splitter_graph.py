@@ -15,6 +15,7 @@ Run: python -m pytest tests/integration/test_clause_splitter_graph.py -v
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 from app.graph.builder import build_graph
 
@@ -65,10 +66,12 @@ def test_graph_ingest_error_skips_clause_splitter(unsupported_txt_path):
     """IngestAgent error short-circuits to END; ClauseSplitterAgent not reached."""
     graph = build_graph()
 
-    # ollama.Client should NOT be instantiated — raise AssertionError if it is
+    # Patch the node itself: if the router misfires and the node is called, fail loudly.
+    # Patching ollama.Client is insufficient because the node bails early on ingest_error
+    # before ever reaching refine_with_llm.
     with patch(
-        "ollama.Client",
-        side_effect=AssertionError("LLM called despite ingest error"),
+        "app.graph.nodes.clause_splitter_agent.clause_splitter_agent",
+        side_effect=AssertionError("ClauseSplitterAgent reached despite ingest error"),
     ):
         final_state = graph.invoke({"document_path": unsupported_txt_path})
 
@@ -79,9 +82,9 @@ def test_graph_ingest_error_skips_clause_splitter(unsupported_txt_path):
 
 
 def test_graph_clause_splitter_llm_fallback(sample_pdf_path):
-    """LLM call failing (client-level error) → regex-only fallback; graph completes."""
+    """LLM call failing (httpx timeout) → regex-only fallback; graph completes."""
     mock_client = MagicMock()
-    mock_client.chat.side_effect = TimeoutError("Connection timed out")
+    mock_client.chat.side_effect = httpx.ReadTimeout("Connection timed out")
     graph = build_graph()
 
     with patch("ollama.Client", return_value=mock_client):

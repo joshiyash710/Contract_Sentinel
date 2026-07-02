@@ -12,6 +12,7 @@ Expected after Task 7:  all 15 PASS
 import json
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from app.graph.nodes.splitters import ClauseBoundary
@@ -57,7 +58,7 @@ def test_refine_merges_fragments(two_clauses):
     merged_response = {
         "clauses": [
             {
-                "text": "Definitions of all terms. Payment is due within 30 days.",
+                "text": two_clauses[0].text + " " + two_clauses[1].text,
                 "section_number": "1",
                 "clause_type": "definitions",
             }
@@ -191,9 +192,9 @@ def test_refine_clause_ids_renumbered():
 
 
 def test_refine_timeout_returns_regex_output(two_clauses):
-    """HTTP-level client timeout → returns input regex_clauses unchanged, immediately."""
+    """HTTP-level client timeout (httpx.ReadTimeout) → regex_clauses unchanged, immediately."""
     mock_client = MagicMock()
-    mock_client.chat.side_effect = TimeoutError("ollama client timed out")
+    mock_client.chat.side_effect = httpx.ReadTimeout("ollama client timed out")
 
     with patch("ollama.Client", return_value=mock_client):
         result = refine_with_llm(

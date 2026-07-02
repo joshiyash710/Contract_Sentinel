@@ -9,6 +9,7 @@ import concurrent.futures
 import json
 import logging
 
+import httpx
 import ollama
 
 from app.graph.nodes.splitters import ClauseBoundary
@@ -62,21 +63,21 @@ def refine_with_llm(
     """Refine regex-detected boundaries via Qwen3 14B (Ollama). Never raises —
     all failures fall back to returning regex_clauses unchanged.
     """
+    result = regex_clauses
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_call_ollama, regex_clauses, model_name, timeout_seconds)
         try:
-            return future.result(timeout=timeout_seconds)
-        except concurrent.futures.TimeoutError:
+            result = future.result(timeout=timeout_seconds)
+        except (concurrent.futures.TimeoutError, httpx.TimeoutException):
             logger.warning(
                 "LLM refinement timed out after %ds, using regex-only output",
                 timeout_seconds,
             )
-            return regex_clauses
         except Exception:
             logger.warning(
                 "LLM refinement failed, using regex-only output", exc_info=True
             )
-            return regex_clauses
+    return result
 
 
 def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> list:
