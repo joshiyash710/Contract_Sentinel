@@ -43,10 +43,28 @@ MAX_CLAUSES_LIMIT: int = 500
 # Safety valve against pathological regex matches on unusual formatting.
 
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
-# Placeholder — will be populated by specs/005-crag-retrieval plan
+# Source: specs/005-crag-retrieval/spec.md §6
+# NOTE: Only the constants required by the offline KB build utility
+# (scripts/build_kb.py) are populated here so far. The remaining CRAG constants
+# (CRAG_TOP_K, timeouts, circuit breaker, etc.) belong to the Node 3 runtime
+# implementation and will be added when specs/005 is implemented.
 CRAG_CONFIDENCE_THRESHOLD: float = (
     0.73  # retrieval confidence split per constitution §2
 )
+
+OLLAMA_EMBED_MODEL_NAME: str = "bge-m3"
+# The Ollama EMBEDDING model — distinct from OLLAMA_MODEL_NAME (generative Qwen3)
+# per constitution §8 (model-separation rule). MUST NEVER be set equal to
+# OLLAMA_MODEL_NAME or used for generation. Serves CRAG (and future Self-RAG)
+# clause/query embedding only.
+
+CRAG_KB_INDEX_PATH: str = "data/kb/clauses.faiss"
+# Filesystem path to the prebuilt FAISS index for the local clause KB.
+# Relative to the backend/ directory (the pipeline's working directory).
+
+CRAG_KB_METADATA_PATH: str = "data/kb/clauses_meta.jsonl"
+# Sidecar mapping each FAISS vector row -> {snippet_text, source_reference}.
+# Row order is 1:1 with vector IDs in the index. Same backend/-relative anchor.
 
 # ── Self-RAG thresholds ───────────────────────────────────────────────────────
 # Placeholder — will be populated by specs/006-self-rag-validation plan
