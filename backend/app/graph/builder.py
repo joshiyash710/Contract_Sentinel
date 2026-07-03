@@ -1,10 +1,11 @@
 """
 LangGraph StateGraph builder for the ContractSentinel pipeline.
 
-Current scope (feature-004):
+Current scope (feature-005):
     - Node 1 (ingest_agent) with a conditional error-short-circuit edge.
-    - Node 2 (clause_splitter) wired on the success path; routes to END
-      temporarily until feature-005 adds Node 3 (CRAG retrieval).
+    - Node 2 (clause_splitter) wired on the success path.
+    - Node 3 (crag_retrieval) wired after clause_splitter; routes to END
+      temporarily until feature-006 adds Node 4 (Self-RAG validation).
 
 Future nodes will call graph.add_node() and graph.add_edge() here as their
 respective feature plans are implemented.
@@ -21,6 +22,7 @@ from langgraph.graph import StateGraph, END
 from app.graph.state import ContractState
 from app.graph.nodes.ingest_agent import ingest_agent
 from app.graph.nodes.clause_splitter_agent import clause_splitter_agent
+from app.graph.nodes.crag_retrieval_agent import crag_retrieval_agent
 
 
 def build_graph():
@@ -58,8 +60,20 @@ def build_graph():
 
     # ── Node 2: ClauseSplitterAgent ────────────────────────────────────────────
     graph.add_node("clause_splitter", clause_splitter_agent)
-    # Routes to END temporarily until feature-005 adds Node 3 (CRAG retrieval)
-    graph.add_edge("clause_splitter", END)
+    graph.add_edge("clause_splitter", "crag_retrieval")  # was END temporarily
+
+    # ── Node 3: CRAGRetrievalAgent ─────────────────────────────────────────────
+    # Constitution §2 interpretation (spec §7.2): CRAG's confidence-based routing
+    # is one of the two permitted conditional edges, but it is realized as INTERNAL
+    # Python branching inside crag_retrieval_agent (a per-clause if/else loop),
+    # NOT as a graph-level add_conditional_edges. A graph-level conditional edge
+    # routes the whole ContractState to one successor, but CRAG routes per clause,
+    # and all clauses live in one state object. A Send-API map-reduce subgraph was
+    # rejected for Phase 1 as unnecessary complexity (spec §7.2). The node name
+    # "crag_retrieval" matches the pinned current_node value in the node itself so
+    # state-key identity never drifts from the graph node name.
+    graph.add_node("crag_retrieval", crag_retrieval_agent)
+    graph.add_edge("crag_retrieval", END)  # → END until feature-006 (Self-RAG)
 
     graph.set_entry_point("ingest_agent")
     return graph.compile()

@@ -1,13 +1,16 @@
 """
-Integration tests: IngestAgent → ClauseSplitterAgent wired in the LangGraph graph.
+Integration tests: IngestAgent → ClauseSplitterAgent → CRAGRetrievalAgent
+wired in the LangGraph graph (feature-005 updated).
 
 These tests invoke the compiled graph end-to-end and verify:
-  - Graph runs both nodes successfully on a valid PDF.
-  - Error short-circuit still works after adding ClauseSplitter.
-  - LLM timeout/failure causes regex-only fallback (graph does not crash).
+  - Graph runs all three nodes successfully on a valid PDF.
+  - Error short-circuit still works (ingest_error bypasses both ClauseSplitter
+    and CRAG).
+  - LLM timeout/failure causes regex-only fallback; CRAG still runs after.
   - State is checkpointed after ClauseSplitterAgent completes.
 
 ollama.Client is mocked — no running Ollama instance required.
+CRAG embed_query and web_search are also mocked — no Ollama embedding / network.
 
 Run: python -m pytest tests/integration/test_clause_splitter_graph.py -v
 """
@@ -18,6 +21,12 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 from app.graph.builder import build_graph
+import app.graph.nodes.crag_retrieval_agent as crag_mod
+from app.graph.nodes.retrievers import RetrievalResult
+
+
+def _empty_web():
+    return RetrievalResult(snippets=[], top_score=None)
 
 
 def _make_llm_response(clauses: list) -> dict:
@@ -46,15 +55,18 @@ def test_graph_ingest_then_clause_splitter_success(sample_pdf_path):
     )
     graph = build_graph()
 
-    with patch("ollama.Client", return_value=mock_client):
+    with patch("ollama.Client", return_value=mock_client), \
+         patch.object(crag_mod, "embed_query", return_value=None), \
+         patch.object(crag_mod, "web_search", return_value=_empty_web()):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
-    assert final_state["current_node"] == "clause_splitter"
+    # current_node is now "crag_retrieval" — CRAG is the terminal node (feature-005)
+    assert final_state["current_node"] == "crag_retrieval"
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1
 
-    # Verify required fields on every clause
+    # Verify required fields on every clause (ClauseSplitter fields still present)
     for clause_id, clause in final_state["clauses"].items():
         assert "text" in clause, f"{clause_id} missing 'text'"
         assert "position" in clause, f"{clause_id} missing 'position'"
@@ -87,11 +99,13 @@ def test_graph_clause_splitter_llm_fallback(sample_pdf_path):
     mock_client.chat.side_effect = httpx.ReadTimeout("Connection timed out")
     graph = build_graph()
 
-    with patch("ollama.Client", return_value=mock_client):
+    with patch("ollama.Client", return_value=mock_client), \
+         patch.object(crag_mod, "embed_query", return_value=None), \
+         patch.object(crag_mod, "web_search", return_value=_empty_web()):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
-    # Graph must complete without crashing
-    assert final_state["current_node"] == "clause_splitter"
+    # Graph must complete without crashing; CRAG is now the terminal node
+    assert final_state["current_node"] == "crag_retrieval"
     # Regex-only fallback still produces clauses (PDF has extractable text)
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1

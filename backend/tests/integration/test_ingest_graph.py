@@ -38,15 +38,21 @@ def test_graph_ingest_success_to_end(sample_pdf_path):
     graph = build_graph()
     initial_state = {"document_path": sample_pdf_path}
 
+    import app.graph.nodes.crag_retrieval_agent as crag_mod
+    from app.graph.nodes.retrievers import RetrievalResult
+
     mock_client = MagicMock()
     mock_client.chat.return_value = _llm_response(text="Test clause. " * 50)
-    with patch("ollama.Client", return_value=mock_client):
+    with patch("ollama.Client", return_value=mock_client), \
+         patch.object(crag_mod, "embed_query", return_value=None), \
+         patch.object(crag_mod, "web_search",
+                      return_value=RetrievalResult(snippets=[], top_score=None)):
         final_state = graph.invoke(initial_state)
 
     assert final_state["ingest_error"] is None
     assert len(final_state["extracted_text"]) >= 200
-    # current_node is now set by ClauseSplitterAgent (the last node to run)
-    assert final_state["current_node"] == "clause_splitter"
+    # current_node is now "crag_retrieval" — CRAG is the terminal node after feature-005
+    assert final_state["current_node"] == "crag_retrieval"
     assert final_state["document_path"] == sample_pdf_path
     assert final_state["original_filename"] == "sample.pdf"
 

@@ -44,10 +44,6 @@ MAX_CLAUSES_LIMIT: int = 500
 
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
 # Source: specs/005-crag-retrieval/spec.md §6
-# NOTE: Only the constants required by the offline KB build utility
-# (scripts/build_kb.py) are populated here so far. The remaining CRAG constants
-# (CRAG_TOP_K, timeouts, circuit breaker, etc.) belong to the Node 3 runtime
-# implementation and will be added when specs/005 is implemented.
 CRAG_CONFIDENCE_THRESHOLD: float = (
     0.73  # retrieval confidence split per constitution §2
 )
@@ -65,6 +61,33 @@ CRAG_KB_INDEX_PATH: str = "data/kb/clauses.faiss"
 CRAG_KB_METADATA_PATH: str = "data/kb/clauses_meta.jsonl"
 # Sidecar mapping each FAISS vector row -> {snippet_text, source_reference}.
 # Row order is 1:1 with vector IDs in the index. Same backend/-relative anchor.
+
+CRAG_TOP_K: int = 5
+# Number of nearest neighbors to retrieve from the local FAISS KB per clause.
+
+CRAG_WEB_MAX_RESULTS: int = 5
+# Max results to request from the web-search fallback per clause.
+
+CRAG_MAX_EVIDENCE_SNIPPETS: int = 5
+# Hard cap on evidence_snippets stored per clause, regardless of path.
+
+CRAG_QUERY_MAX_CHARS: int = 2000
+# Clause text is truncated to this length before embedding / web querying,
+# to bound embedding input and web query size (spec §4.11).
+
+CRAG_EMBED_TIMEOUT_SECONDS: int = 30
+# Wall-clock timeout for a single embedding call via Ollama. On timeout the
+# clause is treated as un-scorable and falls back to the web path (spec §4.4).
+
+CRAG_WEB_TIMEOUT_SECONDS: int = 20
+# Wall-clock timeout for a single web-search call. On timeout the clause's
+# evidence is treated as empty (spec §4.8).
+
+CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD: int = 5
+# Number of CONSECUTIVE embedding failures after which the node declares the
+# embedding backend down for the rest of the run and routes all remaining
+# clauses straight to web (skipping the per-clause embed timeout). Resets on
+# any successful embedding. Routing-semantics guarantee (spec §4.13, AC-16).
 
 # ── Self-RAG thresholds ───────────────────────────────────────────────────────
 # Placeholder — will be populated by specs/006-self-rag-validation plan
