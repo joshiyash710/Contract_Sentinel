@@ -91,6 +91,22 @@ def test_parse_docx_corrupted_raises_value_error(tmp_path):
 
 
 def test_parse_docx_timeout_raises(sample_docx_path):
-    """Processing that exceeds timeout_seconds raises TimeoutError."""
-    with pytest.raises(TimeoutError):
-        parse_docx(sample_docx_path, timeout_seconds=0.001)
+    """Processing that exceeds timeout_seconds raises TimeoutError.
+
+    Deterministic: the inner parse is patched to block for 0.3s — an order of
+    magnitude longer than the 0.02s timeout — so the executor's
+    future.result(timeout=...) reliably fires. The previous version relied on a
+    real sub-millisecond parse losing a race against a 0.001s timeout, which was
+    flaky (the tiny fixture often finished before the deadline).
+    """
+    import time
+
+    def _slow_parse(_file_path):
+        time.sleep(0.3)  # >> the 0.02s timeout below; cannot finish in time
+
+    with patch(
+        "app.graph.nodes.parsers.docx_parser._parse_docx_inner",
+        side_effect=_slow_parse,
+    ):
+        with pytest.raises(TimeoutError):
+            parse_docx(sample_docx_path, timeout_seconds=0.02)
