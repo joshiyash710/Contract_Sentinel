@@ -168,13 +168,14 @@ return {
     }
 }
 
-# To update clause "1.3" with validation results:
+# To update clause "1.3" with validation results
+# (ISSUP passed after one retry → VALIDATED):
 return {
     "clauses": {
         "1.3": {
             "relevance_verdict": True,
             "isrel_verdict": True,
-            "issup_verdict": False,
+            "issup_verdict": True,
             "retry_count": 1,
             "final_status": ValidationStatus.VALIDATED
         }
