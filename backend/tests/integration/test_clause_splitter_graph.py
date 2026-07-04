@@ -22,6 +22,7 @@ import httpx
 import pytest
 from app.graph.builder import build_graph
 import app.graph.nodes.crag_retrieval_agent as crag_mod
+import app.graph.nodes.self_rag_validation_agent as self_rag_mod
 from app.graph.nodes.retrievers import RetrievalResult
 
 
@@ -57,12 +58,15 @@ def test_graph_ingest_then_clause_splitter_success(sample_pdf_path):
 
     with patch("ollama.Client", return_value=mock_client), \
          patch.object(crag_mod, "embed_query", return_value=None), \
-         patch.object(crag_mod, "web_search", return_value=_empty_web()):
+         patch.object(crag_mod, "web_search", return_value=_empty_web()), \
+         patch.object(self_rag_mod, "check_relevance", return_value=True), \
+         patch.object(self_rag_mod, "check_isrel", return_value=True), \
+         patch.object(self_rag_mod, "check_issup", return_value=True):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
-    # current_node is now "crag_retrieval" — CRAG is the terminal node (feature-005)
-    assert final_state["current_node"] == "crag_retrieval"
+    # current_node is now "self_rag_validation" — Node 4 is the terminal node (feature-006)
+    assert final_state["current_node"] == "self_rag_validation"
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1
 
@@ -101,11 +105,14 @@ def test_graph_clause_splitter_llm_fallback(sample_pdf_path):
 
     with patch("ollama.Client", return_value=mock_client), \
          patch.object(crag_mod, "embed_query", return_value=None), \
-         patch.object(crag_mod, "web_search", return_value=_empty_web()):
+         patch.object(crag_mod, "web_search", return_value=_empty_web()), \
+         patch.object(self_rag_mod, "check_relevance", return_value=True), \
+         patch.object(self_rag_mod, "check_isrel", return_value=True), \
+         patch.object(self_rag_mod, "check_issup", return_value=True):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
-    # Graph must complete without crashing; CRAG is now the terminal node
-    assert final_state["current_node"] == "crag_retrieval"
+    # Graph must complete without crashing; Self-RAG is now the terminal node (feature-006)
+    assert final_state["current_node"] == "self_rag_validation"
     # Regex-only fallback still produces clauses (PDF has extractable text)
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1

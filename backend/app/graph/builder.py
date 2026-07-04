@@ -1,11 +1,12 @@
 """
 LangGraph StateGraph builder for the ContractSentinel pipeline.
 
-Current scope (feature-005):
+Current scope (feature-006):
     - Node 1 (ingest_agent) with a conditional error-short-circuit edge.
     - Node 2 (clause_splitter) wired on the success path.
-    - Node 3 (crag_retrieval) wired after clause_splitter; routes to END
-      temporarily until feature-006 adds Node 4 (Self-RAG validation).
+    - Node 3 (crag_retrieval) wired after clause_splitter.
+    - Node 4 (self_rag_validation) wired after crag_retrieval; routes to END
+      temporarily until feature-007 adds Node 5 (RiskScore).
 
 Future nodes will call graph.add_node() and graph.add_edge() here as their
 respective feature plans are implemented.
@@ -23,6 +24,7 @@ from app.graph.state import ContractState
 from app.graph.nodes.ingest_agent import ingest_agent
 from app.graph.nodes.clause_splitter_agent import clause_splitter_agent
 from app.graph.nodes.crag_retrieval_agent import crag_retrieval_agent
+from app.graph.nodes.self_rag_validation_agent import self_rag_validation_agent
 
 
 def build_graph():
@@ -73,7 +75,19 @@ def build_graph():
     # "crag_retrieval" matches the pinned current_node value in the node itself so
     # state-key identity never drifts from the graph node name.
     graph.add_node("crag_retrieval", crag_retrieval_agent)
-    graph.add_edge("crag_retrieval", END)  # → END until feature-006 (Self-RAG)
+    graph.add_edge("crag_retrieval", "self_rag_validation")  # was END temporarily
+
+    # ── Node 4: SelfRAGValidationAgent ────────────────────────────────────────
+    # Constitution §2 note: Self-RAG's outgoing edge is a PLAIN LINEAR add_edge,
+    # deliberately NOT an add_conditional_edges. The two permitted conditional
+    # edges are CRAG's confidence routing (Node 3, implemented as internal
+    # per-clause branching) and route_on_risk (Node 6, future). Discarded findings
+    # stay in ContractState marked DISCARDED and flow along this linear edge;
+    # downstream nodes filter on final_status. The node name "self_rag_validation"
+    # matches the pinned current_node value (spec §2) so state-key identity never
+    # drifts from the graph node name (constitution §8).
+    graph.add_node("self_rag_validation", self_rag_validation_agent)
+    graph.add_edge("self_rag_validation", END)  # → END until feature-007 (RiskScore)
 
     graph.set_entry_point("ingest_agent")
     return graph.compile()

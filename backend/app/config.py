@@ -89,6 +89,41 @@ CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD: int = 5
 # clauses straight to web (skipping the per-clause embed timeout). Resets on
 # any successful embedding. Routing-semantics guarantee (spec §4.13, AC-16).
 
-# ── Self-RAG thresholds ───────────────────────────────────────────────────────
-# Placeholder — will be populated by specs/006-self-rag-validation plan
-SELF_RAG_MAX_RETRIES: int = 3  # max retry attempts per clause per constitution §2
+# ── Self-RAG validation thresholds ─────────────────────────────────────────────
+# Source: specs/006-self-rag-validation/spec.md §6
+
+SELF_RAG_MAX_ATTEMPTS: int = 3
+# Maximum number of ISSUP ("worth flagging") judgment attempts per clause, per
+# constitution §2 ("retry on ISSUP fail, max 3 attempts"). First attempt + retries
+# together may not exceed this. retry_count = attempts_taken - 1, so
+# retry_count ∈ {0, 1, 2} at this default. Renames the old SELF_RAG_MAX_RETRIES
+# placeholder (spec §8b Q2).
+
+SELF_RAG_TIMEOUT_SECONDS: int = 120
+# Wall-clock timeout for a single Self-RAG LLM call (Relevance / ISREL / one ISSUP
+# attempt) via Ollama. Mirrors CLAUSE_SPLITTER_TIMEOUT_SECONDS; headroom for local
+# Qwen3 per constitution §9. On timeout the clause takes the fail-open default
+# outcome (spec §4.4).
+
+SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD: int = 5
+# Number of CONSECUTIVE LLM failures after which the node declares the generative
+# backend down for the rest of the run and applies the fail-open default outcome to
+# all remaining clauses (skipping per-clause timeouts). Resets on any success.
+# Opening emits the error_count health signal once (spec §4.8, §8a R5, AC-15/20).
+# Mirrors CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD.
+
+SELF_RAG_PROMPT_MAX_CHARS: int = 6000
+# Clause text + concatenated evidence snippets are truncated to this length before
+# each LLM call, to bound prompt size (spec §4.9).
+
+SELF_RAG_HIGH_RISK_CLAUSE_TYPES: frozenset = frozenset({
+    "liability",
+    "termination",
+    "intellectual_property",
+    "dispute_resolution",
+})
+# ClauseType.value strings for which an EMPTY-EVIDENCE clause is rescued via an
+# evidence-free clause-text judgment instead of a zero-LLM discard (spec §4.3 /
+# §7.5 / §8a R4). Deliberately narrow: the categories where a silent miss is
+# costliest. Types NOT listed (and clause_type=None) fall through to discard.
+# Widen only if the empty-evidence discard metric (spec §9.6) shows real misses.

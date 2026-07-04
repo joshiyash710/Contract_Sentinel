@@ -110,3 +110,50 @@ def test_embed_model_distinct_from_generative():
     from app.config import OLLAMA_EMBED_MODEL_NAME, OLLAMA_MODEL_NAME
     assert OLLAMA_EMBED_MODEL_NAME != OLLAMA_MODEL_NAME
     assert OLLAMA_EMBED_MODEL_NAME == "bge-m3"
+
+
+def test_self_rag_constants_match_spec():
+    """Verify Self-RAG constants match specs/006 §6."""
+    from app.config import (
+        SELF_RAG_MAX_ATTEMPTS,
+        SELF_RAG_TIMEOUT_SECONDS,
+        SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD,
+        SELF_RAG_PROMPT_MAX_CHARS,
+    )
+    assert SELF_RAG_MAX_ATTEMPTS == 3
+    assert SELF_RAG_TIMEOUT_SECONDS == 120
+    assert SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
+    assert SELF_RAG_PROMPT_MAX_CHARS == 6000
+
+
+def test_self_rag_constants_correct_types():
+    """int for the numeric constants; frozenset of str for the high-risk set."""
+    from app import config
+    assert isinstance(config.SELF_RAG_MAX_ATTEMPTS, int)
+    assert isinstance(config.SELF_RAG_TIMEOUT_SECONDS, int)
+    assert isinstance(config.SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD, int)
+    assert isinstance(config.SELF_RAG_PROMPT_MAX_CHARS, int)
+    assert isinstance(config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES, frozenset)
+    assert all(isinstance(t, str) for t in config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES)
+
+
+def test_self_rag_high_risk_types_are_valid_clause_types():
+    """Every high-risk entry must be a real ClauseType.value (guards typos / enum drift)."""
+    from app.config import SELF_RAG_HIGH_RISK_CLAUSE_TYPES
+    from app.graph.state import ClauseType
+    valid = {ct.value for ct in ClauseType}
+    assert SELF_RAG_HIGH_RISK_CLAUSE_TYPES <= valid
+
+
+def test_self_rag_max_retries_renamed():
+    """The old placeholder is gone; the renamed constant exists (spec §8b Q2)."""
+    from app import config
+    assert not hasattr(config, "SELF_RAG_MAX_RETRIES")
+    assert hasattr(config, "SELF_RAG_MAX_ATTEMPTS")
+
+
+def test_self_rag_uses_generative_model():
+    """Constitution §8: the generative model is distinct from the embedding model."""
+    from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
+    assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
+    assert OLLAMA_MODEL_NAME == "qwen3:14b"

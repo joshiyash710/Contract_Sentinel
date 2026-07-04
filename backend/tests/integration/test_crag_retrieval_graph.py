@@ -22,6 +22,7 @@ import pytest
 
 import app.config as config
 import app.graph.nodes.crag_retrieval_agent as crag_mod
+import app.graph.nodes.self_rag_validation_agent as self_rag_mod
 import app.graph.nodes.retrievers.kb_retriever as kb_mod
 from app.graph.builder import build_graph
 from app.graph.nodes.retrievers import RetrievalResult
@@ -80,13 +81,16 @@ def test_graph_ingest_clause_crag_success(sample_pdf_path):
     mock_client = _make_mock_ollama_client(_sample_clause_list())
     graph = build_graph()
 
-    with patch("ollama.Client", return_value=mock_client), patch.object(
-        crag_mod, "embed_query", return_value=None
-    ), patch.object(crag_mod, "web_search", return_value=_mock_web_result()):
+    with patch("ollama.Client", return_value=mock_client), \
+         patch.object(crag_mod, "embed_query", return_value=None), \
+         patch.object(crag_mod, "web_search", return_value=_mock_web_result()), \
+         patch.object(self_rag_mod, "check_relevance", return_value=True), \
+         patch.object(self_rag_mod, "check_isrel", return_value=True), \
+         patch.object(self_rag_mod, "check_issup", return_value=True):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
-    assert final_state["current_node"] == "crag_retrieval"
+    assert final_state["current_node"] == "self_rag_validation"
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1
 
