@@ -1,6 +1,6 @@
 # ContractSentinel - Claude Code Integration
 
-This project uses Claude Code for implementation development. The planning and specification work is done with a different model (Qwen3 480B via Ollama), while implementation is handled by a locally hosted Qwen3 30B model through Claude Code.
+This project uses Claude Code for implementation development. Planning and specification work is done with Claude Opus, while implementation is handled by Claude Sonnet through Claude Code.
 
 ## Project Structure
 
@@ -16,8 +16,9 @@ All development follows the spec-driven workflow defined in `specs/000-constitut
 
 ## Model Separation
 
-- Planning/Architecture: Qwen3 480B via Ollama (cloud)
-- Implementation: Qwen3 30B via Claude Code (local)
-- Embeddings: BGE-M3 or Qwen3-Embedding via Ollama (separate from generative models)
+- Planning/Architecture: Claude Opus (via Claude Code)
+- Implementation: Claude Sonnet (via Claude Code)
+- Runtime generative (pipeline): Qwen3 14B via Ollama — OLLAMA_MODEL_NAME
+- Embeddings: BGE-M3 via Ollama (separate from generative models)
 
-This separation means all context must be explicitly documented in specs, plans, and tasks - nothing carries over conversationally between planning and implementation phases.
+This separation means all context should remain explicitly documented in specs, plans, and tasks — the specs are written to be self-contained even though context may carry across phases.
