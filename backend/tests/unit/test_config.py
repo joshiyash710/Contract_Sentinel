@@ -79,6 +79,7 @@ def test_crag_runtime_constants_match_spec():
         CRAG_WEB_TIMEOUT_SECONDS,
         CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD,
     )
+
     assert CRAG_TOP_K == 5
     assert CRAG_WEB_MAX_RESULTS == 5
     assert CRAG_MAX_EVIDENCE_SNIPPETS == 5
@@ -91,6 +92,7 @@ def test_crag_runtime_constants_match_spec():
 def test_crag_constants_correct_types():
     """Verify types: int counts/timeouts, float threshold, str model/paths."""
     from app import config
+
     assert isinstance(config.CRAG_TOP_K, int)
     assert isinstance(config.CRAG_WEB_MAX_RESULTS, int)
     assert isinstance(config.CRAG_MAX_EVIDENCE_SNIPPETS, int)
@@ -108,6 +110,7 @@ def test_embed_model_distinct_from_generative():
     """Constitution §8 model-separation rule (AC-8): embedding model must not
     equal the generative model."""
     from app.config import OLLAMA_EMBED_MODEL_NAME, OLLAMA_MODEL_NAME
+
     assert OLLAMA_EMBED_MODEL_NAME != OLLAMA_MODEL_NAME
     assert OLLAMA_EMBED_MODEL_NAME == "bge-m3"
 
@@ -120,6 +123,7 @@ def test_self_rag_constants_match_spec():
         SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD,
         SELF_RAG_PROMPT_MAX_CHARS,
     )
+
     assert SELF_RAG_MAX_ATTEMPTS == 3
     assert SELF_RAG_TIMEOUT_SECONDS == 120
     assert SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
@@ -129,6 +133,7 @@ def test_self_rag_constants_match_spec():
 def test_self_rag_constants_correct_types():
     """int for the numeric constants; frozenset of str for the high-risk set."""
     from app import config
+
     assert isinstance(config.SELF_RAG_MAX_ATTEMPTS, int)
     assert isinstance(config.SELF_RAG_TIMEOUT_SECONDS, int)
     assert isinstance(config.SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD, int)
@@ -141,6 +146,7 @@ def test_self_rag_high_risk_types_are_valid_clause_types():
     """Every high-risk entry must be a real ClauseType.value (guards typos / enum drift)."""
     from app.config import SELF_RAG_HIGH_RISK_CLAUSE_TYPES
     from app.graph.state import ClauseType
+
     valid = {ct.value for ct in ClauseType}
     assert SELF_RAG_HIGH_RISK_CLAUSE_TYPES <= valid
 
@@ -148,6 +154,7 @@ def test_self_rag_high_risk_types_are_valid_clause_types():
 def test_self_rag_max_retries_renamed():
     """The old placeholder is gone; the renamed constant exists (spec §8b Q2)."""
     from app import config
+
     assert not hasattr(config, "SELF_RAG_MAX_RETRIES")
     assert hasattr(config, "SELF_RAG_MAX_ATTEMPTS")
 
@@ -155,5 +162,55 @@ def test_self_rag_max_retries_renamed():
 def test_self_rag_uses_generative_model():
     """Constitution §8: the generative model is distinct from the embedding model."""
     from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
+
+    assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
+    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+
+
+def test_risk_score_constants_match_spec():
+    """Verify RiskScore numeric constants match specs/007 §6."""
+    from app.config import (
+        RISK_SCORE_TIMEOUT_SECONDS,
+        RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD,
+        RISK_SCORE_PROMPT_MAX_CHARS,
+        RISK_RATIONALE_MAX_CHARS,
+    )
+
+    assert RISK_SCORE_TIMEOUT_SECONDS == 120
+    assert RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
+    assert RISK_SCORE_PROMPT_MAX_CHARS == 6000
+    assert RISK_RATIONALE_MAX_CHARS == 1000
+
+
+def test_risk_score_constants_correct_types():
+    """int for the numeric constants."""
+    from app import config
+
+    assert isinstance(config.RISK_SCORE_TIMEOUT_SECONDS, int)
+    assert isinstance(config.RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD, int)
+    assert isinstance(config.RISK_SCORE_PROMPT_MAX_CHARS, int)
+    assert isinstance(config.RISK_RATIONALE_MAX_CHARS, int)
+
+
+def test_risk_score_default_level_is_high():
+    """Fail-safe default is RiskLevel.HIGH (spec §8a R1)."""
+    from app.config import RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE
+    from app.graph.state import RiskLevel
+
+    assert RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE is RiskLevel.HIGH
+    assert isinstance(RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE, RiskLevel)
+
+
+def test_risk_score_no_max_attempts_constant():
+    """No retry loop for RiskScore (spec §8a R6) — the constant must not exist."""
+    from app import config
+
+    assert not hasattr(config, "RISK_SCORE_MAX_ATTEMPTS")
+
+
+def test_risk_score_uses_generative_model():
+    """Constitution §8: the generative model is distinct from the embedding model."""
+    from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
+
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
     assert OLLAMA_MODEL_NAME == "qwen3:14b"

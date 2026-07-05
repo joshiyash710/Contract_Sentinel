@@ -1,12 +1,13 @@
 """
 LangGraph StateGraph builder for the ContractSentinel pipeline.
 
-Current scope (feature-006):
+Current scope (feature-007):
     - Node 1 (ingest_agent) with a conditional error-short-circuit edge.
     - Node 2 (clause_splitter) wired on the success path.
     - Node 3 (crag_retrieval) wired after clause_splitter.
-    - Node 4 (self_rag_validation) wired after crag_retrieval; routes to END
-      temporarily until feature-007 adds Node 5 (RiskScore).
+    - Node 4 (self_rag_validation) wired after crag_retrieval.
+    - Node 5 (risk_score) wired after self_rag_validation; routes to END
+      temporarily until feature-008 adds Node 6 (Redline).
 
 Future nodes will call graph.add_node() and graph.add_edge() here as their
 respective feature plans are implemented.
@@ -25,6 +26,7 @@ from app.graph.nodes.ingest_agent import ingest_agent
 from app.graph.nodes.clause_splitter_agent import clause_splitter_agent
 from app.graph.nodes.crag_retrieval_agent import crag_retrieval_agent
 from app.graph.nodes.self_rag_validation_agent import self_rag_validation_agent
+from app.graph.nodes.risk_score_agent import risk_score_agent
 
 
 def build_graph():
@@ -87,7 +89,18 @@ def build_graph():
     # matches the pinned current_node value (spec §2) so state-key identity never
     # drifts from the graph node name (constitution §8).
     graph.add_node("self_rag_validation", self_rag_validation_agent)
-    graph.add_edge("self_rag_validation", END)  # → END until feature-007 (RiskScore)
+    graph.add_edge("self_rag_validation", "risk_score")  # was END until feature-007
+
+    # ── Node 5: RiskScoreAgent ─────────────────────────────────────────────────
+    # Constitution §2 note: RiskScore's outgoing edge is a PLAIN LINEAR add_edge,
+    # deliberately NOT an add_conditional_edges. The two permitted conditional
+    # edges are CRAG's confidence routing (Node 3) and route_on_risk (Node 6,
+    # future), which will READ the risk_level this node writes. RiskScore assigns
+    # severity; it does not route. The node name "risk_score" matches the pinned
+    # current_node value (spec §2) so state-key identity never drifts from the
+    # graph node name (constitution §8).
+    graph.add_node("risk_score", risk_score_agent)
+    graph.add_edge("risk_score", END)  # → END until feature-008 (Redline)
 
     graph.set_entry_point("ingest_agent")
     return graph.compile()

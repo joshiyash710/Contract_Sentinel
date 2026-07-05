@@ -55,8 +55,8 @@ def test_graph_ingest_success_to_end(sample_pdf_path):
 
     assert final_state["ingest_error"] is None
     assert len(final_state["extracted_text"]) >= 200
-    # current_node is now "self_rag_validation" — Node 4 is the terminal node after feature-006
-    assert final_state["current_node"] == "self_rag_validation"
+    # current_node is now "risk_score" — Node 5 is the terminal node after feature-007
+    assert final_state["current_node"] == "risk_score"
     assert final_state["document_path"] == sample_pdf_path
     assert final_state["original_filename"] == "sample.pdf"
 

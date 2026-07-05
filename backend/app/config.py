@@ -8,6 +8,8 @@ specs/000-constitution.md §3 (Configurable Thresholds Rule).
 Future nodes (CRAG, Self-RAG, etc.) will add their own constants here.
 """
 
+from app.graph.state import RiskLevel
+
 # ── IngestAgent thresholds ─────────────────────────────────────────────────────
 # Source: specs/003-ingest-agent/spec.md §6
 MIN_TEXT_LENGTH_THRESHOLD: int = 50  # chars; below → force OCR
@@ -116,14 +118,48 @@ SELF_RAG_PROMPT_MAX_CHARS: int = 6000
 # Clause text + concatenated evidence snippets are truncated to this length before
 # each LLM call, to bound prompt size (spec §4.9).
 
-SELF_RAG_HIGH_RISK_CLAUSE_TYPES: frozenset = frozenset({
-    "liability",
-    "termination",
-    "intellectual_property",
-    "dispute_resolution",
-})
+SELF_RAG_HIGH_RISK_CLAUSE_TYPES: frozenset = frozenset(
+    {
+        "liability",
+        "termination",
+        "intellectual_property",
+        "dispute_resolution",
+    }
+)
 # ClauseType.value strings for which an EMPTY-EVIDENCE clause is rescued via an
 # evidence-free clause-text judgment instead of a zero-LLM discard (spec §4.3 /
 # §7.5 / §8a R4). Deliberately narrow: the categories where a silent miss is
 # costliest. Types NOT listed (and clause_type=None) fall through to discard.
 # Widen only if the empty-evidence discard metric (spec §9.6) shows real misses.
+
+# ── RiskScore thresholds ───────────────────────────────────────────────────────
+# Source: specs/007-risk-score/spec.md §6
+
+RISK_SCORE_TIMEOUT_SECONDS: int = 120
+# Wall-clock timeout for a single RiskScore LLM call (one severity judgment) via
+# Ollama. Mirrors SELF_RAG_TIMEOUT_SECONDS; headroom for local Qwen3 per
+# constitution §9. On timeout the finding takes the fail-safe default (spec §4.4).
+
+RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD: int = 5
+# Number of CONSECUTIVE LLM failures after which the node declares the generative
+# backend down for the rest of the run and applies the fail-safe default level to
+# all remaining validated findings (skipping per-finding timeouts). Resets on any
+# success. Opening emits the error_count health signal once (spec §4.5, AC-14/15).
+# Mirrors SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD.
+
+RISK_SCORE_PROMPT_MAX_CHARS: int = 6000
+# Clause text + concatenated evidence snippets are truncated to this length before
+# the scoring LLM call, to bound prompt size (spec §4.8). Mirrors
+# SELF_RAG_PROMPT_MAX_CHARS.
+
+RISK_RATIONALE_MAX_CHARS: int = 1000
+# Generated risk_rationale is truncated to this length before being written to
+# ContractState, to bound persisted state size (spec §4.9). Unlike Self-RAG's
+# ephemeral candidate-finding text, risk_rationale IS persisted — 001 reserves it.
+
+RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE: RiskLevel = RiskLevel.HIGH
+# Fail-safe severity applied when a finding cannot be scored (LLM failure, timeout,
+# unparseable output, empty text, or circuit open) — spec §4.4 / §7.2 / §8a R1.
+# HIGH biases toward surfacing at maximum severity for human review, consistent with
+# Self-RAG's fail-open to VALIDATED. Configurable because it directly shifts
+# downstream Redline load; tune against real sample contracts.
