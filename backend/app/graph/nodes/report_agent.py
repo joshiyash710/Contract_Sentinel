@@ -13,6 +13,7 @@ import logging
 import time
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from pydantic import ValidationError
 
@@ -80,7 +81,7 @@ def report_agent(state: ContractState) -> dict:
     md_path = out_dir / REPORT_MD_FILENAME_TEMPLATE.format(document_id=document_id)
 
     # ── Step 4: Write files (JSON first, then Markdown — AC-19a) ──────────────
-    report_path: str | None = None
+    report_path: Optional[str] = None
     try:
         out_dir.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json_text, encoding="utf-8")  # JSON first (D1 / AC-19a)

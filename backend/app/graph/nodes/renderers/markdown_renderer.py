@@ -103,7 +103,7 @@ def render_markdown(report: ContractReport) -> str:
                 if f.path_taken is not None:
                     prov_parts.append(f"path: {f.path_taken}")
                 if f.confidence_score is not None:
-                    prov_parts.append(f"confidence: {f.confidence_score}")
+                    prov_parts.append(f"confidence: {f.confidence_score:.2f}")
                 parts.append("")
                 parts.append(f"*Provenance — {', '.join(prov_parts)}*")
 
