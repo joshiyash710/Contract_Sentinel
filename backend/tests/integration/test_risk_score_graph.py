@@ -95,8 +95,8 @@ def test_graph_reaches_risk_score_and_ends(sample_pdf_path):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state.get("ingest_error") is None
-    # current_node is now "redline" — Node 6 is the terminal node after feature-008
-    assert final_state.get("current_node") == "redline"
+    # current_node is now "report" — Node 7 is the terminal node after feature-009
+    assert final_state.get("current_node") == "report"
     clauses = final_state.get("clauses", {})
     assert len(clauses) >= 1
     for clause_id, clause in clauses.items():

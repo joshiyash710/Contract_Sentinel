@@ -1,14 +1,14 @@
 """
 LangGraph StateGraph builder for the ContractSentinel pipeline.
 
-Current scope (feature-008):
+Current scope (feature-009):
     - Node 1 (ingest_agent) with a conditional error-short-circuit edge.
     - Node 2 (clause_splitter) wired on the success path.
     - Node 3 (crag_retrieval) wired after clause_splitter.
     - Node 4 (self_rag_validation) wired after crag_retrieval.
     - Node 5 (risk_score) wired after self_rag_validation.
-    - Node 6 (route_on_risk conditional edge → redline / skip_redline → END
-      temporarily until feature-009 adds Node 7 (ReportAgent)).
+    - Node 6 (route_on_risk conditional edge → redline / skip_redline).
+    - Node 7 (report) fan-in from redline + skip_redline → END (terminal node).
 
 Future nodes will call graph.add_node() and graph.add_edge() here as their
 respective feature plans are implemented.
@@ -29,6 +29,7 @@ from app.graph.nodes.crag_retrieval_agent import crag_retrieval_agent
 from app.graph.nodes.self_rag_validation_agent import self_rag_validation_agent
 from app.graph.nodes.risk_score_agent import risk_score_agent
 from app.graph.nodes.redline_agent import route_on_risk, redline_agent, skip_redline
+from app.graph.nodes.report_agent import report_agent
 
 
 def build_graph():
@@ -118,8 +119,18 @@ def build_graph():
         route_on_risk,
         {"redline": "redline", "skip_redline": "skip_redline"},
     )
-    graph.add_edge("redline", END)        # → "report" once feature-009 (Node 7) exists
-    graph.add_edge("skip_redline", END)   # → "report" once feature-009 (Node 7) exists
+    # ── Node 7: ReportAgent (terminal assembly node) ──────────────────────────
+    # Constitution §2 item 7. Both Node-6 branches converge here via plain LINEAR
+    # add_edge (fan-in) — NOT a conditional edge — so the graph still has exactly the
+    # two permitted domain conditional edges (CRAG internal, route_on_risk). ReportAgent
+    # reads the fully-populated ContractState, writes the report file(s), and returns
+    # report_path + evidence_trail (spec §7.1). The node name "report" matches the pinned
+    # current_node value (spec §7.5) so state-key identity never drifts from the graph
+    # node name (constitution §8).
+    graph.add_node("report", report_agent)
+    graph.add_edge("redline", "report")  # was END (feature-008 placeholder)
+    graph.add_edge("skip_redline", "report")  # was END (feature-008 placeholder)
+    graph.add_edge("report", END)
 
     graph.set_entry_point("ingest_agent")
     return graph.compile()

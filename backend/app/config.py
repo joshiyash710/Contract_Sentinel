@@ -210,3 +210,23 @@ REDLINE_REWRITE_MAX_CHARS: int = 4000
 # ContractState, to bound persisted state size (spec §4.9). Larger than
 # RISK_RATIONALE_MAX_CHARS (1000) because a rewritten clause is full replacement
 # language, not a one-line explanation.
+
+# ── Report thresholds ──────────────────────────────────────────────────────────
+# Source: specs/009-report-agent/spec.md §6
+
+REPORT_OUTPUT_DIR: str = "data/reports"
+# Directory (backend/-relative, mirroring CRAG_KB_INDEX_PATH's anchoring) where
+# ReportAgent writes serialized report files. Created if absent. (spec §6, D6)
+
+REPORT_MD_FILENAME_TEMPLATE: str = "{document_id}.md"
+# Human-readable Markdown report; report_path points here (D1). Deterministic on
+# document_id so a re-run overwrites in place (D6, Edge Case 9).
+
+REPORT_JSON_FILENAME_TEMPLATE: str = "{document_id}.json"
+# Machine-readable JSON sibling written alongside the Markdown at the same stem
+# (D1). Same deterministic-overwrite scheme (D6).
+
+REPORT_EVIDENCE_TEXT_MAX_CHARS: int = 2000
+# Per-row cap on evidence_trail `evidence_text` before it is written to state, to
+# bound persisted state size (constitution §6; Edge Case 6). Mirrors the truncation
+# discipline of RISK_RATIONALE_MAX_CHARS / REDLINE_REWRITE_MAX_CHARS.

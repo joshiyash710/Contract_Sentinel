@@ -90,7 +90,7 @@ def test_graph_ingest_clause_crag_success(sample_pdf_path):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
-    assert final_state["current_node"] == "redline"
+    assert final_state["current_node"] == "report"
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1
 

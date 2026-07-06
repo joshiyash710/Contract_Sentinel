@@ -100,10 +100,10 @@ def test_graph_routes_to_redline_and_ends(sample_pdf_path):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state.get("ingest_error") is None
-    assert final_state.get("current_node") == "redline"
+    assert final_state.get("current_node") == "report"
     clauses = final_state.get("clauses", {})
     assert len(clauses) >= 1
-    # Every VALIDATED clause should have a non-empty suggested_rewrite
+    # Branch evidence: every VALIDATED clause went through redline and has a rewrite
     for clause in clauses.values():
         if clause.get("final_status") == ValidationStatus.VALIDATED:
             assert clause.get("suggested_rewrite") == "safer rewritten clause"
@@ -130,7 +130,7 @@ def test_graph_routes_to_skip_redline_and_ends(sample_pdf_path):
     ) as mock_draft:
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
-    assert final_state.get("current_node") == "skip_redline"
+    assert final_state.get("current_node") == "report"
     mock_draft.assert_not_called()
     clauses = final_state.get("clauses", {})
     for clause in clauses.values():

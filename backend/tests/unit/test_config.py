@@ -225,6 +225,7 @@ def test_redline_constants_match_spec():
         REDLINE_PROMPT_RATIONALE_RESERVE_CHARS,
         REDLINE_REWRITE_MAX_CHARS,
     )
+
     assert REDLINE_TIMEOUT_SECONDS == 120
     assert REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
     assert REDLINE_PROMPT_MAX_CHARS == 6000
@@ -235,6 +236,7 @@ def test_redline_constants_match_spec():
 def test_redline_constants_correct_types():
     """int for the numeric constants; frozenset for the threshold."""
     from app import config
+
     assert isinstance(config.REDLINE_TIMEOUT_SECONDS, int)
     assert isinstance(config.REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD, int)
     assert isinstance(config.REDLINE_PROMPT_MAX_CHARS, int)
@@ -247,6 +249,7 @@ def test_redline_threshold_is_all_levels():
     """Resolved Option A (spec §8a R1): all three levels are redline-eligible."""
     from app.config import REDLINE_RISK_THRESHOLD
     from app.graph.state import RiskLevel
+
     assert REDLINE_RISK_THRESHOLD == frozenset(
         {RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH}
     )
@@ -259,17 +262,71 @@ def test_redline_rationale_reserve_within_prompt_budget():
         REDLINE_PROMPT_RATIONALE_RESERVE_CHARS,
         REDLINE_PROMPT_MAX_CHARS,
     )
+
     assert REDLINE_PROMPT_RATIONALE_RESERVE_CHARS < REDLINE_PROMPT_MAX_CHARS
 
 
 def test_redline_no_max_attempts_constant():
     """No retry loop for Redline (spec §6) — the constant must not exist."""
     from app import config
+
     assert not hasattr(config, "REDLINE_MAX_ATTEMPTS")
 
 
 def test_redline_uses_generative_model():
     """Constitution §8: the generative model is distinct from the embedding model."""
     from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
+
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
     assert OLLAMA_MODEL_NAME == "qwen3:14b"
+
+
+def test_report_constants_match_spec():
+    """Verify Report constants match specs/009 §6."""
+    from app.config import (
+        REPORT_OUTPUT_DIR,
+        REPORT_MD_FILENAME_TEMPLATE,
+        REPORT_JSON_FILENAME_TEMPLATE,
+        REPORT_EVIDENCE_TEXT_MAX_CHARS,
+    )
+
+    assert REPORT_OUTPUT_DIR == "data/reports"
+    assert REPORT_MD_FILENAME_TEMPLATE == "{document_id}.md"
+    assert REPORT_JSON_FILENAME_TEMPLATE == "{document_id}.json"
+    assert REPORT_EVIDENCE_TEXT_MAX_CHARS == 2000
+
+
+def test_report_constants_correct_types():
+    """str for the dir + templates; int for the char cap."""
+    from app import config
+
+    assert isinstance(config.REPORT_OUTPUT_DIR, str)
+    assert isinstance(config.REPORT_MD_FILENAME_TEMPLATE, str)
+    assert isinstance(config.REPORT_JSON_FILENAME_TEMPLATE, str)
+    assert isinstance(config.REPORT_EVIDENCE_TEXT_MAX_CHARS, int)
+
+
+def test_report_filename_templates_have_document_id():
+    """Both templates are keyed on document_id and differ only by extension (D6)."""
+    from app.config import (
+        REPORT_MD_FILENAME_TEMPLATE,
+        REPORT_JSON_FILENAME_TEMPLATE,
+    )
+
+    assert "{document_id}" in REPORT_MD_FILENAME_TEMPLATE
+    assert "{document_id}" in REPORT_JSON_FILENAME_TEMPLATE
+    assert REPORT_MD_FILENAME_TEMPLATE.endswith(".md")
+    assert REPORT_JSON_FILENAME_TEMPLATE.endswith(".json")
+    assert (
+        REPORT_MD_FILENAME_TEMPLATE.rsplit(".", 1)[0]
+        == REPORT_JSON_FILENAME_TEMPLATE.rsplit(".", 1)[0]
+    )
+
+
+def test_report_no_llm_constant():
+    """Node 7 makes no LLM call (D3) — no timeout/model/circuit-breaker constant."""
+    from app import config
+
+    assert not hasattr(config, "REPORT_TIMEOUT_SECONDS")
+    assert not hasattr(config, "REPORT_LLM_CIRCUIT_BREAKER_THRESHOLD")
+    assert not hasattr(config, "REPORT_MODEL_NAME")
