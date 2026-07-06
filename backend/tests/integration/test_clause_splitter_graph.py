@@ -65,8 +65,8 @@ def test_graph_ingest_then_clause_splitter_success(sample_pdf_path):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state["ingest_error"] is None
-    # current_node is now "risk_score" — Node 5 is the terminal node (feature-007)
-    assert final_state["current_node"] == "risk_score"
+    # current_node is "redline" or "skip_redline" — Node 6 is the terminal after feature-008
+    assert final_state["current_node"] in ("redline", "skip_redline")
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1
 
@@ -111,8 +111,8 @@ def test_graph_clause_splitter_llm_fallback(sample_pdf_path):
          patch.object(self_rag_mod, "check_issup", return_value=True):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
-    # Graph must complete without crashing; RiskScore is now the terminal node (feature-007)
-    assert final_state["current_node"] == "risk_score"
+    # Graph must complete without crashing; Node 6 is the terminal after feature-008
+    assert final_state["current_node"] in ("redline", "skip_redline")
     # Regex-only fallback still produces clauses (PDF has extractable text)
     assert "clauses" in final_state
     assert len(final_state["clauses"]) >= 1

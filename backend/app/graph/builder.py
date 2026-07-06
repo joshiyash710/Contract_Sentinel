@@ -1,13 +1,14 @@
 """
 LangGraph StateGraph builder for the ContractSentinel pipeline.
 
-Current scope (feature-007):
+Current scope (feature-008):
     - Node 1 (ingest_agent) with a conditional error-short-circuit edge.
     - Node 2 (clause_splitter) wired on the success path.
     - Node 3 (crag_retrieval) wired after clause_splitter.
     - Node 4 (self_rag_validation) wired after crag_retrieval.
-    - Node 5 (risk_score) wired after self_rag_validation; routes to END
-      temporarily until feature-008 adds Node 6 (Redline).
+    - Node 5 (risk_score) wired after self_rag_validation.
+    - Node 6 (route_on_risk conditional edge → redline / skip_redline → END
+      temporarily until feature-009 adds Node 7 (ReportAgent)).
 
 Future nodes will call graph.add_node() and graph.add_edge() here as their
 respective feature plans are implemented.
@@ -27,6 +28,7 @@ from app.graph.nodes.clause_splitter_agent import clause_splitter_agent
 from app.graph.nodes.crag_retrieval_agent import crag_retrieval_agent
 from app.graph.nodes.self_rag_validation_agent import self_rag_validation_agent
 from app.graph.nodes.risk_score_agent import risk_score_agent
+from app.graph.nodes.redline_agent import route_on_risk, redline_agent, skip_redline
 
 
 def build_graph():
@@ -92,15 +94,32 @@ def build_graph():
     graph.add_edge("self_rag_validation", "risk_score")  # was END until feature-007
 
     # ── Node 5: RiskScoreAgent ─────────────────────────────────────────────────
-    # Constitution §2 note: RiskScore's outgoing edge is a PLAIN LINEAR add_edge,
-    # deliberately NOT an add_conditional_edges. The two permitted conditional
-    # edges are CRAG's confidence routing (Node 3) and route_on_risk (Node 6,
-    # future), which will READ the risk_level this node writes. RiskScore assigns
-    # severity; it does not route. The node name "risk_score" matches the pinned
-    # current_node value (spec §2) so state-key identity never drifts from the
-    # graph node name (constitution §8).
+    # Constitution §2 note: RiskScore's outgoing edge feeds the route_on_risk
+    # conditional edge (Node 6) below. RiskScore assigns severity; routing is
+    # Node 6's job. The node name "risk_score" matches the pinned current_node
+    # value (spec §2) so state-key identity never drifts from the graph node
+    # name (constitution §8).
     graph.add_node("risk_score", risk_score_agent)
-    graph.add_edge("risk_score", END)  # → END until feature-008 (Redline)
+
+    # ── Node 6: route_on_risk (conditional edge) → RedlineAgent / SkipRedline ──
+    # Constitution §2: this is the SECOND of the two permitted domain conditional
+    # edges (the first is CRAG's confidence routing, Node 3, realized as internal
+    # per-clause branching). Unlike CRAG, route_on_risk is a DOCUMENT-LEVEL decision
+    # that routes the whole ContractState to one successor, so it IS a genuine
+    # graph-level add_conditional_edges (spec §7.1). RedlineAgent does per-clause
+    # filtering internally via the same is_redline_eligible predicate route_on_risk
+    # uses (spec §7.2). The node names "redline" / "skip_redline" match the pinned
+    # current_node values (spec §2) so state-key identity never drifts from the
+    # graph node name (constitution §8).
+    graph.add_node("redline", redline_agent)
+    graph.add_node("skip_redline", skip_redline)
+    graph.add_conditional_edges(
+        "risk_score",
+        route_on_risk,
+        {"redline": "redline", "skip_redline": "skip_redline"},
+    )
+    graph.add_edge("redline", END)        # → "report" once feature-009 (Node 7) exists
+    graph.add_edge("skip_redline", END)   # → "report" once feature-009 (Node 7) exists
 
     graph.set_entry_point("ingest_agent")
     return graph.compile()

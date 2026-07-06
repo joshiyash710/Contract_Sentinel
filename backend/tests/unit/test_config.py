@@ -214,3 +214,62 @@ def test_risk_score_uses_generative_model():
 
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
     assert OLLAMA_MODEL_NAME == "qwen3:14b"
+
+
+def test_redline_constants_match_spec():
+    """Verify Redline numeric constants match specs/008 §6."""
+    from app.config import (
+        REDLINE_TIMEOUT_SECONDS,
+        REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD,
+        REDLINE_PROMPT_MAX_CHARS,
+        REDLINE_PROMPT_RATIONALE_RESERVE_CHARS,
+        REDLINE_REWRITE_MAX_CHARS,
+    )
+    assert REDLINE_TIMEOUT_SECONDS == 120
+    assert REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
+    assert REDLINE_PROMPT_MAX_CHARS == 6000
+    assert REDLINE_PROMPT_RATIONALE_RESERVE_CHARS == 1000
+    assert REDLINE_REWRITE_MAX_CHARS == 4000
+
+
+def test_redline_constants_correct_types():
+    """int for the numeric constants; frozenset for the threshold."""
+    from app import config
+    assert isinstance(config.REDLINE_TIMEOUT_SECONDS, int)
+    assert isinstance(config.REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD, int)
+    assert isinstance(config.REDLINE_PROMPT_MAX_CHARS, int)
+    assert isinstance(config.REDLINE_PROMPT_RATIONALE_RESERVE_CHARS, int)
+    assert isinstance(config.REDLINE_REWRITE_MAX_CHARS, int)
+    assert isinstance(config.REDLINE_RISK_THRESHOLD, frozenset)
+
+
+def test_redline_threshold_is_all_levels():
+    """Resolved Option A (spec §8a R1): all three levels are redline-eligible."""
+    from app.config import REDLINE_RISK_THRESHOLD
+    from app.graph.state import RiskLevel
+    assert REDLINE_RISK_THRESHOLD == frozenset(
+        {RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH}
+    )
+    assert all(isinstance(x, RiskLevel) for x in REDLINE_RISK_THRESHOLD)
+
+
+def test_redline_rationale_reserve_within_prompt_budget():
+    """The reserve is a partition of the prompt budget, never larger than it."""
+    from app.config import (
+        REDLINE_PROMPT_RATIONALE_RESERVE_CHARS,
+        REDLINE_PROMPT_MAX_CHARS,
+    )
+    assert REDLINE_PROMPT_RATIONALE_RESERVE_CHARS < REDLINE_PROMPT_MAX_CHARS
+
+
+def test_redline_no_max_attempts_constant():
+    """No retry loop for Redline (spec §6) — the constant must not exist."""
+    from app import config
+    assert not hasattr(config, "REDLINE_MAX_ATTEMPTS")
+
+
+def test_redline_uses_generative_model():
+    """Constitution §8: the generative model is distinct from the embedding model."""
+    from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
+    assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
+    assert OLLAMA_MODEL_NAME == "qwen3:14b"

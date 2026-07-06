@@ -163,3 +163,50 @@ RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE: RiskLevel = RiskLevel.HIGH
 # HIGH biases toward surfacing at maximum severity for human review, consistent with
 # Self-RAG's fail-open to VALIDATED. Configurable because it directly shifts
 # downstream Redline load; tune against real sample contracts.
+
+# ── Redline thresholds ─────────────────────────────────────────────────────────
+# Source: specs/008-route-on-risk-redline/spec.md §6
+
+REDLINE_RISK_THRESHOLD: frozenset = frozenset(
+    {RiskLevel.LOW, RiskLevel.MEDIUM, RiskLevel.HIGH}
+)
+# The set of risk levels that route a VALIDATED finding to RedlineAgent (vs
+# SkipRedline). Read by BOTH route_on_risk (the edge) and RedlineAgent (the node)
+# via one shared predicate so eligibility has a single source of truth (spec §7.2).
+# RESOLVED to Option A — all three levels (spec §8a R1): every validated finding is
+# redlined; SkipRedline fires only for documents with zero validated findings. Kept
+# permissive so the spec §9 / RiskScore §9.6 redline-routing metrics can justify a
+# later tightening to {MEDIUM, HIGH}. Membership is robust to a str value too because
+# RiskLevel is a str-Enum (RiskLevel.LOW == "low", hash-equal). Tune against real
+# sample contracts.
+
+REDLINE_TIMEOUT_SECONDS: int = 120
+# Wall-clock timeout for a single Redline LLM call (one clause rewrite) via Ollama.
+# Mirrors RISK_SCORE_TIMEOUT_SECONDS; headroom for local Qwen3 per constitution §9.
+# On timeout the clause takes the fail-safe: the node emits suggested_rewrite: None.
+
+REDLINE_LLM_CIRCUIT_BREAKER_THRESHOLD: int = 5
+# Number of CONSECUTIVE LLM failures after which the node declares the generative
+# backend down for the rest of the run and emits suggested_rewrite: None for all
+# remaining eligible clauses (skipping per-clause timeouts). Resets on any success.
+# Opening emits the error_count health signal once (spec §7.6, AC-20/23). Mirrors
+# RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD.
+
+REDLINE_PROMPT_MAX_CHARS: int = 6000
+# Clause text + risk_rationale + concatenated evidence snippets are truncated to this
+# combined length before the drafting LLM call, to bound prompt size (spec §4.8).
+# Mirrors RISK_SCORE_PROMPT_MAX_CHARS.
+
+REDLINE_PROMPT_RATIONALE_RESERVE_CHARS: int = 1000
+# Portion of REDLINE_PROMPT_MAX_CHARS reserved for risk_rationale BEFORE the clause
+# text is truncated, so a clause longer than the prompt budget cannot starve the
+# rationale (the model's remediation target — it says WHY to rewrite) to a zero
+# budget. Matches RISK_RATIONALE_MAX_CHARS (the max a Node-5 rationale can be), so a
+# present rationale is never dropped. A budget-partitioning threshold, so it lives in
+# config per constitution §3 rather than inline. Must stay < REDLINE_PROMPT_MAX_CHARS.
+
+REDLINE_REWRITE_MAX_CHARS: int = 4000
+# Generated suggested_rewrite is truncated to this length before being written to
+# ContractState, to bound persisted state size (spec §4.9). Larger than
+# RISK_RATIONALE_MAX_CHARS (1000) because a rewritten clause is full replacement
+# language, not a one-line explanation.

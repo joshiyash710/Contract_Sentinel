@@ -55,8 +55,8 @@ def test_graph_ingest_success_to_end(sample_pdf_path):
 
     assert final_state["ingest_error"] is None
     assert len(final_state["extracted_text"]) >= 200
-    # current_node is now "risk_score" — Node 5 is the terminal node after feature-007
-    assert final_state["current_node"] == "risk_score"
+    # current_node is "redline" or "skip_redline" — Node 6 is the terminal after feature-008
+    assert final_state["current_node"] in ("redline", "skip_redline")
     assert final_state["document_path"] == sample_pdf_path
     assert final_state["original_filename"] == "sample.pdf"
 

@@ -100,7 +100,7 @@ def test_graph_reaches_self_rag_and_ends(sample_pdf_path):
         final_state = graph.invoke({"document_path": sample_pdf_path})
 
     assert final_state.get("ingest_error") is None
-    assert final_state.get("current_node") == "risk_score"
+    assert final_state.get("current_node") == "redline"
     clauses = final_state.get("clauses", {})
     assert len(clauses) >= 1
     for clause_id, clause in clauses.items():
