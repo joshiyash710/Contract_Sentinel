@@ -83,11 +83,10 @@ async def _handle_send(req: GmailSendRequest) -> ToolOutcome:
         return ToolOutcome(ok=False, retryable=False, error_message=str(exc))
 
 
-async def _run_server() -> None:
-    """Build and run the Gmail MCP stdio server. Also used by round-trip tests."""
+def _build_server():
+    """Register the `send_message` tool on a Server. Shared by _run_server and tests."""
     from mcp import types
     from mcp.server import Server
-    from mcp.server.stdio import stdio_server
 
     server = Server("gmail-server")
 
@@ -117,6 +116,14 @@ async def _run_server() -> None:
         outcome = await _handle_send(req)
         return [types.TextContent(type="text", text=outcome.model_dump_json())]
 
+    return server
+
+
+async def _run_server() -> None:
+    """Build and run the Gmail MCP stdio server."""
+    from mcp.server.stdio import stdio_server
+
+    server = _build_server()
     async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,

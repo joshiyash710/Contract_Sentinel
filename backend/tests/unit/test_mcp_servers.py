@@ -351,11 +351,10 @@ async def test_server_never_raises_across_boundary(tmp_path):
 async def test_drive_server_round_trip(tmp_path):
     """Drive: client calls upload_file via in-process MCP streams; ToolOutcome parses back."""
     import anyio
-    from mcp import ClientSession, types
-    from mcp.server import Server
+    from mcp import ClientSession
     from mcp.shared.memory import create_client_server_memory_streams
 
-    from app.delivery.models import DriveUploadRequest, ToolOutcome
+    from app.delivery.models import ToolOutcome
 
     report = tmp_path / "report.md"
     report.write_text("# Report")
@@ -365,26 +364,10 @@ async def test_drive_server_round_trip(tmp_path):
         create_result={"id": "rt_id", "webViewLink": "https://drive.google.com/rt"},
     )
 
-    # Build the same server as _run_server() would
-    from app.delivery.mcp_servers.drive_server import _handle_upload
+    # Drive the real registration code from _run_server (via _build_server)
+    from app.delivery.mcp_servers.drive_server import _build_server
 
-    server = Server("drive-server-test")
-
-    @server.list_tools()
-    async def list_tools() -> list[types.Tool]:
-        return [
-            types.Tool(
-                name="upload_file",
-                description="test",
-                inputSchema={"type": "object", "properties": {}},
-            )
-        ]
-
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
-        req = DriveUploadRequest(**(arguments or {}))
-        outcome = await _handle_upload(req)
-        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+    server = _build_server()
 
     received: list[ToolOutcome] = []
 
@@ -441,11 +424,10 @@ async def test_drive_server_round_trip(tmp_path):
 async def test_gmail_server_round_trip():
     """Gmail: client calls send_message via in-process MCP streams; ToolOutcome parses back."""
     import anyio
-    from mcp import ClientSession, types
-    from mcp.server import Server
+    from mcp import ClientSession
     from mcp.shared.memory import create_client_server_memory_streams
 
-    from app.delivery.models import GmailSendRequest, ToolOutcome
+    from app.delivery.models import ToolOutcome
 
     sent_response = {"id": "rt_gmail_001"}
     svc = MagicMock()
@@ -453,25 +435,9 @@ async def test_gmail_server_round_trip():
         sent_response
     )
 
-    from app.delivery.mcp_servers.gmail_server import _handle_send
+    from app.delivery.mcp_servers.gmail_server import _build_server
 
-    server = Server("gmail-server-test")
-
-    @server.list_tools()
-    async def list_tools() -> list[types.Tool]:
-        return [
-            types.Tool(
-                name="send_message",
-                description="test",
-                inputSchema={"type": "object", "properties": {}},
-            )
-        ]
-
-    @server.call_tool()
-    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
-        req = GmailSendRequest(**(arguments or {}))
-        outcome = await _handle_send(req)
-        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+    server = _build_server()
 
     received: list[ToolOutcome] = []
 
