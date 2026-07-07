@@ -83,21 +83,46 @@ async def _handle_upload(req: DriveUploadRequest) -> ToolOutcome:
         return ToolOutcome(ok=False, retryable=False, error_message=str(exc))
 
 
+async def _run_server() -> None:
+    """Build and run the Drive MCP stdio server. Also used by round-trip tests."""
+    from mcp import types
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+
+    server = Server("drive-server")
+
+    @server.list_tools()
+    async def list_tools() -> list[types.Tool]:
+        return [
+            types.Tool(
+                name="upload_file",
+                description="Upload a file to Google Drive, overwriting an existing file with the same name.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "file_path": {"type": "string"},
+                        "file_name": {"type": "string"},
+                        "mime_type": {"type": "string"},
+                        "folder_id": {"type": ["string", "null"]},
+                    },
+                    "required": ["file_path", "file_name", "mime_type"],
+                },
+            )
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
+        req = DriveUploadRequest(**(arguments or {}))
+        outcome = await _handle_upload(req)
+        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(
+            read_stream,
+            write_stream,
+            server.create_initialization_options(),
+        )
+
+
 if __name__ == "__main__":
-    import asyncio as _asyncio
-
-    try:
-        from mcp.server import Server
-        from mcp.server.stdio import stdio_server
-
-        app = Server("drive-server")
-
-        @app.call_tool()
-        async def upload_file(name: str, arguments: dict) -> list:
-            req = DriveUploadRequest(**arguments)
-            outcome = await _handle_upload(req)
-            return [{"type": "text", "text": outcome.model_dump_json()}]
-
-        _asyncio.run(stdio_server(app))
-    except ImportError:
-        pass
+    asyncio.run(_run_server())

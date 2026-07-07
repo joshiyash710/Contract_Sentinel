@@ -15,10 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from pydantic import ValidationError
+
 import app.config as _config
 from app.delivery.mcp_clients import send_report_via_gmail, upload_report_to_drive
 from app.delivery.models import DeliveryResult
 from app.graph.state import MCPDeliveryStatus
+from app.models.report import ContractReport
 
 logger = logging.getLogger("contractsentinel.delivery")
 
@@ -74,18 +77,14 @@ def _load_summary(json_path: Optional[Path]):
     if json_path is None:
         return None
     try:
-        from app.models.report import ContractReport
-
         text = json_path.read_text(encoding="utf-8")
         return ContractReport.model_validate_json(text).summary
-    except (FileNotFoundError, OSError, Exception) as exc:
+    except (OSError, ValidationError) as exc:
         logger.warning("Could not load report JSON sibling: %s", exc)
         return None
 
 
-async def _deliver_drive(
-    md_path: Path, json_path: Path, document_id: str
-) -> DeliveryResult:
+async def _deliver_drive(md_path: Path, json_path: Path) -> DeliveryResult:
     """Upload each configured format; aggregate into one DeliveryResult."""
     results = []
     md_ref = None
@@ -109,6 +108,11 @@ async def _deliver_drive(
         results.append(r)
         if ext == "md" and r.ok:
             md_ref = r.resource_ref
+
+    if not results:
+        return DeliveryResult(
+            service="drive", ok=False, error_message="no upload formats configured"
+        )
 
     all_ok = all(r.ok for r in results)
     errors = [r.error_message for r in results if not r.ok and r.error_message]
@@ -181,7 +185,7 @@ async def deliver_report(state: dict, *, recipient: Optional[str] = None) -> dic
 
     # ── Drive ─────────────────────────────────────────────────────────────────
     if MCP_DRIVE_ENABLED:
-        drive_result = await _deliver_drive(md_path, json_path, document_id)
+        drive_result = await _deliver_drive(md_path, json_path)
         status["drive"] = _to_info(drive_result)
         if drive_result.ok:
             drive_ref = drive_result.resource_ref

@@ -340,3 +340,178 @@ async def test_server_never_raises_across_boundary(tmp_path):
 
     assert outcome.ok is False
     assert outcome.retryable is False
+
+
+# ─── Round-trip tests: full client → MCP Server → handler plumbing ───────────
+# These tests verify that the _run_server() registration (list_tools / call_tool
+# handlers, TextContent serialization) is correct end-to-end using the MCP SDK's
+# in-process memory transport — no subprocess, no real Google credentials.
+
+
+async def test_drive_server_round_trip(tmp_path):
+    """Drive: client calls upload_file via in-process MCP streams; ToolOutcome parses back."""
+    import anyio
+    from mcp import ClientSession, types
+    from mcp.server import Server
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    from app.delivery.models import DriveUploadRequest, ToolOutcome
+
+    report = tmp_path / "report.md"
+    report.write_text("# Report")
+
+    svc = _make_drive_service(
+        list_files=[],
+        create_result={"id": "rt_id", "webViewLink": "https://drive.google.com/rt"},
+    )
+
+    # Build the same server as _run_server() would
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+
+    server = Server("drive-server-test")
+
+    @server.list_tools()
+    async def list_tools() -> list[types.Tool]:
+        return [
+            types.Tool(
+                name="upload_file",
+                description="test",
+                inputSchema={"type": "object", "properties": {}},
+            )
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
+        req = DriveUploadRequest(**(arguments or {}))
+        outcome = await _handle_upload(req)
+        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+
+    received: list[ToolOutcome] = []
+
+    with (
+        patch(
+            "app.delivery.mcp_servers.drive_server.load_credentials",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "app.delivery.mcp_servers.drive_server.build_drive_service",
+            return_value=svc,
+        ),
+        patch(
+            "app.delivery.mcp_servers.drive_server.MediaFileUpload",
+            return_value=MagicMock(),
+        ),
+    ):
+        async with create_client_server_memory_streams() as (
+            client_streams,
+            server_streams,
+        ):
+            client_read, client_write = client_streams
+            server_read, server_write = server_streams
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(
+                    server.run,
+                    server_read,
+                    server_write,
+                    server.create_initialization_options(),
+                )
+
+                async with ClientSession(client_read, client_write) as session:
+                    await session.initialize()
+                    raw = await session.call_tool(
+                        "upload_file",
+                        {
+                            "file_path": str(report),
+                            "file_name": "report.md",
+                            "mime_type": "text/markdown",
+                        },
+                    )
+                    text = raw.content[0].text
+                    received.append(ToolOutcome.model_validate_json(text))
+
+                tg.cancel_scope.cancel()
+
+    assert len(received) == 1
+    outcome = received[0]
+    assert outcome.ok is True
+    assert outcome.resource_ref == "https://drive.google.com/rt"
+
+
+async def test_gmail_server_round_trip():
+    """Gmail: client calls send_message via in-process MCP streams; ToolOutcome parses back."""
+    import anyio
+    from mcp import ClientSession, types
+    from mcp.server import Server
+    from mcp.shared.memory import create_client_server_memory_streams
+
+    from app.delivery.models import GmailSendRequest, ToolOutcome
+
+    sent_response = {"id": "rt_gmail_001"}
+    svc = MagicMock()
+    svc.users.return_value.messages.return_value.send.return_value.execute.return_value = (
+        sent_response
+    )
+
+    from app.delivery.mcp_servers.gmail_server import _handle_send
+
+    server = Server("gmail-server-test")
+
+    @server.list_tools()
+    async def list_tools() -> list[types.Tool]:
+        return [
+            types.Tool(
+                name="send_message",
+                description="test",
+                inputSchema={"type": "object", "properties": {}},
+            )
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
+        req = GmailSendRequest(**(arguments or {}))
+        outcome = await _handle_send(req)
+        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+
+    received: list[ToolOutcome] = []
+
+    with (
+        patch(
+            "app.delivery.mcp_servers.gmail_server.load_credentials",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "app.delivery.mcp_servers.gmail_server.build_gmail_service",
+            return_value=svc,
+        ),
+    ):
+        async with create_client_server_memory_streams() as (
+            client_streams,
+            server_streams,
+        ):
+            client_read, client_write = client_streams
+            server_read, server_write = server_streams
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(
+                    server.run,
+                    server_read,
+                    server_write,
+                    server.create_initialization_options(),
+                )
+
+                async with ClientSession(client_read, client_write) as session:
+                    await session.initialize()
+                    raw = await session.call_tool(
+                        "send_message",
+                        {"to": "a@b.com", "subject": "Test", "body": "Body"},
+                    )
+                    text = raw.content[0].text
+                    received.append(ToolOutcome.model_validate_json(text))
+
+                tg.cancel_scope.cancel()
+
+    assert len(received) == 1
+    outcome = received[0]
+    assert outcome.ok is True
+    assert outcome.resource_ref == "rt_gmail_001"

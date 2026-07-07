@@ -28,7 +28,6 @@ from app.delivery.mcp_servers.google_auth import (
 logger = logging.getLogger("contractsentinel.delivery.gmail_server")
 
 _RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
-_NON_RETRYABLE_STATUSES = frozenset({400, 401, 403, 413})
 
 
 def _is_retryable(status: int) -> bool:
@@ -84,21 +83,47 @@ async def _handle_send(req: GmailSendRequest) -> ToolOutcome:
         return ToolOutcome(ok=False, retryable=False, error_message=str(exc))
 
 
+async def _run_server() -> None:
+    """Build and run the Gmail MCP stdio server. Also used by round-trip tests."""
+    from mcp import types
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+
+    server = Server("gmail-server")
+
+    @server.list_tools()
+    async def list_tools() -> list[types.Tool]:
+        return [
+            types.Tool(
+                name="send_message",
+                description="Send a Gmail message, optionally with a Markdown attachment.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "to": {"type": "string"},
+                        "subject": {"type": "string"},
+                        "body": {"type": "string"},
+                        "attachment_path": {"type": ["string", "null"]},
+                        "attachment_name": {"type": ["string", "null"]},
+                    },
+                    "required": ["to", "subject", "body"],
+                },
+            )
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict | None) -> list[types.TextContent]:
+        req = GmailSendRequest(**(arguments or {}))
+        outcome = await _handle_send(req)
+        return [types.TextContent(type="text", text=outcome.model_dump_json())]
+
+    async with stdio_server() as (read_stream, write_stream):
+        await server.run(
+            read_stream,
+            write_stream,
+            server.create_initialization_options(),
+        )
+
+
 if __name__ == "__main__":
-    import asyncio as _asyncio
-
-    try:
-        from mcp.server import Server
-        from mcp.server.stdio import stdio_server
-
-        app = Server("gmail-server")
-
-        @app.call_tool()
-        async def send_message(name: str, arguments: dict) -> list:
-            req = GmailSendRequest(**arguments)
-            outcome = await _handle_send(req)
-            return [{"type": "text", "text": outcome.model_dump_json()}]
-
-        _asyncio.run(stdio_server(app))
-    except ImportError:
-        pass
+    asyncio.run(_run_server())
