@@ -8,6 +8,9 @@ specs/000-constitution.md §3 (Configurable Thresholds Rule).
 Future nodes (CRAG, Self-RAG, etc.) will add their own constants here.
 """
 
+import os
+from typing import Optional
+
 from app.graph.state import RiskLevel
 
 # ── IngestAgent thresholds ─────────────────────────────────────────────────────
@@ -230,3 +233,34 @@ REPORT_EVIDENCE_TEXT_MAX_CHARS: int = 2000
 # Per-row cap on evidence_trail `evidence_text` before it is written to state, to
 # bound persisted state size (constitution §6; Edge Case 6). Mirrors the truncation
 # discipline of RISK_RATIONALE_MAX_CHARS / REDLINE_REWRITE_MAX_CHARS.
+
+# ── MCP delivery ───────────────────────────────────────────────────────────────
+# Source: specs/010-mcp-delivery/spec.md §6
+
+MCP_DELIVERY_ENABLED: bool = True
+MCP_DRIVE_ENABLED: bool = True
+MCP_GMAIL_ENABLED: bool = True
+
+MCP_DELIVERY_RECIPIENT: str = os.getenv("CONTRACTSENTINEL_DELIVERY_RECIPIENT", "")
+# Default Gmail recipient; "" → Gmail records FAILED ("no recipient configured")
+# while Drive proceeds (D13). A runner may override per request (D4).
+
+MCP_DRIVE_FOLDER_ID: Optional[str] = None
+# Target Drive folder id. None → account's Drive root.
+
+MCP_DRIVE_UPLOAD_FORMATS: tuple = ("md", "json")
+# Which of Node 7's report files to upload. Both by default (AC-2).
+
+MCP_GMAIL_ATTACH_REPORT: bool = True
+# Attach the Markdown report for resilience even if the Drive link is unavailable.
+
+MCP_DELIVERY_TIMEOUT_SECONDS: int = 60
+# Per-attempt wall-clock timeout for one MCP tool call (AC-16).
+
+MCP_DELIVERY_MAX_RETRIES: int = 2
+# Bounded retries with exponential backoff for transient errors (AC-17, Edge Case 8).
+
+GOOGLE_OAUTH_CREDENTIALS_PATH: str = "data/secrets/google_credentials.json"
+GOOGLE_OAUTH_TOKEN_PATH: str = "data/secrets/google_token.json"
+# OAuth client-secrets + cached-token paths (backend/-relative).
+# Consumed by the MCP server layer, NOT the client step (D10). git-ignored.

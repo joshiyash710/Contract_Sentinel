@@ -330,3 +330,37 @@ def test_report_no_llm_constant():
     assert not hasattr(config, "REPORT_TIMEOUT_SECONDS")
     assert not hasattr(config, "REPORT_LLM_CIRCUIT_BREAKER_THRESHOLD")
     assert not hasattr(config, "REPORT_MODEL_NAME")
+
+
+def test_mcp_delivery_constants_match_spec():
+    """Verify MCP delivery constants match specs/010 §6."""
+    from app import config
+
+    assert config.MCP_DELIVERY_ENABLED is True
+    assert config.MCP_DRIVE_ENABLED is True
+    assert config.MCP_GMAIL_ENABLED is True
+    assert isinstance(config.MCP_DELIVERY_RECIPIENT, str)
+    assert config.MCP_DRIVE_FOLDER_ID is None
+    assert config.MCP_DRIVE_UPLOAD_FORMATS == ("md", "json")
+    assert config.MCP_GMAIL_ATTACH_REPORT is True
+    assert config.MCP_DELIVERY_TIMEOUT_SECONDS == 60
+    assert config.MCP_DELIVERY_MAX_RETRIES == 2
+    assert (
+        config.GOOGLE_OAUTH_CREDENTIALS_PATH == "data/secrets/google_credentials.json"
+    )
+    assert config.GOOGLE_OAUTH_TOKEN_PATH == "data/secrets/google_token.json"
+
+
+def test_mcp_delivery_no_llm_constant():
+    """Delivery makes no LLM call — no model/timeout-LLM/circuit-breaker constant."""
+    from app import config
+
+    assert not hasattr(config, "MCP_DELIVERY_MODEL_NAME")
+    assert not hasattr(config, "MCP_DELIVERY_LLM_CIRCUIT_BREAKER_THRESHOLD")
+
+
+def test_mcp_upload_formats_are_report_extensions():
+    """Uploaded formats must be a subset of Node-7's output extensions {md, json}."""
+    from app import config
+
+    assert set(config.MCP_DRIVE_UPLOAD_FORMATS) <= {"md", "json"}
