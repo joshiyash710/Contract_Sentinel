@@ -31,3 +31,6 @@ Thumbs.db
 
 # Generated report artifacts (ReportAgent / Node 7 output — runtime-created, never committed)
 backend/data/reports/
+
+# OAuth credentials and tokens (MCP delivery — never committed, D10 / D9)
+backend/data/secrets/
