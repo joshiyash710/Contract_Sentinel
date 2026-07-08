@@ -64,8 +64,9 @@ python -m pip install --upgrade pip
 - `fastapi` - Modern, high-performance web framework for building APIs
 - `uvicorn` - ASGI server for running FastAPI applications
 - `sse-starlette` - Server-Sent Events support for progress streaming
+- `python-multipart` - Multipart form-data parsing for the `POST /api/analyze` upload endpoint
 
-**Rationale**: FastAPI provides excellent performance and automatic API documentation. Uvicorn serves as the production-ready ASGI server. SSE-Starlette enables progress streaming to support the UI requirements noted in the constitution's local-model-latency consideration, since Qwen responses are slower than a hosted API and need a transport that handles long-lived connections gracefully.
+**Rationale**: FastAPI provides excellent performance and automatic API documentation. Uvicorn serves as the production-ready ASGI server. SSE-Starlette enables progress streaming to support the UI requirements noted in the constitution's local-model-latency consideration, since Qwen responses are slower than a hosted API and need a transport that handles long-lived connections gracefully. Python-multipart is required by FastAPI's `UploadFile`/`Form` support for `multipart/form-data` payloads — without it, FastAPI raises a `RuntimeError` at request time on the upload endpoint.
 
 ### f) Database / Storage
 
@@ -148,6 +149,7 @@ dependencies = [
     "google-api-python-client>=2.125.0",
     "pydantic>=2.7.0",
     "python-dotenv>=1.0.0",
+    "python-multipart>=0.0.9",
 ]
 
 [project.optional-dependencies]

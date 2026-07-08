@@ -364,3 +364,45 @@ def test_mcp_upload_formats_are_report_extensions():
     from app import config
 
     assert set(config.MCP_DRIVE_UPLOAD_FORMATS) <= {"md", "json"}
+
+
+def test_runner_api_constants_match_spec():
+    """Verify Runner/API constants match specs/011 §6.1."""
+    from app import config
+
+    assert config.UPLOAD_DIR == "data/uploads"
+    assert config.MAX_UPLOAD_SIZE_BYTES == 25 * 1024 * 1024
+    assert config.ALLOWED_UPLOAD_EXTENSIONS == frozenset({".pdf", ".docx"})
+    assert config.RUNNER_WORKER_CONCURRENCY == 1
+    assert config.JOB_REGISTRY_MAX == 100
+    assert tuple(config.CORS_ALLOWED_ORIGINS) == (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    )
+    assert config.API_BIND_HOST == "127.0.0.1"
+    assert config.API_BIND_PORT == 8000
+
+
+def test_upload_extensions_match_ingest():
+    """The API's accepted extensions must mirror IngestAgent's, so the boundary and the
+    node agree on what is a valid contract (drift lock — spec AC-15)."""
+    from app import config
+    from app.graph.nodes.ingest_agent import ALLOWED_EXTENSIONS
+
+    assert set(config.ALLOWED_UPLOAD_EXTENSIONS) == set(ALLOWED_EXTENSIONS)
+
+
+def test_bind_host_is_localhost():
+    """D1: never an accidental public bind."""
+    from app import config
+
+    assert config.API_BIND_HOST == "127.0.0.1"
+
+
+def test_runner_no_llm_constant():
+    """The runner makes no LLM call — no model/timeout-LLM/circuit-breaker constant (D6)."""
+    from app import config
+
+    assert not hasattr(config, "RUNNER_MODEL_NAME")
+    assert not hasattr(config, "RUNNER_TIMEOUT_SECONDS")
+    assert not hasattr(config, "RUNNER_LLM_CIRCUIT_BREAKER_THRESHOLD")

@@ -6,6 +6,7 @@ so these fixtures apply only to the integration tests, on top of the shared
 fixtures in tests/conftest.py.
 """
 
+import time
 import pytest
 
 import app.graph.nodes.report_agent as report_agent_mod
@@ -31,3 +32,97 @@ def _isolate_report_output(tmp_path, monkeypatch):
     monkeypatch.setattr(
         report_agent_mod, "REPORT_OUTPUT_DIR", str(tmp_path / "reports")
     )
+
+
+# ── Feature-011 runner/API helpers ───────────────────────────────────────────
+
+
+def _stub_delivery(state, *, recipient=None):
+    """Default delivery stub: both channels succeed."""
+    return {
+        "mcp_delivery_status": {
+            "drive": {"status": "SUCCESS", "error_message": None, "delivered_at": "t"},
+            "gmail": {"status": "SUCCESS", "error_message": None, "delivered_at": "t"},
+        }
+    }
+
+
+def _wait_for(client, job_id: str, target_state: str, timeout: float = 5.0) -> dict:
+    """Poll GET /api/jobs/{job_id} until status == target_state; return the JSON."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        r = client.get(f"/api/jobs/{job_id}")
+        if r.status_code == 200 and r.json().get("status") == target_state:
+            return r.json()
+        time.sleep(0.05)
+    raise TimeoutError(
+        f"Job {job_id!r} did not reach {target_state!r} within {timeout}s"
+    )
+
+
+@pytest.fixture
+def client(monkeypatch, tmp_path):
+    """TestClient for the runner/API layer with fast scripted fakes.
+
+    Patches:
+      - app.runner.core.build_graph  → fast 7-node scripted graph
+      - app.runner.core.deliver_report_sync → stub that succeeds
+      - app.config.UPLOAD_DIR → tmp_path/uploads
+
+    The fake graph writes both {stem}.md and {stem}.json to tmp_path/reports
+    on the terminal state, so report-download tests work (review T3).
+
+    Tests that need different behaviour (ingest_error, exception, slow) may
+    further monkeypatch within the test function.
+
+    NOTE (review T1): tests that hold a job running via a threading.Event MUST
+    event.set() to release the job before the 'with TestClient(...)' block exits,
+    otherwise worker.stop() blocks for the full join_timeout.
+    """
+    import app.config as _config
+    from app.api.main import create_app
+    from starlette.testclient import TestClient
+
+    report_dir = tmp_path / "reports"
+    report_dir.mkdir(parents=True, exist_ok=True)
+
+    def _fake_build_graph():
+        stem = "test_contract"
+        md_path = report_dir / f"{stem}.md"
+        json_path = report_dir / f"{stem}.json"
+        md_path.write_text("# Risk Report\n\n## Summary\n")
+        json_path.write_text('{"risk_score": "HIGH", "findings": []}')
+
+        class _FakeGraph:
+            def stream(self, initial, stream_mode=None):
+                doc_path = initial.get("document_path", "c.pdf")
+                for node in [
+                    "ingest_agent",
+                    "clause_splitter",
+                    "crag_retrieval",
+                    "self_rag_validation",
+                    "risk_score",
+                    "redline",
+                ]:
+                    yield {"current_node": node, "document_path": doc_path}
+                yield {
+                    "current_node": "report",
+                    "document_path": doc_path,
+                    "report_path": str(md_path),
+                    "document_id": stem,
+                }
+
+        return _FakeGraph()
+
+    monkeypatch.setattr("app.runner.core.build_graph", _fake_build_graph)
+    monkeypatch.setattr("app.runner.core.deliver_report_sync", _stub_delivery)
+    monkeypatch.setattr(_config, "UPLOAD_DIR", str(tmp_path / "uploads"))
+
+    # NOTE (review T2): do NOT re-patch report_agent.REPORT_OUTPUT_DIR here —
+    # the autouse _isolate_report_output already redirects it. Since build_graph is
+    # FAKED, the real report_agent never runs, so REPORT_OUTPUT_DIR is moot for
+    # these tests. What matters is that _fake_build_graph writes its own files under
+    # tmp_path and sets report_path to the .md path.
+
+    with TestClient(create_app()) as c:
+        yield c

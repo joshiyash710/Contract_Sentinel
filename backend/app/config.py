@@ -264,3 +264,37 @@ GOOGLE_OAUTH_CREDENTIALS_PATH: str = "data/secrets/google_credentials.json"
 GOOGLE_OAUTH_TOKEN_PATH: str = "data/secrets/google_token.json"
 # OAuth client-secrets + cached-token paths (backend/-relative).
 # Consumed by the MCP server layer, NOT the client step (D10). git-ignored.
+
+# ── Runner / API layer ─────────────────────────────────────────────────────────
+# Source: specs/011-pipeline-runner-api/spec.md §6.1
+
+UPLOAD_DIR: str = "data/uploads"
+# Directory (backend/-relative, mirroring REPORT_OUTPUT_DIR) where submitted contract
+# files are persisted as document_path before the graph runs (constitution §6 — state
+# minimality: the file is a reference, not embedded in state). Created if absent.
+
+MAX_UPLOAD_SIZE_BYTES: int = 25 * 1024 * 1024  # 25 MB
+# Boundary reject → 413 (spec AC-16). Enforced while streaming the upload.
+
+ALLOWED_UPLOAD_EXTENSIONS: frozenset = frozenset({".pdf", ".docx"})
+# Boundary reject → 400 (spec AC-15). MIRRORS IngestAgent's ALLOWED_EXTENSIONS
+# (ingest_agent.py); test_upload_extensions_match_ingest locks the two against drift.
+
+RUNNER_WORKER_CONCURRENCY: int = 1
+# Size of the shared background worker pool (spec D4). 1 because local Ollama serves one
+# generation at a time; >1 would contend, not speed up. Excess submissions queue.
+
+JOB_REGISTRY_MAX: int = 100
+# Max retained JobRecords in the in-memory registry (spec D5). On overflow the oldest by
+# insertion order is evicted; a GET on an evicted job_id → 404 (spec AC-22, EC-9).
+
+CORS_ALLOWED_ORIGINS: tuple = (
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+)
+# Browser origins granted CORS (spec D7). Default = the Vite dev-server origins the future
+# frontend/ runs on; a cross-origin EventSource/fetch fails without this even on localhost.
+
+API_BIND_HOST: str = "127.0.0.1"
+API_BIND_PORT: int = 8000
+# Uvicorn bind target (spec D1). Localhost-only; no auth. Overridable for local use.
