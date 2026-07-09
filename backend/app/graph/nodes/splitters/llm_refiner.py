@@ -104,6 +104,8 @@ def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> 
         model=model_name,
         messages=[{"role": "user", "content": prompt}],
         format="json",
+        think=False,  # qwen3 thinking mode + format="json" wastes the token budget
+        # on hidden reasoning and blows the timeout; the JSON answer never needs it.
         options={"num_predict": 4096},
     )
     raw_content = response["message"]["content"]
