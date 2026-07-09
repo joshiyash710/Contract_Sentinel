@@ -48,7 +48,7 @@ def test_report_before_ready_409(client, monkeypatch):
 
     hold = threading.Event()
 
-    def slow_run(document_path, *, recipient=None, on_progress=None):
+    def slow_run(document_path, *, recipient=None, on_progress=None, **kwargs):
         hold.wait(timeout=10.0)
         from dataclasses import dataclass
         from typing import Optional

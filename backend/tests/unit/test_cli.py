@@ -43,7 +43,7 @@ def test_cli_uses_run_pipeline():
 
     calls = []
 
-    def capture(doc_path, *, recipient=None, on_progress=None):
+    def capture(doc_path, *, recipient=None, on_progress=None, **kwargs):
         calls.append(
             {"doc": doc_path, "recipient": recipient, "on_progress": on_progress}
         )
@@ -64,7 +64,7 @@ def test_cli_passes_recipient():
 
     calls = []
 
-    def capture(doc_path, *, recipient=None, on_progress=None):
+    def capture(doc_path, *, recipient=None, on_progress=None, **kwargs):
         calls.append(recipient)
         return _happy_result()
 

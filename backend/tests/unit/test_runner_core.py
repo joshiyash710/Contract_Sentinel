@@ -24,7 +24,7 @@ def _make_fake_graph(states: list, *, raise_exc: Exception = None):
     """
     fake = MagicMock()
 
-    def fake_stream(initial, stream_mode=None):
+    def fake_stream(initial, stream_mode=None, config=None):
         if raise_exc is not None:
             raise raise_exc
         yield from states
@@ -114,7 +114,7 @@ def test_seeds_only_document_path_and_started_at():
 
     captured = {}
 
-    def fake_stream(initial, stream_mode=None):
+    def fake_stream(initial, stream_mode=None, config=None):
         captured["initial"] = initial
         yield from _HAPPY_STATES
 

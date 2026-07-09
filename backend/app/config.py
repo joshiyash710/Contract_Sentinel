@@ -284,9 +284,34 @@ RUNNER_WORKER_CONCURRENCY: int = 1
 # Size of the shared background worker pool (spec D4). 1 because local Ollama serves one
 # generation at a time; >1 would contend, not speed up. Excess submissions queue.
 
-JOB_REGISTRY_MAX: int = 100
-# Max retained JobRecords in the in-memory registry (spec D5). On overflow the oldest by
-# insertion order is evicted; a GET on an evicted job_id → 404 (spec AC-22, EC-9).
+# ── Durable persistence (feature 012) ──────────────────────────────────────────
+# Source: specs/012-durable-persistence/spec.md §6.1
+
+JOB_STORE_DB_PATH: str = "data/job_store.db"
+# Alembic-managed durable job store (spec D1). backend/-relative, mirroring
+# REPORT_OUTPUT_DIR / UPLOAD_DIR. Holds the durable projection of JobRecord so a
+# GET survives a process restart (spec AC-2; kills 011 EC-9). git-ignored.
+
+CHECKPOINTER_DB_PATH: str = "data/checkpoints.db"
+# LangGraph SqliteSaver file (spec D1). Owned by SqliteSaver.setup(), NEVER by
+# Alembic. Serialized ContractState per super-step, keyed by thread_id
+# (== job_id, spec D3). git-ignored.
+
+CHECKPOINTER_ENABLED: bool = True
+# When True the runner compiles the graph with the SqliteSaver (spec D7). Tests
+# and the CLI may disable it to compile a checkpointer-less graph (011 behavior).
+
+JOB_STORE_RETENTION_MAX: int = 500
+# Insert-time row cap (spec D5). On insert, rows beyond this are pruned oldest-
+# first by submitted_at and their checkpoint threads deleted, so the two stores
+# never drift. Supersedes 011's JOB_REGISTRY_MAX (kept as an alias below).
+
+STARTUP_RECOVERY_ENABLED: bool = True
+# When True the lifespan enumerates the store and re-enqueues recoverable jobs
+# (spec D8). Tests disable it to assert store state without auto-running jobs.
+
+JOB_REGISTRY_MAX: int = JOB_STORE_RETENTION_MAX
+# 011 alias — keep so no existing call site breaks; new code reads JOB_STORE_RETENTION_MAX.
 
 CORS_ALLOWED_ORIGINS: tuple = (
     "http://localhost:5173",

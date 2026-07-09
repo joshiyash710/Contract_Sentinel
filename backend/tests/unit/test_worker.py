@@ -27,7 +27,7 @@ def _make_registry_and_record(
 
     loop = asyncio.new_event_loop()
     buf = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec = JobRecord(
         job_id=job_id,
         document_path=document_path,
@@ -89,7 +89,7 @@ def test_single_shared_worker_serializes():
     hold = threading.Event()
     release = threading.Event()
 
-    def slow_run(document_path, *, recipient=None, on_progress=None):
+    def slow_run(document_path, *, recipient=None, on_progress=None, **kwargs):
         hold.set()
         release.wait(timeout=5.0)
         return _happy_run_result(document_path)
@@ -104,7 +104,7 @@ def test_single_shared_worker_serializes():
     loop = asyncio.new_event_loop()
     buf1 = JobEventBuffer(loop)
     buf2 = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec1 = JobRecord(job_id="j1", document_path="c.pdf", submitted_at="t", buffer=buf1)
     rec2 = JobRecord(job_id="j2", document_path="c2.pdf", submitted_at="t", buffer=buf2)
     reg.add(rec1)
@@ -140,7 +140,7 @@ def test_completed_status_and_terminal_event():
     from app.runner.events import JobEventBuffer
 
     buf = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec = JobRecord(job_id="j1", document_path="c.pdf", submitted_at="t", buffer=buf)
     reg.add(rec)
 
@@ -174,7 +174,7 @@ def test_ingest_error_marks_completed_with_error():
     from app.runner.events import JobEventBuffer
 
     buf = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec = JobRecord(job_id="j1", document_path="c.pdf", submitted_at="t", buffer=buf)
     reg.add(rec)
 
@@ -207,7 +207,7 @@ def test_exception_marks_failed_isolated():
 
     buf_a = JobEventBuffer(loop)
     buf_b = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec_a = JobRecord(
         job_id="jA", document_path="a.pdf", submitted_at="t", buffer=buf_a
     )
@@ -219,7 +219,7 @@ def test_exception_marks_failed_isolated():
 
     call_count = {"n": 0}
 
-    def side_effect(document_path, *, recipient=None, on_progress=None):
+    def side_effect(document_path, *, recipient=None, on_progress=None, **kwargs):
         call_count["n"] += 1
         if document_path == "a.pdf":
             raise RuntimeError("boom")
@@ -253,7 +253,7 @@ def test_worker_uses_run_pipeline():
     from app.runner.events import JobEventBuffer
 
     buf = JobEventBuffer(loop)
-    reg = JobRegistry(max_jobs=50)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
     rec = JobRecord(
         job_id="j1",
         document_path="c.pdf",
@@ -265,7 +265,7 @@ def test_worker_uses_run_pipeline():
 
     calls = []
 
-    def capture(document_path, *, recipient=None, on_progress=None):
+    def capture(document_path, *, recipient=None, on_progress=None, **kwargs):
         calls.append({"document_path": document_path, "recipient": recipient})
         return _happy_run_result(document_path)
 
@@ -294,7 +294,7 @@ def test_evicted_job_skipped():
     from app.runner.registry import JobRegistry, JobRecord
     from app.runner.events import JobEventBuffer
 
-    reg = JobRegistry(max_jobs=1)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=1)
     buf_a = JobEventBuffer(loop)
     buf_b = JobEventBuffer(loop)
     rec_a = JobRecord(
@@ -310,7 +310,7 @@ def test_evicted_job_skipped():
 
     called_with = []
 
-    def capture(document_path, *, recipient=None, on_progress=None):
+    def capture(document_path, *, recipient=None, on_progress=None, **kwargs):
         called_with.append(document_path)
         return _happy_run_result(document_path)
 

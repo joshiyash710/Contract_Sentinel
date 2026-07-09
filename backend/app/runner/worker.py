@@ -9,6 +9,12 @@ Deterministic shutdown (review T1): stop() sets the stop event, enqueues one
 sentinel per thread, then joins each thread. This guarantees no worker is still
 mid-run (and publishing via loop.call_soon_threadsafe) after lifespan returns.
 Daemon threads still prevent a hard hang if a run genuinely wedges past the timeout.
+
+Feature 012 additions:
+- PipelineWorker accepts saver= (shared SqliteSaver, may be None).
+- submit() accepts resume=False flag; queue item is now a (job_id, resume) tuple.
+- _run_one unpacks the tuple, picks up already_completed on resume, and threads
+  checkpointer/thread_id/resume/already_completed into run_pipeline.
 """
 
 import logging
@@ -31,8 +37,9 @@ def _now_iso() -> str:
 
 
 class PipelineWorker:
-    def __init__(self, registry: JobRegistry, concurrency: int = 1) -> None:
+    def __init__(self, registry: JobRegistry, saver=None, concurrency: int = 1) -> None:
         self._registry = registry
+        self._saver = saver
         self._concurrency = concurrency
         self._queue: queue.Queue = queue.Queue()
         self._stop_event = threading.Event()
@@ -44,8 +51,8 @@ class PipelineWorker:
             t.start()
             self._threads.append(t)
 
-    def submit(self, job_id: str) -> None:
-        self._queue.put(job_id)
+    def submit(self, job_id: str, resume: bool = False) -> None:
+        self._queue.put((job_id, resume))
 
     def stop(self, join_timeout: float = 5.0) -> None:
         self._stop_event.set()
@@ -61,13 +68,18 @@ class PipelineWorker:
                 break
             self._run_one(item)
 
-    def _run_one(self, job_id: str) -> None:
+    def _run_one(self, item) -> None:
+        job_id, resume = item
         rec: Optional[JobRecord] = self._registry.get(job_id)
         if rec is None:
-            # Job was evicted before it ran — skip silently
             return
 
-        rec.mark_running(_now_iso())
+        if not resume:
+            rec.mark_running(_now_iso())
+            already = None
+        else:
+            rec.mark_running(rec._started_at or _now_iso())
+            already = rec.snapshot_completed_nodes()
 
         def _on_progress(p: NodeProgress) -> None:
             rec.record_progress(p.node)
@@ -87,6 +99,10 @@ class PipelineWorker:
                 rec.document_path,
                 recipient=rec.recipient,
                 on_progress=_on_progress,
+                checkpointer=self._saver,
+                thread_id=job_id,
+                resume=resume,
+                already_completed=already,
             )
 
             error: Optional[ErrorInfo] = None

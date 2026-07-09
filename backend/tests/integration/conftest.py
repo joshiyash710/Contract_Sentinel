@@ -86,7 +86,7 @@ def client(monkeypatch, tmp_path):
     report_dir = tmp_path / "reports"
     report_dir.mkdir(parents=True, exist_ok=True)
 
-    def _fake_build_graph():
+    def _fake_build_graph(checkpointer=None):
         stem = "test_contract"
         md_path = report_dir / f"{stem}.md"
         json_path = report_dir / f"{stem}.json"
@@ -94,8 +94,8 @@ def client(monkeypatch, tmp_path):
         json_path.write_text('{"risk_score": "HIGH", "findings": []}')
 
         class _FakeGraph:
-            def stream(self, initial, stream_mode=None):
-                doc_path = initial.get("document_path", "c.pdf")
+            def stream(self, initial, stream_mode=None, config=None):
+                doc_path = (initial or {}).get("document_path", "c.pdf")
                 for node in [
                     "ingest_agent",
                     "clause_splitter",
@@ -124,6 +124,11 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr("app.runner.core.build_graph", _fake_build_graph)
     monkeypatch.setattr("app.runner.core.deliver_report_sync", _stub_delivery)
     monkeypatch.setattr(_config, "UPLOAD_DIR", str(tmp_path / "uploads"))
+    # Redirect DB paths to tmp so the test does not touch backend/data/
+    monkeypatch.setattr(_config, "JOB_STORE_DB_PATH", str(tmp_path / "job_store.db"))
+    monkeypatch.setattr(_config, "CHECKPOINTER_DB_PATH", str(tmp_path / "checkpoints.db"))
+    # Disable startup recovery so tests control exactly which jobs run
+    monkeypatch.setattr(_config, "STARTUP_RECOVERY_ENABLED", False)
 
     # NOTE (review T2): do NOT re-patch report_agent.REPORT_OUTPUT_DIR here —
     # the autouse _isolate_report_output already redirects it. Since build_graph is
