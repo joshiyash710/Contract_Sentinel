@@ -155,7 +155,7 @@ def test_response_not_blocked_by_run(client, monkeypatch):
 
     hold = threading.Event()
 
-    def slow_run(document_path, *, recipient=None, on_progress=None):
+    def slow_run(document_path, *, recipient=None, on_progress=None, **kwargs):
         hold.wait(timeout=10.0)
         return _happy_result(document_path)
 

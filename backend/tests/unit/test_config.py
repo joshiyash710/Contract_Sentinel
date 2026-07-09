@@ -374,7 +374,7 @@ def test_runner_api_constants_match_spec():
     assert config.MAX_UPLOAD_SIZE_BYTES == 25 * 1024 * 1024
     assert config.ALLOWED_UPLOAD_EXTENSIONS == frozenset({".pdf", ".docx"})
     assert config.RUNNER_WORKER_CONCURRENCY == 1
-    assert config.JOB_REGISTRY_MAX == 100
+    assert config.JOB_REGISTRY_MAX == 500
     assert tuple(config.CORS_ALLOWED_ORIGINS) == (
         "http://localhost:5173",
         "http://127.0.0.1:5173",
@@ -406,3 +406,32 @@ def test_runner_no_llm_constant():
     assert not hasattr(config, "RUNNER_MODEL_NAME")
     assert not hasattr(config, "RUNNER_TIMEOUT_SECONDS")
     assert not hasattr(config, "RUNNER_LLM_CIRCUIT_BREAKER_THRESHOLD")
+
+
+def test_persistence_constants_match_spec():
+    """Verify durable-persistence constants match specs/012 §6.1."""
+    from app import config
+
+    assert config.JOB_STORE_DB_PATH == "data/job_store.db"
+    assert config.CHECKPOINTER_DB_PATH == "data/checkpoints.db"
+    assert config.CHECKPOINTER_ENABLED is True
+    assert config.JOB_STORE_RETENTION_MAX == 500
+    assert config.STARTUP_RECOVERY_ENABLED is True
+
+
+def test_persistence_constants_correct_types():
+    """str for paths, bool for flags, int for the cap."""
+    from app import config
+
+    assert isinstance(config.JOB_STORE_DB_PATH, str)
+    assert isinstance(config.CHECKPOINTER_DB_PATH, str)
+    assert isinstance(config.CHECKPOINTER_ENABLED, bool)
+    assert isinstance(config.JOB_STORE_RETENTION_MAX, int)
+    assert isinstance(config.STARTUP_RECOVERY_ENABLED, bool)
+
+
+def test_job_registry_max_alias():
+    """JOB_REGISTRY_MAX is an alias for JOB_STORE_RETENTION_MAX (spec D5)."""
+    from app import config
+
+    assert config.JOB_REGISTRY_MAX == config.JOB_STORE_RETENTION_MAX

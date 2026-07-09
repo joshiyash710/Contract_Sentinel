@@ -37,3 +37,8 @@ backend/data/uploads/
 
 # OAuth credentials and tokens (MCP delivery — never committed, D10 / D9)
 backend/data/secrets/
+
+# SQLite durable stores (feature 012 — runtime-created, never committed)
+backend/data/*.db
+backend/data/*.db-wal
+backend/data/*.db-shm

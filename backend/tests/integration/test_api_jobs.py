@@ -84,12 +84,12 @@ def test_ingest_error_completes_with_error(client, monkeypatch):
     """Fake graph sets ingest_error → job 'completed' with error.kind='ingest_error'."""
     import app.runner.core as core_mod
 
-    def ingest_error_graph():
+    def ingest_error_graph(checkpointer=None):
         class _FG:
-            def stream(self, initial, stream_mode=None):
+            def stream(self, initial, stream_mode=None, config=None):
                 yield {
                     "current_node": "ingest_agent",
-                    "document_path": initial.get("document_path", ""),
+                    "document_path": (initial or {}).get("document_path", ""),
                     "ingest_error": {"message": "bad pdf", "error_type": "ParseError"},
                 }
 
@@ -115,16 +115,16 @@ def test_graph_exception_marks_failed(client, monkeypatch):
 
     call_count = {"n": 0}
 
-    def sometimes_raise():
+    def sometimes_raise(checkpointer=None):
         class _FG:
-            def stream(self, initial, stream_mode=None):
+            def stream(self, initial, stream_mode=None, config=None):
                 call_count["n"] += 1
                 if call_count["n"] == 1:
                     raise RuntimeError("graph exploded")
                 # Second call: happy path (minimal)
                 yield {
                     "current_node": "report",
-                    "document_path": initial.get("document_path", ""),
+                    "document_path": (initial or {}).get("document_path", ""),
                     "report_path": "r.md",
                     "document_id": "d",
                 }
@@ -193,16 +193,16 @@ def test_eviction_returns_404(monkeypatch, tmp_path):
     (report_dir / f"{stem}.md").write_text("# R")
     (report_dir / f"{stem}.json").write_text("{}")
 
-    def _small_fake():
+    def _small_fake(checkpointer=None):
         class _FG:
-            def stream(self, initial, stream_mode=None):
+            def stream(self, initial, stream_mode=None, config=None):
                 yield {
                     "current_node": "ingest_agent",
-                    "document_path": initial.get("document_path", ""),
+                    "document_path": (initial or {}).get("document_path", ""),
                 }
                 yield {
                     "current_node": "report",
-                    "document_path": initial.get("document_path", ""),
+                    "document_path": (initial or {}).get("document_path", ""),
                     "report_path": str(report_dir / f"{stem}.md"),
                     "document_id": stem,
                 }
@@ -216,6 +216,10 @@ def test_eviction_returns_404(monkeypatch, tmp_path):
     monkeypatch.setattr("app.runner.core.deliver_report_sync", _delivery)
     monkeypatch.setattr(_config, "UPLOAD_DIR", str(tmp_path / "uploads"))
     monkeypatch.setattr(_config, "JOB_REGISTRY_MAX", 2)
+    monkeypatch.setattr(_config, "JOB_STORE_RETENTION_MAX", 2)
+    monkeypatch.setattr(_config, "JOB_STORE_DB_PATH", str(tmp_path / "evict_job_store.db"))
+    monkeypatch.setattr(_config, "CHECKPOINTER_DB_PATH", str(tmp_path / "evict_checkpoints.db"))
+    monkeypatch.setattr(_config, "STARTUP_RECOVERY_ENABLED", False)
 
     import app.graph.nodes.report_agent as ra_mod
 

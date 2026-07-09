@@ -32,8 +32,12 @@ from app.graph.nodes.redline_agent import route_on_risk, redline_agent, skip_red
 from app.graph.nodes.report_agent import report_agent
 
 
-def build_graph():
+def build_graph(checkpointer=None):
     """Build and compile the ContractSentinel pipeline graph.
+
+    checkpointer: optional LangGraph checkpointer (feature 012). Default None →
+    compiles a checkpointer-less graph byte-identical to feature 011, so every
+    existing graph-structure test is unaffected (spec AC-8).
 
     Returns:
         CompiledStateGraph: the compiled LangGraph graph object.
@@ -133,4 +137,4 @@ def build_graph():
     graph.add_edge("report", END)
 
     graph.set_entry_point("ingest_agent")
-    return graph.compile()
+    return graph.compile(checkpointer=checkpointer)

@@ -28,7 +28,7 @@ def test_add_and_get():
     """An added record is retrievable by id; an unknown id returns None."""
     from app.runner.registry import JobRegistry, JobRecord
 
-    reg = JobRegistry(max_jobs=10)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=10)
     buf = _make_mock_buffer()
     rec = JobRecord(job_id="j1", document_path="c.pdf", submitted_at="t", buffer=buf)
     reg.add(rec)
@@ -42,7 +42,7 @@ def test_eviction_keeps_last_n():
     from app.runner.registry import JobRegistry, JobRecord
 
     N = 3
-    reg = JobRegistry(max_jobs=N)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=N)
     ids = []
     for i in range(N + 1):
         jid = f"j{i}"

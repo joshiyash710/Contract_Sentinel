@@ -2,14 +2,17 @@
 CLI entry point for the ContractSentinel pipeline runner.
 
 Usage:
-    python -m app.runner <contract_file> [--recipient EMAIL]
+    python -m app.runner <contract_file> [--recipient EMAIL] [--checkpoint]
 
 Shares the exact run_pipeline core with the API worker — no forked logic (spec D2).
 Progress is printed to stderr; the final report path is printed to stdout.
+
+--checkpoint enables the SQLite checkpointer for resume testing (feature 012).
 """
 
 import argparse
 import sys
+from uuid import uuid4
 
 from app.runner.core import run_pipeline, NodeProgress
 
@@ -24,11 +27,29 @@ def main(argv=None) -> int:
     parser.add_argument(
         "--recipient", default=None, help="Email recipient for MCP delivery"
     )
+    parser.add_argument(
+        "--checkpoint",
+        action="store_true",
+        help="Enable the SQLite checkpointer for resume testing (feature 012)",
+    )
     args = parser.parse_args(argv)
+
+    saver = None
+    thread_id = None
+    if args.checkpoint:
+        import app.config as _cfg
+        from app.runner.persistence import build_saver
+
+        saver = build_saver(_cfg.CHECKPOINTER_DB_PATH)
+        thread_id = str(uuid4())
 
     try:
         result = run_pipeline(
-            args.file, recipient=args.recipient, on_progress=_on_progress
+            args.file,
+            recipient=args.recipient,
+            on_progress=_on_progress,
+            checkpointer=saver,
+            thread_id=thread_id,
         )
     except Exception as exc:
         print(f"Error: {exc}", file=sys.stderr)
