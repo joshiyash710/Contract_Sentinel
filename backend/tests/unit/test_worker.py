@@ -155,7 +155,9 @@ def test_completed_status_and_terminal_event():
 
     status = rec.to_status()
     assert status.status.value == "completed"
-    assert status.report_path == "data/reports/doc.md"
+    assert (
+        rec.report_path == "data/reports/doc.md"
+    )  # internal accessor, not on JobStatus
     assert status.mcp_delivery_status != {}
     assert status.finished_at is not None
 

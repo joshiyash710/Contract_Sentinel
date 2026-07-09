@@ -33,17 +33,43 @@ def _make_fake_graph(states: list, *, raise_exc: Exception = None):
     return fake
 
 
-# Happy-path scripted states (7 nodes, values mode — each dict is the full state)
+# Happy-path scripted states (7 nodes, values mode — each dict is the full state).
+# node_timings mirrors what real nodes write ({current_node: elapsed}).
 _HAPPY_STATES = [
-    {"current_node": "ingest_agent", "document_path": "c.pdf"},
-    {"current_node": "clause_splitter", "document_path": "c.pdf"},
-    {"current_node": "crag_retrieval", "document_path": "c.pdf"},
-    {"current_node": "self_rag_validation", "document_path": "c.pdf"},
-    {"current_node": "risk_score", "document_path": "c.pdf"},
-    {"current_node": "redline", "document_path": "c.pdf"},
+    {
+        "current_node": "ingest_agent",
+        "document_path": "c.pdf",
+        "node_timings": {"ingest_agent": 0.5},
+    },
+    {
+        "current_node": "clause_splitter",
+        "document_path": "c.pdf",
+        "node_timings": {"clause_splitter": 0.5},
+    },
+    {
+        "current_node": "crag_retrieval",
+        "document_path": "c.pdf",
+        "node_timings": {"crag_retrieval": 0.5},
+    },
+    {
+        "current_node": "self_rag_validation",
+        "document_path": "c.pdf",
+        "node_timings": {"self_rag_validation": 0.5},
+    },
+    {
+        "current_node": "risk_score",
+        "document_path": "c.pdf",
+        "node_timings": {"risk_score": 0.5},
+    },
+    {
+        "current_node": "redline",
+        "document_path": "c.pdf",
+        "node_timings": {"redline": 0.5},
+    },
     {
         "current_node": "report",
         "document_path": "c.pdf",
+        "node_timings": {"report": 0.5},
         "report_path": "data/reports/doc.md",
         "document_id": "doc",
     },
@@ -143,6 +169,8 @@ def test_progress_callback_per_node():
     for c in calls:
         assert c.total == 7
         assert isinstance(c.index, int)
+        # elapsed_seconds is read from state["node_timings"][node] (spec §2.4)
+        assert c.elapsed_seconds == 0.5
 
 
 def test_redline_branch_indices():

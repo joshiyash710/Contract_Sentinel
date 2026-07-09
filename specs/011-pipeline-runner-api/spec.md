@@ -110,8 +110,8 @@ from 001 unchanged.
 event: "progress" | "completed" | "failed"
 job_id: str
 node: Optional[str]                   # node just finished (progress events)
-node_index: Optional[int]             # this node's position (see mapping below)
-node_total: Optional[int]             # total nodes THIS run will traverse
+index: Optional[int]                  # this node's position (see mapping below)
+total: Optional[int]                  # total nodes THIS run will traverse
 elapsed_seconds: Optional[float]      # from node_timings for that node
 final: Optional[JobStatus]            # present only on completed/failed
 ```
@@ -119,15 +119,17 @@ final: Optional[JobStatus]            # present only on completed/failed
 Progress events are derived from `graph.stream(...)`: each yielded node update
 becomes one `progress` SSE event. When the graph reaches `END` and delivery
 finishes, a single terminal `completed` (or `failed`) event carries the full
-`JobStatus`, then the stream closes.
+`JobStatus`, then the stream closes. Each SSE frame sets the named `event:` field
+(`progress`/`completed`/`failed`) in addition to the JSON `data:` payload, so a
+browser `EventSource.addEventListener(...)` can dispatch by event name.
 
 **Progress indexing over a branching graph.** The graph does not always emit 7
 updates: `route_on_risk` yields an update for **either** `redline` **or**
 `skip_redline` (both are logical Node 6), and an ingest-error short-circuits to
 `END` after `ingest_agent` (one update). The runner therefore holds a canonical
 `node_name → index` map where `redline` and `skip_redline` **both resolve to
-index 6**, and computes `node_total` per run (≤ 7) to reflect the branch/
-short-circuit actually taken. `node_index` is for driving a progress bar only;
+index 6**, and reports `total` per run (≤ 7) to reflect the branch/
+short-circuit actually taken. `index` is for driving a progress bar only;
 AC-9's "one event per node actually entered" remains the authoritative event
 count. The map lives in one place so the plan does not re-derive it per handler.
 

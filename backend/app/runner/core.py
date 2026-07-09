@@ -30,7 +30,7 @@ class NodeProgress:
     node: str
     index: Optional[int]
     total: int
-    started_at: str
+    elapsed_seconds: Optional[float]
 
 
 @dataclass
@@ -69,12 +69,16 @@ def run_pipeline(
         if node and node != last_node:
             last_node = node
             if on_progress is not None:
+                # Per-node elapsed time is written by each node as
+                # node_timings={current_node: elapsed} (spec §2.4); read it here so
+                # SSE can surface elapsed_seconds. None when the node did not record one.
+                timing = (state.get("node_timings") or {}).get(node)
                 on_progress(
                     NodeProgress(
                         node=node,
                         index=node_index(node),
                         total=TOTAL_STAGES,
-                        started_at=_now_iso(),
+                        elapsed_seconds=timing,
                     )
                 )
 

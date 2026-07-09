@@ -79,6 +79,7 @@ def test_record_lock_methods_mutate():
     rec.record_progress("ingest_agent")
     status = rec.to_status()
     assert "ingest_agent" in status.completed_nodes
+    assert status.current_node == "ingest_agent"  # last node entered (spec §2.3)
 
     rec.mark_terminal(status=JobState.completed, finished_at="t2", report_path=None)
     assert rec.to_status().status == JobState.completed
@@ -185,7 +186,6 @@ def test_registry_is_single_seam():
 
         def get(self, job_id):
             return self._store.get(job_id)
-
 
     fake_reg = FakeRegistry()
 

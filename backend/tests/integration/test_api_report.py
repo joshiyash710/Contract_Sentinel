@@ -102,13 +102,12 @@ def test_missing_file_on_disk_404(client, tmp_path):
     # Verify it's currently available
     status = client.get(f"/api/jobs/{job_id}").json()
     assert status["report_available"] is True
-    report_path = status["report_path"]
 
-    # Delete the report file
-    import os
-
-    if report_path and os.path.exists(report_path):
-        os.remove(report_path)
+    # report_path is not exposed on the boundary status (spec §2.3); the fake graph
+    # in the client fixture writes the report to tmp_path/reports/test_contract.md.
+    report_file = tmp_path / "reports" / "test_contract.md"
+    if report_file.exists():
+        report_file.unlink()
 
     # Now the file is gone
     r = client.get(f"/api/jobs/{job_id}/report?format=md")

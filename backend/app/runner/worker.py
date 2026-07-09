@@ -78,6 +78,7 @@ class PipelineWorker:
                     node=p.node,
                     index=p.index,
                     total=p.total,
+                    elapsed_seconds=p.elapsed_seconds,
                 )
             )
 

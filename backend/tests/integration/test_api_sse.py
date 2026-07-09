@@ -112,6 +112,22 @@ def test_late_subscriber_gets_full_sequence(client):
     assert terminal is not None
 
 
+def test_sse_named_event_field(client):
+    """Each SSE frame carries a named `event:` line matching its payload (spec §2.4, F1),
+    so a browser EventSource.addEventListener('completed'|'progress', ...) works."""
+    job_id = _submit(client)
+    _wait_for(client, job_id, "completed")
+
+    event_lines = []
+    with client.stream("GET", f"/api/jobs/{job_id}/events") as r:
+        for line in r.iter_lines():
+            if line.startswith("event:"):
+                event_lines.append(line[len("event:") :].strip())
+
+    assert "progress" in event_lines
+    assert event_lines[-1] == "completed"
+
+
 def test_unknown_job_events_404(client):
     """GET /api/jobs/{unknown}/events → 404 (AC-17)."""
     r = client.get("/api/jobs/does-not-exist/events")

@@ -46,6 +46,7 @@ class JobRecord:
     _status: JobState = field(default=JobState.queued, init=False, repr=False)
     _started_at: Optional[str] = field(default=None, init=False, repr=False)
     _finished_at: Optional[str] = field(default=None, init=False, repr=False)
+    _current_node: Optional[str] = field(default=None, init=False, repr=False)
     _completed_nodes: List[str] = field(default_factory=list, init=False, repr=False)
     _report_path: Optional[str] = field(default=None, init=False, repr=False)
     _mcp_delivery_status: Dict[str, Any] = field(
@@ -63,7 +64,18 @@ class JobRecord:
 
     def record_progress(self, node: str) -> None:
         with self._lock:
+            self._current_node = node
             self._completed_nodes.append(node)
+
+    @property
+    def report_path(self) -> Optional[str]:
+        """Thread-safe accessor for the on-disk report path.
+
+        Kept OFF the boundary JobStatus (spec §2.3 exposes report_available, not
+        the server filesystem path); the /report handler resolves the file from
+        this accessor alone (AC-13 — never a client-supplied path)."""
+        with self._lock:
+            return self._report_path
 
     def mark_terminal(
         self,
@@ -93,8 +105,8 @@ class JobRecord:
                 submitted_at=self.submitted_at,
                 started_at=self._started_at,
                 finished_at=self._finished_at,
+                current_node=self._current_node,
                 completed_nodes=completed_nodes,
-                report_path=report_path,
                 report_available=report_available,
                 mcp_delivery_status=_coerce_status(self._mcp_delivery_status),
                 error=self._error,

@@ -141,7 +141,7 @@ async def get_job_events(job_id: str, request: Request):
         backlog, q, closed = rec.buffer.subscribe()
         try:
             for ev in backlog:
-                yield {"data": ev.model_dump_json()}
+                yield {"event": ev.event, "data": ev.model_dump_json()}
             if closed:
                 return
             while True:
@@ -151,7 +151,7 @@ async def get_job_events(job_id: str, request: Request):
                     ev = await asyncio.wait_for(q.get(), timeout=1.0)
                 except asyncio.TimeoutError:
                     continue
-                yield {"data": ev.model_dump_json()}
+                yield {"event": ev.event, "data": ev.model_dump_json()}
                 if ev.event in ("completed", "failed"):
                     return
         finally:
@@ -168,11 +168,13 @@ async def get_job_report(job_id: str, request: Request, format: str = "md"):
     if rec is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    status = rec.to_status()
-    if status.status != JobState.completed or not status.report_path:
+    # report_path is intentionally NOT on the boundary JobStatus (spec §2.3);
+    # resolve it from the record's thread-safe accessor alone (AC-13).
+    report_path = rec.report_path
+    if rec.to_status().status != JobState.completed or not report_path:
         raise HTTPException(status_code=409, detail="Report not yet available")
 
-    md_path = Path(status.report_path)
+    md_path = Path(report_path)
 
     if format == "json":
         target = md_path.with_suffix(".json")

@@ -36,8 +36,8 @@ class JobStatus(BaseModel):
     submitted_at: str
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
+    current_node: Optional[str] = None
     completed_nodes: List[str] = Field(default_factory=list)
-    report_path: Optional[str] = None
     report_available: bool = False
     mcp_delivery_status: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[ErrorInfo] = None
@@ -49,4 +49,5 @@ class ProgressEvent(BaseModel):
     node: Optional[str] = None
     index: Optional[int] = None
     total: Optional[int] = None
+    elapsed_seconds: Optional[float] = None
     final: Optional[JobStatus] = None

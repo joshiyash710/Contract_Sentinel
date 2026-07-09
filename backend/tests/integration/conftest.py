@@ -104,10 +104,17 @@ def client(monkeypatch, tmp_path):
                     "risk_score",
                     "redline",
                 ]:
-                    yield {"current_node": node, "document_path": doc_path}
+                    # node_timings mirrors what real nodes write ({current_node: elapsed})
+                    # so the runner can surface elapsed_seconds (spec §2.4).
+                    yield {
+                        "current_node": node,
+                        "document_path": doc_path,
+                        "node_timings": {node: 0.01},
+                    }
                 yield {
                     "current_node": "report",
                     "document_path": doc_path,
+                    "node_timings": {"report": 0.01},
                     "report_path": str(md_path),
                     "document_id": stem,
                 }

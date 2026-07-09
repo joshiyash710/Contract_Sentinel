@@ -30,7 +30,10 @@ def test_jobstatus_defaults():
     assert status.started_at is None
     assert status.finished_at is None
     assert status.error is None
-    assert status.report_path is None
+    assert status.current_node is None
+    # report_path is intentionally NOT a boundary field (spec §2.3) — clients get
+    # report_available + the /report download endpoint, never the server FS path.
+    assert not hasattr(status, "report_path")
 
 
 def test_progressevent_roundtrips():
@@ -52,6 +55,24 @@ def test_progressevent_roundtrips():
     assert parsed.final is not None
     assert parsed.final.status == JobState.completed
     assert parsed.final.report_available is True
+
+
+def test_progressevent_carries_elapsed_seconds():
+    """ProgressEvent surfaces per-node elapsed_seconds (spec §2.4)."""
+    from app.runner.models import ProgressEvent
+
+    ev = ProgressEvent(
+        event="progress",
+        job_id="x",
+        node="ingest_agent",
+        index=1,
+        total=7,
+        elapsed_seconds=1.5,
+    )
+    parsed = ProgressEvent.model_validate_json(ev.model_dump_json())
+    assert parsed.elapsed_seconds == 1.5
+    # Optional — absent when a node recorded no timing
+    assert ProgressEvent(event="progress", job_id="x").elapsed_seconds is None
 
 
 def test_analyze_accepted_shape():
