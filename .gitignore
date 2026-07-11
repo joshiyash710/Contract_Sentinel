@@ -42,3 +42,11 @@ backend/data/secrets/
 backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
+
+# Frontend (feature 013 — Next.js + node)
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/next-env.d.ts
+frontend/.env.local
+frontend/*.tsbuildinfo

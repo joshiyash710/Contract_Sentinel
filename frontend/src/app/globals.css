@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ────────────────────────────────────────────────────────────────────────────
+   CANONICAL DESIGN TOKENS (spec 013 §2.2). This is the SINGLE source of truth for
+   color — hex literals appear ONLY here (and the fallback map in src/lib/tokens.ts).
+   Tailwind (tailwind.config.ts) and charts reference these variables. One dark
+   theme only (spec AC-3): there is deliberately no light-mode block.
+   Values color-committed from specs/013-frontend-design-system/design-refs/*.
+   ──────────────────────────────────────────────────────────────────────────── */
+:root {
+  /* ── Surfaces (dark navy) ── */
+  --bg-app: #0a0b12;
+  --bg-sidebar: #0c0e16;
+  --bg-card: #141824;
+  --bg-card-raised: #1b2030;
+  --border-subtle: #242a3a;
+
+  /* ── Brand accent (violet → blue) ── */
+  --accent: #7c6cf5;
+  --accent-gradient-from: #7a5cff;
+  --accent-gradient-to: #5b8def;
+  --accent-fg: #ffffff;
+  --border-focus: #7c6cf5;
+
+  /* ── Risk scale — maps 1:1 to 001 RiskLevel (spec AC-2). "Amber" == medium. ── */
+  --risk-high: #ef4444; /* RiskLevel.HIGH */
+  --risk-medium: #f59e0b; /* RiskLevel.MEDIUM (a.k.a. "Amber") */
+  --risk-low: #22c55e; /* RiskLevel.LOW */
+
+  /* ── Text ── */
+  --text-primary: #f5f6fa;
+  --text-secondary: #9aa3b2;
+  --text-tertiary: #5c6472;
+
+  /* ── Typography family (Inter loaded via layout <link>; system fallback) ── */
+  --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* ── Radius / spacing base / elevation ── */
+  --radius-card: 14px;
+  --radius-input: 10px;
+  --radius-pill: 9999px;
+  --space-unit: 4px;
+  --glow-accent: 0 0 0 1px rgba(124, 108, 245, 0.35), 0 8px 40px -8px rgba(124, 108, 245, 0.45);
+
+  /* ── Chart palette (derived; consumed by src/lib/tokens.ts for Recharts/SVG) ── */
+  --chart-bar-1: var(--accent);
+  --chart-bar-2: var(--accent-gradient-to);
+  --chart-area-from: rgba(124, 108, 245, 0.55);
+  --chart-area-to: rgba(124, 108, 245, 0.02);
+  --heat-0: #fef3c7;
+  --heat-1: #fcd34d;
+  --heat-2: #f59e0b;
+  --heat-3: #f97316;
+  --heat-4: #ef4444;
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
