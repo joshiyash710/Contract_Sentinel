@@ -1,36 +1,48 @@
 import type { ReactNode } from "react";
-import { Settings, Bell } from "lucide-react";
+import { Settings, Bell, ChevronDown } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 
 /**
  * Top bar (spec AC-6): page title + optional search slot (present only when supplied — screens
- * 10/11/12) + right cluster (settings, notifications-with-dot, avatar).
+ * 10/11/12) + right cluster (settings, notifications-with-dot, avatar). Sticky to the top of
+ * the content column.
  */
 export function TopBar({
   title,
   search,
   userName = "User Profile",
+  avatarSrc,
 }: {
-  title: string;
+  title?: string;
   search?: ReactNode;
   userName?: string;
+  avatarSrc?: string;
 }) {
   return (
-    <header className="flex items-center gap-4 border-b border-subtle px-6 py-3">
-      <h1 className="text-h2 font-bold text-text-primary">{title}</h1>
-      {search != null && <div className="flex-1 max-w-md">{search}</div>}
-      <div className="ml-auto flex items-center gap-3">
-        <button aria-label="Settings" className="text-text-secondary hover:text-text-primary">
+    <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-subtle bg-app/80 px-6 py-3 backdrop-blur">
+      {title ? <h1 className="text-h2 font-bold text-text-primary">{title}</h1> : null}
+      {search != null && <div className="mx-auto w-full max-w-xl">{search}</div>}
+      <div className="ml-auto flex items-center gap-2">
+        <button
+          aria-label="Settings"
+          className="flex h-9 w-9 items-center justify-center rounded-input text-text-secondary hover:bg-card-raised hover:text-text-primary"
+        >
           <Settings size={18} />
         </button>
-        <button aria-label="Notifications" className="relative text-text-secondary hover:text-text-primary">
+        <button
+          aria-label="Notifications"
+          className="relative flex h-9 w-9 items-center justify-center rounded-input text-text-secondary hover:bg-card-raised hover:text-text-primary"
+        >
           <Bell size={18} />
           <span
             data-testid="notif-dot"
-            className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-pill bg-risk-high"
+            className="absolute right-2 top-2 h-2 w-2 rounded-pill bg-risk-high ring-2 ring-app"
           />
         </button>
-        <Avatar name={userName} size="sm" />
+        <button className="flex items-center gap-1.5 rounded-pill py-0.5 pl-0.5 pr-2 hover:bg-card-raised">
+          <Avatar name={userName} src={avatarSrc} size="sm" />
+          <ChevronDown size={16} className="text-text-tertiary" />
+        </button>
       </div>
     </header>
   );

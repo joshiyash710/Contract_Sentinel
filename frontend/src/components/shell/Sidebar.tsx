@@ -25,18 +25,18 @@ export const NAV_ITEMS: NavItem[] = [
 export function Sidebar() {
   return (
     <aside className="flex w-60 shrink-0 flex-col bg-sidebar border-r border-subtle">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-7 w-7 items-center justify-center rounded-pill bg-accent-gradient text-accent-fg font-bold">
+      <div className="flex items-center gap-2.5 px-5 py-5">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-gradient text-accent-fg font-bold shadow-glow">
           C
         </span>
-        <span className="text-h3 font-semibold text-text-primary">ContractSentinel</span>
+        <span className="text-h3 font-semibold tracking-tight text-text-primary">ContractSentinel</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV_ITEMS.map((item) => (
           <SidebarNavItem key={item.href} item={item} />
         ))}
       </nav>
-      <UserProfileBlock name="User Profile" role="" />
+      <UserProfileBlock name="Sarah Jenkins" role="Legal Counsel" />
     </aside>
   );
 }
