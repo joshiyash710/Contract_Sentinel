@@ -9,10 +9,12 @@ import type { AnalyzeAccepted, JobStatus, ProgressEvent, SseEventName } from "@/
  * getApiClient() unchanged (spec AC-16).
  */
 export interface FakeClientOpts {
-  events?: ProgressEvent[]; // replayed via openJobEvents; [] leaves the view "connecting"
+  events?: ProgressEvent[]; // replayed via openJobEvents (SSE seam; kept for api-client tests)
   emitError?: boolean; // openJobEvents invokes onError instead of events
   accepted?: AnalyzeAccepted; // submitAnalysis resolves this
   submitError?: unknown; // submitAnalysis rejects this
+  statuses?: JobStatus[]; // getJob returns these in sequence (last one sticky) — drives polling
+  getJobError?: unknown; // getJob rejects this (EC-6 404 / network)
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -43,7 +45,14 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
       if (opts.submitError) throw opts.submitError;
       return opts.accepted ?? { job_id: "job-1", status: "queued", submitted_at: "t" };
     }),
-    getJob: vi.fn(async () => completedFinal()),
+    getJob: (() => {
+      let i = 0;
+      return vi.fn(async (): Promise<JobStatus> => {
+        if (opts.getJobError) throw opts.getJobError;
+        const arr = opts.statuses ?? [completedFinal()];
+        return arr[Math.min(i++, arr.length - 1)]; // advance, last sticky
+      });
+    })(),
     openJobEvents,
     getReportUrl: (id: string, fmt: "md" | "json") => `/api/jobs/${id}/report?format=${fmt}`,
     health: vi.fn(async () => ({ status: "ok" })),
@@ -56,6 +65,25 @@ export function progress(node: string, index: number, total: number): ProgressEv
 
 export function terminal(event: SseEventName, final: JobStatus): ProgressEvent {
   return { event, job_id: "job-1", final };
+}
+
+export function runningStatus(currentNode: string, completed: string[] = []): JobStatus {
+  return {
+    job_id: "job-1",
+    status: "running",
+    current_node: currentNode,
+    completed_nodes: completed,
+    submitted_at: "t",
+    started_at: "t",
+    finished_at: null,
+    report_available: false,
+    mcp_delivery_status: {},
+    error: null,
+  };
+}
+
+export function queuedStatus(): JobStatus {
+  return { ...runningStatus("", []), status: "queued", current_node: null };
 }
 
 export function completedFinal(overrides: Partial<JobStatus> = {}): JobStatus {

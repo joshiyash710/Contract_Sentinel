@@ -110,6 +110,24 @@ rename is a one-line change.
   stays **mock** so unit tests need no backend; the live end-to-end smoke runs
   with `provider=real` against `uvicorn` on `:8000` via the Next dev proxy
   (013 Q4). No component imports `realProvider`/`mockProvider` directly.
+- **D7 — Progress is delivered by POLLING `GET /api/jobs/{id}`, not SSE
+  (post-implementation fix).** The processing screen was first built on the SSE
+  stream (`openJobEvents` → `GET /api/jobs/{id}/events`), but the live smoke
+  revealed that Next.js's dev `rewrites()` proxy **buffers** the SSE response, so
+  the browser's `EventSource` connects but never receives incremental
+  `progress`/terminal events through the proxy — the screen sits on "Starting
+  analysis…" forever even though the backend finishes. Polling `GET
+  /api/jobs/{id}` (which returns `JobStatus` with `status` / `current_node` /
+  `completed_nodes` / `report_available` / `error`) **does** stream cleanly
+  through the proxy (verified: `current_node` advances live). So the processing
+  view polls `getApiClient().getJob(jobId)` on an interval (~2.5 s) and derives
+  "Step {index} of {total}" by mapping `current_node` through the frontend node→
+  index map (mirrors 011 `progress.py`: `redline`/`skip_redline` → 6, total 7).
+  `openJobEvents`/SSE **remains** in the seam unchanged for a future non-proxied
+  deployment (e.g. a same-origin prod reverse proxy); only the UI's transport
+  choice changed. This decision supersedes the SSE wording in §2.1/§2.4/§3 below
+  for the *processing screen's progress source*; the endpoints and shapes are
+  otherwise unchanged (`JobStatus` carries everything the view needs).
 
 ### 2.4 Outputs (what this feature renders)
 

@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle, WifiOff } from "lucide-react";
-import { useJobEvents } from "@/lib/useJobEvents";
+import { useJobStatus } from "@/lib/useJobStatus";
 import { getApiClient } from "@/lib/api/provider";
 import { nodeLabel } from "@/lib/jobLabels";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -15,7 +15,7 @@ import { ProcessingArt } from "./ProcessingArt";
  */
 export function ProcessingView({ jobId }: { jobId: string }) {
   const router = useRouter();
-  const { state, reconnect } = useJobEvents(jobId);
+  const { state, reconnect } = useJobStatus(jobId);
   const client = getApiClient();
 
   // ── terminal: failed ──────────────────────────────────────────────────────
