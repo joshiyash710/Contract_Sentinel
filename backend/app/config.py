@@ -25,10 +25,13 @@ INGEST_TIMEOUT_SECONDS: int = 60  # wall-clock seconds for parse_pdf / parse_doc
 # ── ClauseSplitterAgent thresholds ─────────────────────────────────────────────
 # Source: specs/004-clause-splitter-agent/spec.md §6
 
-OLLAMA_MODEL_NAME: str = "qwen3:14b"
+OLLAMA_MODEL_NAME: str = "qwen3:8b"
 # The Ollama model identifier for LLM calls in the pipeline.
-# Qwen3 14B runs locally via Ollama — no cloud API cost.
-# Fits in ~10GB VRAM at Q4_K_M quantization (any 12–16GB GPU).
+# Qwen3 8B runs locally via Ollama — no cloud API cost.
+# PERF TUNE (constitution §3): switched from qwen3:14b (9.3GB) to qwen3:8b (5.2GB)
+# because 14b did not fit the target 6GB-VRAM GPU (RTX 4050) and spilled ~35% to CPU,
+# making each generation slow. 8b is much closer to VRAM-resident (~30% CPU spill) and
+# runs materially faster per call, at a modest reasoning-quality trade-off.
 # Used by ClauseSplitterAgent for semantic refinement and clause_type inference.
 # Future nodes (CRAG, Self-RAG, etc.) may also use this constant.
 

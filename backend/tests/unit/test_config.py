@@ -47,7 +47,7 @@ def test_clause_splitter_constants_match_spec():
         MAX_CLAUSES_LIMIT,
     )
 
-    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+    assert OLLAMA_MODEL_NAME == "qwen3:8b"
     assert CLAUSE_SPLITTER_TIMEOUT_SECONDS == 120
     assert MIN_CLAUSE_LENGTH == 100
     assert MAX_CLAUSES_LIMIT == 500
@@ -164,7 +164,7 @@ def test_self_rag_uses_generative_model():
     from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
 
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
-    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+    assert OLLAMA_MODEL_NAME == "qwen3:8b"
 
 
 def test_risk_score_constants_match_spec():
@@ -213,7 +213,7 @@ def test_risk_score_uses_generative_model():
     from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
 
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
-    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+    assert OLLAMA_MODEL_NAME == "qwen3:8b"
 
 
 def test_redline_constants_match_spec():
@@ -278,7 +278,7 @@ def test_redline_uses_generative_model():
     from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
 
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
-    assert OLLAMA_MODEL_NAME == "qwen3:14b"
+    assert OLLAMA_MODEL_NAME == "qwen3:8b"
 
 
 def test_report_constants_match_spec():
