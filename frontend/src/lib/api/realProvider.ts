@@ -1,5 +1,11 @@
 import { ApiError, type ApiClient, type JobEventHandlers } from "./client";
-import type { AnalyzeAccepted, JobStatus, ProgressEvent, SseEventName } from "./types";
+import type {
+  AnalyzeAccepted,
+  ContractReport,
+  JobStatus,
+  ProgressEvent,
+  SseEventName,
+} from "./types";
 import { SSE_EVENT_NAMES } from "./types";
 import { getConfig } from "@/lib/config";
 
@@ -73,6 +79,18 @@ export const realClient: ApiClient = {
 
   getReportUrl(jobId: string, format: "md" | "json"): string {
     return `${base()}/api/jobs/${jobId}/report?format=${format}`;
+  },
+
+  async getReport(jobId: string): Promise<ContractReport> {
+    try {
+      const res = await fetch(`${base()}/api/jobs/${jobId}/report?format=json`);
+      // Preserve the HTTP status (409 not-ready, 404 unknown/artifact-missing) so useReport
+      // can branch per spec 017 D7 (INV-1/INV-2). asJson throws ApiError(status) on !ok.
+      return await asJson<ContractReport>(res);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error fetching report ${jobId}: ${String(err)}`);
+    }
   },
 
   async health(): Promise<{ status: string }> {

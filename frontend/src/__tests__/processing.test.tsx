@@ -5,11 +5,15 @@ import { ProcessingView } from "@/components/processing/ProcessingView";
 import { makeFakeClient, runningStatus, queuedStatus, completedFinal } from "./_fakeClient";
 
 const push = vi.fn();
-vi.mock("next/navigation", () => ({ useRouter: () => ({ push }) }));
+const replace = vi.fn(); // 017: clean completions call router.replace (auto-redirect)
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push, replace }) }));
 vi.mock("@/lib/api/provider", () => ({ getApiClient: vi.fn() }));
+// 017: neutralize the auto-redirect delay so a clean completion doesn't navigate mid-test.
+vi.mock("@/lib/reportConstants", () => ({ REPORT_REDIRECT_DELAY_MS: 100000 }));
 
 beforeEach(() => {
   push.mockReset();
+  replace.mockReset();
   vi.mocked(getApiClient).mockReset();
 });
 
@@ -36,20 +40,19 @@ describe("ProcessingView (polling — spec AC-9..AC-15, EC-1/2/6/8)", () => {
     expect(await screen.findByText("Analyzing…")).toBeInTheDocument();
   });
 
-  test("completed_shows_report_link", async () => {
+  // 017 (spec D1): a clean completion now auto-redirects to the report page instead of
+  // showing inline "View report"/"View JSON" links. The redirect assertion lives in
+  // processing-redirect.test.tsx; here we assert the resting "Analysis complete ✓" flourish
+  // (the delay is mocked large above so no navigation happens during this test).
+  test("completed_shows_complete_flourish_not_inline_links", async () => {
     vi.mocked(getApiClient).mockReturnValue(
       makeFakeClient({ statuses: [completedFinal({ report_available: true })] }),
     );
     render(<ProcessingView jobId="job-1" />);
     expect(await screen.findByText(/analysis complete/i)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /view report/i })).toHaveAttribute(
-      "href",
-      "/api/jobs/job-1/report?format=md",
-    );
-    expect(screen.getByRole("link", { name: /view json/i })).toHaveAttribute(
-      "href",
-      "/api/jobs/job-1/report?format=json",
-    );
+    expect(screen.getByText(/taking you to your report/i)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /view report/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /view json/i })).toBeNull();
   });
 
   test("ingest_error_soft_state", async () => {

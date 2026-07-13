@@ -1,6 +1,14 @@
 import { vi } from "vitest";
 import type { ApiClient, JobEventHandlers } from "@/lib/api/client";
-import type { AnalyzeAccepted, JobStatus, ProgressEvent, SseEventName } from "@/lib/api/types";
+import type {
+  AnalyzeAccepted,
+  ContractReport,
+  JobStatus,
+  ProgressEvent,
+  ReportFinding,
+  SseEventName,
+} from "@/lib/api/types";
+import { reportFixture } from "@/lib/api/fixtures";
 
 /**
  * Scripted fake ApiClient for 015 tests (plan §4 / review B2). The 013 mock provider emits only
@@ -15,6 +23,8 @@ export interface FakeClientOpts {
   submitError?: unknown; // submitAnalysis rejects this
   statuses?: JobStatus[]; // getJob returns these in sequence (last one sticky) — drives polling
   getJobError?: unknown; // getJob rejects this (EC-6 404 / network)
+  report?: ContractReport; // getReport resolves this (feature 017)
+  getReportError?: unknown; // getReport rejects this (017 D7: ApiError 409/404 branching)
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -55,6 +65,10 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
     })(),
     openJobEvents,
     getReportUrl: (id: string, fmt: "md" | "json") => `/api/jobs/${id}/report?format=${fmt}`,
+    getReport: vi.fn(async (): Promise<ContractReport> => {
+      if (opts.getReportError) throw opts.getReportError;
+      return opts.report ?? reportFixture;
+    }),
     health: vi.fn(async () => ({ status: "ok" })),
   };
 }
@@ -84,6 +98,15 @@ export function runningStatus(currentNode: string, completed: string[] = []): Jo
 
 export function queuedStatus(): JobStatus {
   return { ...runningStatus("", []), status: "queued", current_node: null };
+}
+
+/** Build a ContractReport from the rich fixture, overriding findings/top-level fields. Summary
+ * counts are NOT auto-derived — pass a `summary` override when a test needs specific counts. */
+export function reportWith(
+  findings: ReportFinding[],
+  overrides: Partial<ContractReport> = {},
+): ContractReport {
+  return { ...reportFixture, findings, ...overrides };
 }
 
 export function completedFinal(overrides: Partial<JobStatus> = {}): JobStatus {

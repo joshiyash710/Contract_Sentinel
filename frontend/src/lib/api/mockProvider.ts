@@ -1,6 +1,11 @@
 import type { ApiClient, JobEventHandlers } from "./client";
-import type { AnalyzeAccepted, JobStatus } from "./types";
-import { acceptedFixture, completedStatusFixture, scriptedEvents } from "./fixtures";
+import type { AnalyzeAccepted, ContractReport, JobStatus } from "./types";
+import {
+  acceptedFixture,
+  completedStatusFixture,
+  reportFixture,
+  scriptedEvents,
+} from "./fixtures";
 
 /**
  * Mock ApiClient (spec AC-14): resolves from static fixtures with ZERO network calls. Used by
@@ -38,6 +43,10 @@ export const mockClient: ApiClient = {
 
   getReportUrl(jobId: string, format: "md" | "json"): string {
     return `/api/jobs/${jobId}/report?format=${format}`;
+  },
+
+  async getReport(jobId: string): Promise<ContractReport> {
+    return { ...reportFixture, document_id: jobId };
   },
 
   async health(): Promise<{ status: string }> {

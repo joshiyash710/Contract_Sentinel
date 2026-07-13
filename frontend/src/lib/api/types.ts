@@ -66,3 +66,60 @@ export interface ProgressEvent {
   // Present ONLY on the terminal "completed" | "failed" event, never on "progress".
   final?: JobStatus | null;
 }
+
+// ── 009 report boundary model (Node 7 output) ────────────────────────────────
+// Field-for-field mirror of backend/app/models/report.py. This is the ReportAgent's
+// serialized ContractReport (model_dump_json), served by GET /api/jobs/{id}/report?format=json.
+// It is a boundary model — the internal ContractState TypedDict never crosses here
+// (constitution §4). Do not invent divergent field names (spec 017 §2.1 / plan §3.1).
+
+export interface ReportEvidence {
+  source_reference: string;
+  snippet_text: string;
+}
+
+// 009 three-way rewrite state, flattened by the assembler (spec 017 D3 / AC-6).
+export const REWRITE_STATES = ["rewritten", "unavailable", "not_eligible"] as const;
+export type RewriteState = (typeof REWRITE_STATES)[number];
+
+export interface ReportFinding {
+  clause_id: string;
+  position: number;
+  section_number?: string | null;
+  clause_type?: string | null;
+  // RiskLevel value on the wire, but 009 types it Optional[str]; widened to string|null
+  // so an unknown/absent value renders "Severity unavailable" rather than crashing (AC-5).
+  risk_level?: string | null;
+  risk_rationale?: string | null;
+  clause_text: string;
+  rewrite_state: RewriteState;
+  suggested_rewrite?: string | null; // present only when rewrite_state === "rewritten"
+  path_taken?: string | null;
+  confidence_score?: number | null;
+  evidence: ReportEvidence[];
+}
+
+export interface ReportSummary {
+  total_clauses: number;
+  validated_findings: number;
+  clean_clauses: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface ContractReport {
+  document_id: string;
+  original_filename: string;
+  uploaded_at: string;
+  processing_started_at?: string | null;
+  generated_at: string;
+  ocr_used: boolean;
+  ocr_confidence?: number | null;
+  // 009 Optional[dict] → set means a minimal "could not process" report (spec 017 D6 / EC-4).
+  ingest_error?: Record<string, unknown> | null;
+  summary: ReportSummary;
+  findings: ReportFinding[];
+  node_timings: Record<string, unknown>;
+  error_count: number;
+}

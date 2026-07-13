@@ -1,10 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, AlertTriangle, WifiOff } from "lucide-react";
 import { useJobStatus } from "@/lib/useJobStatus";
-import { getApiClient } from "@/lib/api/provider";
 import { nodeLabel } from "@/lib/jobLabels";
+import { REPORT_REDIRECT_DELAY_MS } from "@/lib/reportConstants";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { ProcessingArt } from "./ProcessingArt";
@@ -16,7 +17,17 @@ import { ProcessingArt } from "./ProcessingArt";
 export function ProcessingView({ jobId }: { jobId: string }) {
   const router = useRouter();
   const { state, reconnect } = useJobStatus(jobId);
-  const client = getApiClient();
+
+  // ── auto-redirect to the report on a clean completion (spec 017 D1/D10) ────
+  // Placed ABOVE the phase early-returns (Rules of Hooks). Gates on report_available
+  // (INV-1 → no 409 bounce) and no job-level error (INV-3 → completed-with-issue stays inline).
+  useEffect(() => {
+    if (state.phase !== "completed") return;
+    if (state.final?.error) return;
+    if (!state.final?.report_available) return;
+    const t = setTimeout(() => router.replace(`/jobs/${jobId}/report`), REPORT_REDIRECT_DELAY_MS);
+    return () => clearTimeout(t);
+  }, [state.phase, state.final?.error, state.final?.report_available, jobId, router]);
 
   // ── terminal: failed ──────────────────────────────────────────────────────
   if (state.phase === "failed") {
@@ -50,41 +61,30 @@ export function ProcessingView({ jobId }: { jobId: string }) {
     );
   }
 
-  // ── terminal: completed (possibly completed-with-issue, EC-1) ─────────────
+  // ── terminal: completed ───────────────────────────────────────────────────
   if (state.phase === "completed") {
-    const issue = state.final?.error; // completed-with-issue branch (review B1)
-    const reportAvailable = state.final?.report_available;
+    const issue = state.final?.error; // completed-with-issue (EC-1 / INV-3) stays inline
+    if (issue) {
+      return (
+        <Centered>
+          <AlertTriangle size={48} className="text-risk-medium" />
+          <h2 className="text-h2 font-bold">Analysis finished with an issue</h2>
+          <p className="text-body text-text-secondary">{issue.message}</p>
+          {state.final?.report_available && (
+            <Button variant="secondary" onClick={() => router.push(`/jobs/${jobId}/report`)}>
+              View report
+            </Button>
+          )}
+        </Centered>
+      );
+    }
+    // Clean completion → the effect above auto-redirects to the report (D1/D10). Show a brief
+    // "Analysis complete ✓" flourish during the hold.
     return (
       <Centered>
-        {issue ? (
-          <AlertTriangle size={48} className="text-risk-medium" />
-        ) : (
-          <CheckCircle2 size={48} className="text-risk-low" />
-        )}
-        <h2 className="text-h2 font-bold">
-          {issue ? "Analysis finished with an issue" : "Analysis complete"}
-        </h2>
-        {issue && <p className="text-body text-text-secondary">{issue.message}</p>}
-        {reportAvailable && (
-          <div className="flex items-center gap-3">
-            <a
-              href={client.getReportUrl(jobId, "md")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-input bg-accent-gradient px-4 py-2.5 font-semibold text-accent-fg hover:opacity-95"
-            >
-              View report
-            </a>
-            <a
-              href={client.getReportUrl(jobId, "json")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-input border border-subtle px-4 py-2.5 font-medium text-text-primary hover:bg-card-raised"
-            >
-              View JSON
-            </a>
-          </div>
-        )}
+        <CheckCircle2 size={48} className="text-risk-low" />
+        <h2 className="text-h2 font-bold">Analysis complete</h2>
+        <p className="text-body text-text-secondary">Taking you to your report…</p>
       </Centered>
     );
   }

@@ -1,4 +1,4 @@
-import type { AnalyzeAccepted, JobStatus, ProgressEvent } from "./types";
+import type { AnalyzeAccepted, ContractReport, JobStatus, ProgressEvent } from "./types";
 
 /**
  * The single typed backend surface every screen uses (spec 013 §2.4). Both the mock and real
@@ -18,6 +18,9 @@ export interface ApiClient {
   /** Opens the SSE stream; returns an unsubscribe function. */
   openJobEvents(jobId: string, handlers: JobEventHandlers): () => void;
   getReportUrl(jobId: string, format: "md" | "json"): string;
+  /** Fetches the report JSON (009 ContractReport). Rejects with ApiError (status preserved:
+   * 409 not-ready, 404 unknown/artifact-missing) so callers can branch (spec 017 D7). */
+  getReport(jobId: string): Promise<ContractReport>;
   health(): Promise<{ status: string }>;
 }
 
