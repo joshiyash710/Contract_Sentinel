@@ -9,6 +9,7 @@ import type { ContractReport } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
 import { ReportHeader } from "./ReportHeader";
 import { SummaryStrip } from "./SummaryStrip";
+import { RiskOverview } from "./RiskOverview";
 import { FindingCard } from "./FindingCard";
 
 /** The report destination screen (spec 017). Reaches the backend only via getApiClient(). */
@@ -84,23 +85,35 @@ export function ReportView({ jobId }: { jobId: string }) {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6">
       <ReportHeader jobId={jobId} report={report} />
       <SummaryStrip summary={report.summary} />
       {report.findings.length === 0 ? (
-        <div className="rounded-card border border-subtle bg-card p-8 text-center">
-          <CheckCircle2 size={40} className="mx-auto text-risk-low" />
-          <h2 className="mt-3 text-h3 font-semibold">No risky clauses found</h2>
-          <p className="mt-1 text-body text-text-secondary">
-            We analyzed this contract and didn&apos;t flag any clauses for review.
+        <div className="rounded-card border border-subtle bg-card p-10 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-risk-low/15">
+            <CheckCircle2 size={30} className="text-risk-low" />
+          </div>
+          <h2 className="mt-4 text-h3 font-semibold">No risky clauses found</h2>
+          <p className="mx-auto mt-1 max-w-md text-body text-text-secondary">
+            We analyzed this contract and didn&apos;t flag any clauses for review. You can still
+            download the full report below.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {report.findings.map((f, i) => (
-            <FindingCard key={f.clause_id} finding={f} defaultOpen={i === 0} />
-          ))}
-        </div>
+        <>
+          <RiskOverview summary={report.summary} />
+          <section className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-h3 font-semibold text-text-primary">Clause-by-clause analysis</h2>
+              <span className="text-small text-text-tertiary">
+                {report.findings.length} {report.findings.length === 1 ? "finding" : "findings"}
+              </span>
+            </div>
+            {report.findings.map((f, i) => (
+              <FindingCard key={f.clause_id} finding={f} defaultOpen={i === 0} />
+            ))}
+          </section>
+        </>
       )}
     </div>
   );
