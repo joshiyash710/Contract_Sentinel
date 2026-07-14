@@ -52,6 +52,7 @@ def run_pipeline(
     document_path: str,
     *,
     recipient: Optional[str] = None,
+    original_filename: Optional[str] = None,
     on_progress: Optional[Callable[[NodeProgress], None]] = None,
     checkpointer=None,
     thread_id: Optional[str] = None,
@@ -78,6 +79,10 @@ def run_pipeline(
             "document_path": document_path,
             "processing_started_at": _now_iso(),
         }
+        # Seed the real uploaded name so ingest_agent uses it (feature 018). Only when
+        # provided → keeps the 011/012 default byte-identical.
+        if original_filename is not None:
+            stream_input["original_filename"] = original_filename
 
     seen = set(already_completed or ())
     final_state: dict = {}

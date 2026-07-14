@@ -47,6 +47,10 @@ class JobRecord:
     submitted_at: str
     buffer: JobEventBuffer
     recipient: Optional[str] = None
+    # Real uploaded filename (feature 018 / 001-alignment). Defaulted + placed after the
+    # last defaulted init field (recipient) and before the field(init=False) block, so the
+    # dataclass "no non-default after default" rule holds. Seeded by the analyze route.
+    original_filename: Optional[str] = None
 
     # Mutable fields — written only via lock methods
     _status: JobState = field(default=JobState.queued, init=False, repr=False)
@@ -75,6 +79,7 @@ class JobRecord:
             job_id=self.job_id,
             document_path=self.document_path,
             recipient=self.recipient,
+            original_filename=self.original_filename,
             status=self._status,
             submitted_at=self.submitted_at,
             started_at=self._started_at,
@@ -188,6 +193,7 @@ class JobRecord:
             submitted_at=row.submitted_at,
             buffer=buffer,
             recipient=row.recipient,
+            original_filename=row.original_filename,
         )
         rec._status = row.status
         rec._started_at = row.started_at
@@ -273,3 +279,22 @@ class JobRegistry:
         with self._lock:
             self._live.setdefault(job_id, rec)
         return rec
+
+    # ── feature 018 read pass-throughs (durable store, not just the live dict) ──────
+
+    def list_jobs(self, limit: int, offset: int):
+        """Newest-first page of JobRows for GET /api/jobs (spec AC-1)."""
+        if self._store is None:
+            return []
+        return self._store.list(limit, offset)
+
+    def count(self) -> int:
+        if self._store is None:
+            return 0
+        return self._store.count()
+
+    def all_rows(self):
+        """All JobRows for dashboard aggregation (spec §2.3)."""
+        if self._store is None:
+            return []
+        return self._store.all()

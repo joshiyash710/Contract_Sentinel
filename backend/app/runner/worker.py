@@ -98,6 +98,7 @@ class PipelineWorker:
             result = run_pipeline(
                 rec.document_path,
                 recipient=rec.recipient,
+                original_filename=rec.original_filename,
                 on_progress=_on_progress,
                 checkpointer=self._saver,
                 thread_id=job_id,

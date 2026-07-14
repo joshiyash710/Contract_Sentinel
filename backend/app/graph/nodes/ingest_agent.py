@@ -57,7 +57,9 @@ def ingest_agent(state: ContractState) -> dict:
     start_time = time.monotonic()
     document_id = str(uuid.uuid4())
     document_path = state["document_path"]
-    original_filename = Path(document_path).name
+    # Prefer the real uploaded name seeded by the runner (feature 018 / 001-alignment);
+    # fall back to the path basename for tests / legacy callers that don't seed it.
+    original_filename = state.get("original_filename") or Path(document_path).name
     uploaded_at = datetime.now(timezone.utc).isoformat()
     ext = Path(document_path).suffix.lower()
 

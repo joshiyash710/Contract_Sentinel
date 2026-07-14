@@ -37,6 +37,9 @@ class JobRow:
     report_path: Optional[str]
     mcp_delivery_status: dict
     error: Optional[ErrorInfo]
+    # Appended LAST (feature 018). Keep this ordering identical in _encode(), the INSERT
+    # column list/VALUES, and _decode() — the encode tuple is positional (spec plan §3.3).
+    original_filename: Optional[str] = None
 
 
 class JobStore:
@@ -57,8 +60,9 @@ class JobStore:
             self._conn.execute(
                 """INSERT INTO jobs (job_id, document_path, recipient, status,
                        submitted_at, started_at, finished_at, current_node,
-                       completed_nodes, report_path, mcp_delivery_status, error)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                       completed_nodes, report_path, mcp_delivery_status, error,
+                       original_filename)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(job_id) DO UPDATE SET
                        status=excluded.status,
                        started_at=excluded.started_at,
@@ -67,7 +71,8 @@ class JobStore:
                        completed_nodes=excluded.completed_nodes,
                        report_path=excluded.report_path,
                        mcp_delivery_status=excluded.mcp_delivery_status,
-                       error=excluded.error""",
+                       error=excluded.error,
+                       original_filename=excluded.original_filename""",
                 self._encode(row),
             )
             self._conn.commit()
@@ -85,6 +90,30 @@ class JobStore:
                 "SELECT * FROM jobs WHERE status IN (?,?) ORDER BY submitted_at",
                 (JobState.queued.value, JobState.running.value),
             )
+            rows = cur.fetchall()
+        return [self._decode(r) for r in rows]
+
+    def list(self, limit: int, offset: int) -> List[JobRow]:
+        """Newest-first page of jobs for GET /api/jobs (feature 018, spec AC-1)."""
+        with self._lock:
+            cur = self._conn.execute(
+                "SELECT * FROM jobs ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
+                (limit, offset),
+            )
+            rows = cur.fetchall()
+        return [self._decode(r) for r in rows]
+
+    def count(self) -> int:
+        """Total job rows (feature 018 — total_contracts / list total)."""
+        with self._lock:
+            cur = self._conn.execute("SELECT COUNT(*) AS n FROM jobs")
+            return int(cur.fetchone()["n"])
+
+    def all(self) -> List[JobRow]:
+        """All jobs newest-first for dashboard aggregation (feature 018). Bounded by the
+        insert-time retention cap (JOB_STORE_RETENTION_MAX)."""
+        with self._lock:
+            cur = self._conn.execute("SELECT * FROM jobs ORDER BY submitted_at DESC")
             rows = cur.fetchall()
         return [self._decode(r) for r in rows]
 
@@ -130,6 +159,7 @@ class JobStore:
             row.report_path,
             json.dumps(row.mcp_delivery_status),
             error_json,
+            row.original_filename,
         )
 
     def _decode(self, r: sqlite3.Row) -> JobRow:
@@ -150,4 +180,7 @@ class JobStore:
             report_path=r["report_path"],
             mcp_delivery_status=json.loads(r["mcp_delivery_status"]),
             error=error,
+            original_filename=(
+                r["original_filename"] if "original_filename" in r.keys() else None
+            ),
         )

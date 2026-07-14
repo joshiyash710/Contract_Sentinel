@@ -21,12 +21,19 @@ from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 import app.config as _cfg
+from app.api.aggregate import build_dashboard_metrics, build_job_list, read_report_data
 from app.runner.events import JobEventBuffer
-from app.runner.models import AnalyzeAccepted, JobState, JobStatus
+from app.runner.models import (
+    AnalyzeAccepted,
+    DashboardMetrics,
+    JobList,
+    JobState,
+    JobStatus,
+)
 from app.runner.registry import JobRecord, JobRegistry
 from app.runner.worker import PipelineWorker
 
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 
 def _now_iso() -> str:
@@ -110,6 +117,9 @@ async def analyze(
         submitted_at=submitted_at,
         buffer=buf,
         recipient=recipient,
+        # Persist the REAL uploaded name (feature 018 / 001-alignment); fall back to the
+        # job-id-based name if the client didn't send a filename.
+        original_filename=file.filename or f"{job_id}{ext}",
     )
     ctx.registry.add(rec)
     ctx.worker.submit(job_id)
@@ -119,6 +129,31 @@ async def analyze(
         status=JobState.queued,
         submitted_at=submitted_at,
     )
+
+
+def _utc_today() -> date:
+    return datetime.now(timezone.utc).date()
+
+
+@router.get("/jobs", response_model=JobList)
+async def list_jobs(
+    request: Request,
+    limit: int = _cfg.JOBS_LIST_DEFAULT_LIMIT,
+    offset: int = 0,
+) -> JobList:
+    # NOTE: coexists with GET /jobs/{job_id} below — different segment counts, no shadowing.
+    limit = max(1, min(limit, _cfg.JOBS_LIST_MAX_LIMIT))  # EC-6 clamp
+    offset = max(0, offset)
+    reg = _get_ctx(request).registry
+    return build_job_list(
+        reg.list_jobs(limit, offset), read_report_data, limit, offset, reg.count()
+    )
+
+
+@router.get("/dashboard", response_model=DashboardMetrics)
+async def dashboard(request: Request) -> DashboardMetrics:
+    reg = _get_ctx(request).registry
+    return build_dashboard_metrics(reg.all_rows(), read_report_data, today=_utc_today())
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatus)

@@ -326,3 +326,22 @@ CORS_ALLOWED_ORIGINS: tuple = (
 API_BIND_HOST: str = "127.0.0.1"
 API_BIND_PORT: int = 8000
 # Uvicorn bind target (spec D1). Localhost-only; no auth. Overridable for local use.
+
+# ── Dynamic dashboard (feature 018) ────────────────────────────────────────────
+# Source: specs/018-dynamic-dashboard/spec.md §2.4 (D3/D7). Tunable — aggregation logic
+# reads these, never hardcodes them (constitution §3).
+
+PORTFOLIO_HEALTH_MEDIUM_WEIGHT: float = 0.5
+# D3 — a medium finding counts as half a high in the derived health penalty:
+# health% = round(100 * (1 - (high + WEIGHT*medium) / max(1, high+medium+low))).
+
+PORTFOLIO_HEALTH_BAND_HEALTHY: int = 80
+PORTFOLIO_HEALTH_BAND_ELEVATED: int = 50
+# D3 band cutoffs: pct >= HEALTHY → "healthy"; >= ELEVATED → "elevated"; else "at_risk".
+
+USAGE_TIMELINE_DAYS: int = 30
+# D7 — the usage timeline returns this many UTC day-buckets (dense, zero-filled).
+
+JOBS_LIST_DEFAULT_LIMIT: int = 20
+JOBS_LIST_MAX_LIMIT: int = 100
+# GET /api/jobs pagination: default page size and the clamp ceiling (spec EC-6).
