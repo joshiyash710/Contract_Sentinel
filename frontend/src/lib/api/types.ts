@@ -123,3 +123,66 @@ export interface ContractReport {
   node_timings: Record<string, unknown>;
   error_count: number;
 }
+
+// ── 018 dynamic-dashboard boundary models ────────────────────────────────────
+// Mirror app/runner/models.py (feature 018). Read-only aggregate/list surfaces built
+// from the 012 job store + 009 report JSONs — never internal ContractState (§4).
+
+export interface JobListItem {
+  job_id: string;
+  original_filename: string;
+  status: JobState;
+  submitted_at: string;
+  finished_at?: string | null;
+  report_available: boolean;
+  risk_band?: string | null; // "high" | "medium" | "low" | "none" (completed only)
+  high?: number | null;
+  medium?: number | null;
+  low?: number | null;
+}
+
+export interface JobList {
+  items: JobListItem[];
+  total: number;
+}
+
+export interface RiskDistribution {
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface UsageBucket {
+  period: string; // "YYYY-MM-DD"
+  count: number;
+}
+
+export interface ClauseTypeRisk {
+  clause_type: string; // ClauseType value or "Uncategorized"
+  high: number;
+  medium: number;
+  low: number;
+}
+
+export interface ClauseRiskHeatmap {
+  rows: string[];
+  cols: string[]; // ["low","medium","high"]
+  cells: number[][];
+}
+
+export interface TopClause {
+  clause_type: string;
+  high_count: number;
+}
+
+export interface DashboardMetrics {
+  total_contracts: number;
+  completed_contracts: number;
+  risk_distribution: RiskDistribution;
+  portfolio_health_pct: number; // derived (D3), never a fabricated score
+  portfolio_health_band: string; // "healthy" | "elevated" | "at_risk"
+  usage_timeline: UsageBucket[];
+  risk_by_clause_type: ClauseTypeRisk[];
+  clause_risk_heatmap: ClauseRiskHeatmap;
+  top_risky_clause_types: TopClause[];
+}

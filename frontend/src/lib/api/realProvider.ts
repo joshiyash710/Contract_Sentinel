@@ -2,6 +2,8 @@ import { ApiError, type ApiClient, type JobEventHandlers } from "./client";
 import type {
   AnalyzeAccepted,
   ContractReport,
+  DashboardMetrics,
+  JobList,
   JobStatus,
   ProgressEvent,
   SseEventName,
@@ -90,6 +92,30 @@ export const realClient: ApiClient = {
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(`Network error fetching report ${jobId}: ${String(err)}`);
+    }
+  },
+
+  async getJobs(params?: { limit?: number; offset?: number }): Promise<JobList> {
+    const q = new URLSearchParams();
+    if (params?.limit != null) q.set("limit", String(params.limit));
+    if (params?.offset != null) q.set("offset", String(params.offset));
+    const qs = q.toString() ? `?${q.toString()}` : "";
+    try {
+      const res = await fetch(`${base()}/api/jobs${qs}`);
+      return await asJson<JobList>(res);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error fetching jobs: ${String(err)}`);
+    }
+  },
+
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    try {
+      const res = await fetch(`${base()}/api/dashboard`);
+      return await asJson<DashboardMetrics>(res);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error fetching dashboard: ${String(err)}`);
     }
   },
 

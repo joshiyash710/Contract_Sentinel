@@ -1,4 +1,11 @@
-import type { AnalyzeAccepted, ContractReport, JobStatus, ProgressEvent } from "./types";
+import type {
+  AnalyzeAccepted,
+  ContractReport,
+  DashboardMetrics,
+  JobList,
+  JobStatus,
+  ProgressEvent,
+} from "./types";
 
 /**
  * The single typed backend surface every screen uses (spec 013 §2.4). Both the mock and real
@@ -21,6 +28,10 @@ export interface ApiClient {
   /** Fetches the report JSON (009 ContractReport). Rejects with ApiError (status preserved:
    * 409 not-ready, 404 unknown/artifact-missing) so callers can branch (spec 017 D7). */
   getReport(jobId: string): Promise<ContractReport>;
+  /** Feature 018 — paginated job list for the Activity Feed / contracts list. */
+  getJobs(params?: { limit?: number; offset?: number }): Promise<JobList>;
+  /** Feature 018 — portfolio aggregate metrics for the dashboard/reports pages. */
+  getDashboardMetrics(): Promise<DashboardMetrics>;
   health(): Promise<{ status: string }>;
 }
 

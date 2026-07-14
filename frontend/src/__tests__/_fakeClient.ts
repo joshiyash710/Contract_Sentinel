@@ -3,12 +3,18 @@ import type { ApiClient, JobEventHandlers } from "@/lib/api/client";
 import type {
   AnalyzeAccepted,
   ContractReport,
+  DashboardMetrics,
+  JobList,
   JobStatus,
   ProgressEvent,
   ReportFinding,
   SseEventName,
 } from "@/lib/api/types";
-import { reportFixture } from "@/lib/api/fixtures";
+import {
+  reportFixture,
+  dashboardMetricsFixture,
+  jobListFixture,
+} from "@/lib/api/fixtures";
 
 /**
  * Scripted fake ApiClient for 015 tests (plan §4 / review B2). The 013 mock provider emits only
@@ -25,6 +31,10 @@ export interface FakeClientOpts {
   getJobError?: unknown; // getJob rejects this (EC-6 404 / network)
   report?: ContractReport; // getReport resolves this (feature 017)
   getReportError?: unknown; // getReport rejects this (017 D7: ApiError 409/404 branching)
+  dashboard?: DashboardMetrics; // getDashboardMetrics resolves this (feature 018)
+  dashboardError?: unknown; // getDashboardMetrics rejects this
+  jobList?: JobList; // getJobs resolves this
+  jobsError?: unknown; // getJobs rejects this
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -68,6 +78,14 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
     getReport: vi.fn(async (): Promise<ContractReport> => {
       if (opts.getReportError) throw opts.getReportError;
       return opts.report ?? reportFixture;
+    }),
+    getJobs: vi.fn(async (): Promise<JobList> => {
+      if (opts.jobsError) throw opts.jobsError;
+      return opts.jobList ?? jobListFixture;
+    }),
+    getDashboardMetrics: vi.fn(async (): Promise<DashboardMetrics> => {
+      if (opts.dashboardError) throw opts.dashboardError;
+      return opts.dashboard ?? dashboardMetricsFixture;
     }),
     health: vi.fn(async () => ({ status: "ok" })),
   };

@@ -1,6 +1,8 @@
 import type {
   AnalyzeAccepted,
   ContractReport,
+  DashboardMetrics,
+  JobList,
   JobStatus,
   ProgressEvent,
 } from "./types";
@@ -181,6 +183,105 @@ export const emptyReportFixture: ContractReport = {
   node_timings: {},
   error_count: 0,
 };
+
+// ── 018 dashboard fixtures ────────────────────────────────────────────────────
+function usageDays(counts: Record<string, number> = {}): { period: string; count: number }[] {
+  // 30 dense day-buckets ending on a fixed date, matching the backend shape.
+  const end = new Date("2026-01-30T00:00:00Z");
+  const out: { period: string; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(end);
+    d.setUTCDate(end.getUTCDate() - i);
+    const period = d.toISOString().slice(0, 10);
+    out.push({ period, count: counts[period] ?? 0 });
+  }
+  return out;
+}
+
+export const dashboardMetricsFixture: DashboardMetrics = {
+  total_contracts: 5,
+  completed_contracts: 4,
+  risk_distribution: { high: 3, medium: 2, low: 6 },
+  portfolio_health_pct: 64,
+  portfolio_health_band: "elevated",
+  usage_timeline: usageDays({ "2026-01-28": 2, "2026-01-30": 3 }),
+  risk_by_clause_type: [
+    { clause_type: "liability", high: 2, medium: 0, low: 1 },
+    { clause_type: "indemnification", high: 1, medium: 2, low: 0 },
+    { clause_type: "term", high: 0, medium: 0, low: 4 },
+    { clause_type: "Uncategorized", high: 0, medium: 0, low: 1 },
+  ],
+  clause_risk_heatmap: {
+    rows: ["Uncategorized", "indemnification", "liability", "term"],
+    cols: ["low", "medium", "high"],
+    cells: [
+      [1, 0, 0],
+      [0, 2, 1],
+      [1, 0, 2],
+      [4, 0, 0],
+    ],
+  },
+  top_risky_clause_types: [
+    { clause_type: "liability", high_count: 2 },
+    { clause_type: "indemnification", high_count: 1 },
+  ],
+};
+
+export const emptyDashboardFixture: DashboardMetrics = {
+  total_contracts: 0,
+  completed_contracts: 0,
+  risk_distribution: { high: 0, medium: 0, low: 0 },
+  portfolio_health_pct: 100,
+  portfolio_health_band: "healthy",
+  usage_timeline: usageDays(),
+  risk_by_clause_type: [],
+  clause_risk_heatmap: { rows: [], cols: ["low", "medium", "high"], cells: [] },
+  top_risky_clause_types: [],
+};
+
+export const jobListFixture: JobList = {
+  total: 3,
+  items: [
+    {
+      job_id: "job-a",
+      original_filename: "MSA_AcmeCorp.pdf",
+      status: "completed",
+      submitted_at: "2026-01-30T09:00:00Z",
+      finished_at: "2026-01-30T09:03:00Z",
+      report_available: true,
+      risk_band: "high",
+      high: 3,
+      medium: 1,
+      low: 2,
+    },
+    {
+      job_id: "job-b",
+      original_filename: "NDA_draft.docx",
+      status: "running",
+      submitted_at: "2026-01-30T08:40:00Z",
+      finished_at: null,
+      report_available: false,
+      risk_band: null,
+      high: null,
+      medium: null,
+      low: null,
+    },
+    {
+      job_id: "job-c",
+      original_filename: "vendor_terms.pdf",
+      status: "failed",
+      submitted_at: "2026-01-29T14:00:00Z",
+      finished_at: "2026-01-29T14:01:00Z",
+      report_available: false,
+      risk_band: null,
+      high: null,
+      medium: null,
+      low: null,
+    },
+  ],
+};
+
+export const emptyJobListFixture: JobList = { items: [], total: 0 };
 
 /** Ordered scripted stream for a fixture run. */
 export function scriptedEvents(jobId: string): ProgressEvent[] {

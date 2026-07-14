@@ -1,8 +1,16 @@
 import type { ApiClient, JobEventHandlers } from "./client";
-import type { AnalyzeAccepted, ContractReport, JobStatus } from "./types";
+import type {
+  AnalyzeAccepted,
+  ContractReport,
+  DashboardMetrics,
+  JobList,
+  JobStatus,
+} from "./types";
 import {
   acceptedFixture,
   completedStatusFixture,
+  dashboardMetricsFixture,
+  jobListFixture,
   reportFixture,
   scriptedEvents,
 } from "./fixtures";
@@ -47,6 +55,14 @@ export const mockClient: ApiClient = {
 
   async getReport(jobId: string): Promise<ContractReport> {
     return { ...reportFixture, document_id: jobId };
+  },
+
+  async getJobs(_params?: { limit?: number; offset?: number }): Promise<JobList> {
+    return jobListFixture;
+  },
+
+  async getDashboardMetrics(): Promise<DashboardMetrics> {
+    return dashboardMetricsFixture;
   },
 
   async health(): Promise<{ status: string }> {
