@@ -59,6 +59,8 @@ def _make_client(monkeypatch, tmp_path, job_store_path, checkpoints_path):
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)
     monkeypatch.setattr(_cfg, "CHECKPOINTER_DB_PATH", checkpoints_path)
     monkeypatch.setattr(_cfg, "STARTUP_RECOVERY_ENABLED", True)
+    monkeypatch.setenv("AUTH_SECRET", "recover_missing_test_secret_" + "x" * 12)
+    monkeypatch.setattr(_cfg, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     return TestClient(create_app())
 
@@ -71,6 +73,8 @@ def test_missing_upload_terminates(monkeypatch, tmp_path):
     _seed_queued_missing_file(job_store, job_id)
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
             r = c.get(f"/api/jobs/{job_id}")

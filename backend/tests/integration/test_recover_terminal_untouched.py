@@ -73,6 +73,8 @@ def _make_client(monkeypatch, tmp_path, job_store_path, checkpoints_path, recove
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)
     monkeypatch.setattr(_cfg, "CHECKPOINTER_DB_PATH", checkpoints_path)
     monkeypatch.setattr(_cfg, "STARTUP_RECOVERY_ENABLED", recovery_on)
+    monkeypatch.setenv("AUTH_SECRET", "recover_terminal_test_secret_" + "x" * 11)
+    monkeypatch.setattr(_cfg, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     return TestClient(create_app())
 
@@ -89,6 +91,8 @@ def test_terminal_jobs_not_rerun(monkeypatch, tmp_path):
     orig_submit = None
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         # Both jobs should be retrievable (AC-14)
         r1 = c.get("/api/jobs/completed-job")
         assert r1.status_code == 200
@@ -107,10 +111,14 @@ def test_recovery_is_idempotent(monkeypatch, tmp_path):
 
     # Build app twice — both GETs must succeed, no crash on second start
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c1:
+        from tests.integration.conftest import authenticate
+        authenticate(c1)
         r1 = c1.get("/api/jobs/completed-job")
         assert r1.status_code == 200
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c2:
+        from tests.integration.conftest import authenticate
+        authenticate(c2)
         r2 = c2.get("/api/jobs/completed-job")
         assert r2.status_code == 200
 

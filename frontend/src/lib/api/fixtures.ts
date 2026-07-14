@@ -1,5 +1,6 @@
 import type {
   AnalyzeAccepted,
+  AuthUser,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -14,6 +15,12 @@ import type {
  */
 
 export const FIXTURE_JOB_ID = "job-fixture-1";
+
+// ── 014 auth fixture ──────────────────────────────────────────────────────────
+export const authUserFixture: AuthUser = {
+  id: "user-fixture-1",
+  email: "fixture@example.com",
+};
 
 export const acceptedFixture: AnalyzeAccepted = {
   job_id: FIXTURE_JOB_ID,

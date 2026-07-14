@@ -1,5 +1,7 @@
 import type {
   AnalyzeAccepted,
+  AuthResponse,
+  AuthUser,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -33,6 +35,11 @@ export interface ApiClient {
   /** Feature 018 — portfolio aggregate metrics for the dashboard/reports pages. */
   getDashboardMetrics(): Promise<DashboardMetrics>;
   health(): Promise<{ status: string }>;
+  // ── Feature 014 auth (AC-19) ─────────────────────────────────────────────
+  signup(email: string, password: string): Promise<AuthResponse>;
+  login(email: string, password: string): Promise<AuthResponse>;
+  logout(): Promise<void>;
+  me(): Promise<AuthUser>;
 }
 
 /** Typed error surfaced by the real provider on network/HTTP failure (spec EC-1). */

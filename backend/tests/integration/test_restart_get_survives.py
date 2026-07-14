@@ -43,6 +43,8 @@ def _make_client(monkeypatch, tmp_path, job_store_path, checkpoints_path, report
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)
     monkeypatch.setattr(_cfg, "CHECKPOINTER_DB_PATH", checkpoints_path)
     monkeypatch.setattr(_cfg, "STARTUP_RECOVERY_ENABLED", False)
+    monkeypatch.setenv("AUTH_SECRET", "restart_test_secret_" + "x" * 20)
+    monkeypatch.setattr(_cfg, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     return TestClient(create_app())
 
@@ -56,6 +58,8 @@ def test_restart_get_survives(monkeypatch, tmp_path):
 
     # First app instance: submit and complete a job
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, report_dir) as c1:
+        from tests.integration.conftest import authenticate
+        authenticate(c1)
         r = c1.post(
             "/api/analyze",
             files={"file": ("c.pdf", b"%PDF", "application/pdf")},
@@ -76,6 +80,8 @@ def test_restart_get_survives(monkeypatch, tmp_path):
 
     # Second app instance on the SAME DBs (recovery disabled)
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, report_dir) as c2:
+        from tests.integration.conftest import authenticate
+        authenticate(c2)  # idempotent: 409 signup → login (user row persists in same DB)
         r2 = c2.get(f"/api/jobs/{job_id}")
         assert r2.status_code == 200, f"Expected 200, got {r2.status_code}: {r2.text}"
         second_status = r2.json()

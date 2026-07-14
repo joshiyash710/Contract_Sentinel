@@ -64,7 +64,7 @@ describe("api seam", () => {
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(new Response(JSON.stringify({ status: "ok" }), { status: 200 }));
     await realClient.health();
-    expect(fetchSpy).toHaveBeenCalledWith("/api/health");
+    expect(fetchSpy).toHaveBeenCalledWith("/api/health", expect.objectContaining({ credentials: "include" }));
   });
 
   test("backend_unreachable_typed_error", async () => {

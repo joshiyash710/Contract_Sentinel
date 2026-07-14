@@ -30,6 +30,8 @@ dependencies = [
     "pydantic>=2.9.0,<3.0.0",
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.9",
+    "passlib[bcrypt]>=1.7.4",
+    "pyjwt>=2.8.0",
 ]
 
 [project.optional-dependencies]

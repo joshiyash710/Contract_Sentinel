@@ -1,6 +1,8 @@
 import type { ApiClient, JobEventHandlers } from "./client";
 import type {
   AnalyzeAccepted,
+  AuthResponse,
+  AuthUser,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -8,6 +10,7 @@ import type {
 } from "./types";
 import {
   acceptedFixture,
+  authUserFixture,
   completedStatusFixture,
   dashboardMetricsFixture,
   jobListFixture,
@@ -67,5 +70,19 @@ export const mockClient: ApiClient = {
 
   async health(): Promise<{ status: string }> {
     return { status: "ok" };
+  },
+
+  // ── Feature 014 auth — mock is always authenticated (D10) ────────────────
+  async signup(_email: string, _password: string): Promise<AuthResponse> {
+    return { user: { ...authUserFixture } };
+  },
+  async login(_email: string, _password: string): Promise<AuthResponse> {
+    return { user: { ...authUserFixture } };
+  },
+  async logout(): Promise<void> {
+    return;
+  },
+  async me(): Promise<AuthUser> {
+    return { ...authUserFixture };
   },
 };

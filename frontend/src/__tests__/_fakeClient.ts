@@ -2,6 +2,8 @@ import { vi } from "vitest";
 import type { ApiClient, JobEventHandlers } from "@/lib/api/client";
 import type {
   AnalyzeAccepted,
+  AuthResponse,
+  AuthUser,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -11,6 +13,7 @@ import type {
   SseEventName,
 } from "@/lib/api/types";
 import {
+  authUserFixture,
   reportFixture,
   dashboardMetricsFixture,
   jobListFixture,
@@ -35,6 +38,9 @@ export interface FakeClientOpts {
   dashboardError?: unknown; // getDashboardMetrics rejects this
   jobList?: JobList; // getJobs resolves this
   jobsError?: unknown; // getJobs rejects this
+  // ── Feature 014 auth scripting ──────────────────────────────────────────
+  authUser?: AuthUser; // login/signup/me resolve this
+  authError?: unknown; // login/signup/me reject this
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -88,6 +94,22 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
       return opts.dashboard ?? dashboardMetricsFixture;
     }),
     health: vi.fn(async () => ({ status: "ok" })),
+    // ── Feature 014 auth ─────────────────────────────────────────────────
+    signup: vi.fn(async (_email: string, _password: string): Promise<AuthResponse> => {
+      if (opts.authError) throw opts.authError;
+      return { user: opts.authUser ?? authUserFixture };
+    }),
+    login: vi.fn(async (_email: string, _password: string): Promise<AuthResponse> => {
+      if (opts.authError) throw opts.authError;
+      return { user: opts.authUser ?? authUserFixture };
+    }),
+    logout: vi.fn(async (): Promise<void> => {
+      if (opts.authError) throw opts.authError;
+    }),
+    me: vi.fn(async (): Promise<AuthUser> => {
+      if (opts.authError) throw opts.authError;
+      return opts.authUser ?? authUserFixture;
+    }),
   };
 }
 

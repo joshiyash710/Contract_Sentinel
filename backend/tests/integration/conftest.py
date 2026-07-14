@@ -11,6 +11,48 @@ import pytest
 
 import app.graph.nodes.report_agent as report_agent_mod
 
+# ---------------------------------------------------------------------------
+# Auth helpers (Task 5 — all integration tests must authenticate after 014)
+# ---------------------------------------------------------------------------
+
+_AUTH_EMAIL = "integration_test@example.com"
+_AUTH_PASSWORD = "IntTestPass1!"
+
+
+def authenticate(client) -> None:
+    """Idempotent: sign up or log in a shared test user on the given TestClient.
+
+    TestClient (httpx-backed) persists cookies on the instance, so one call
+    makes the whole client session authenticated (plan §7 / spec D1).
+    Signup-or-login handles the restart tests where c1 signs up and c2 logs in
+    against the same persistent DB (409 → login).
+    """
+    r = client.post(
+        "/api/auth/signup",
+        json={"email": _AUTH_EMAIL, "password": _AUTH_PASSWORD},
+    )
+    if r.status_code in (409, 403):
+        # 409 = dup email (same DB shared across clients in restart tests)
+        # 403 = signup closed (AUTH_SIGNUP_OPEN=False, count>0 → fall back to login)
+        r2 = client.post(
+            "/api/auth/login",
+            json={"email": _AUTH_EMAIL, "password": _AUTH_PASSWORD},
+        )
+        assert r2.status_code == 200, f"Login after {r.status_code} failed: {r2.text}"
+    else:
+        assert r.status_code == 200, f"Signup failed: {r.text}"
+
+
+@pytest.fixture(autouse=True)
+def _reset_auth_secret(monkeypatch):
+    """Reset the security module's in-process secret cache before each test.
+
+    load_secret() memoises to a module-level _SECRET. Without resetting it,
+    a monkeypatched AUTH_SECRET from test A leaks into test B's lifespan call.
+    """
+    import app.api.security as sec
+    monkeypatch.setattr(sec, "_SECRET", None)
+
 
 @pytest.fixture(autouse=True)
 def _isolate_report_output(tmp_path, monkeypatch):
@@ -129,6 +171,10 @@ def client(monkeypatch, tmp_path):
     monkeypatch.setattr(_config, "CHECKPOINTER_DB_PATH", str(tmp_path / "checkpoints.db"))
     # Disable startup recovery so tests control exactly which jobs run
     monkeypatch.setattr(_config, "STARTUP_RECOVERY_ENABLED", False)
+    # Auth (feature 014) — fixed secret so tokens survive across multiple clients
+    monkeypatch.setenv("AUTH_SECRET", "integration_test_secret_" + "x" * 16)
+    monkeypatch.setattr(_config, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
+    monkeypatch.setattr(_config, "AUTH_SIGNUP_OPEN", True)
 
     # NOTE (review T2): do NOT re-patch report_agent.REPORT_OUTPUT_DIR here —
     # the autouse _isolate_report_output already redirects it. Since build_graph is
@@ -137,4 +183,5 @@ def client(monkeypatch, tmp_path):
     # tmp_path and sets report_path to the .md path.
 
     with TestClient(create_app()) as c:
+        authenticate(c)
         yield c

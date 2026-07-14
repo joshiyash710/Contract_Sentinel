@@ -5,6 +5,7 @@ import { render, screen } from "@testing-library/react";
 let currentPath = "/dashboard";
 vi.mock("next/navigation", () => ({
   usePathname: () => currentPath,
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 
 import { Sidebar, NAV_ITEMS } from "@/components/shell/Sidebar";

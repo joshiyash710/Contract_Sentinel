@@ -1,7 +1,10 @@
 import { describe, test, expect, vi } from "vitest";
 import { render } from "@testing-library/react";
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard" }));
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/dashboard",
+  useRouter: () => ({ replace: vi.fn() }),
+}));
 
 import { AppShell } from "@/components/shell/AppShell";
 import { getApiClient } from "@/lib/api/provider";

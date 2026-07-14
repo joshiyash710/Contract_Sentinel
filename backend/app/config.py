@@ -345,3 +345,15 @@ USAGE_TIMELINE_DAYS: int = 30
 JOBS_LIST_DEFAULT_LIMIT: int = 20
 JOBS_LIST_MAX_LIMIT: int = 100
 # GET /api/jobs pagination: default page size and the clamp ceiling (spec EC-6).
+
+# ── Authentication (feature 014) ───────────────────────────────────────────────
+# Source: specs/014-auth-landing/spec.md §2.3 (D1–D2/D12–D13)
+
+AUTH_COOKIE_NAME: str = "cs_session"
+AUTH_SESSION_TTL_SECONDS: int = 7 * 24 * 3600  # D12 — 7 days
+AUTH_COOKIE_SECURE: bool = False  # D1 — must be True behind TLS
+AUTH_BCRYPT_ROUNDS: int = 12  # D2
+AUTH_PASSWORD_MIN: int = 8
+AUTH_PASSWORD_MAX: int = 128  # D2 — bcrypt 72-byte truncation neutralized by SHA-256 pre-hash
+AUTH_SIGNUP_OPEN: bool = False  # D13 — closed by default; set True only during initial provisioning
+AUTH_SECRET_FILE: str = "data/auth_secret"  # D1 — persisted random secret if AUTH_SECRET unset

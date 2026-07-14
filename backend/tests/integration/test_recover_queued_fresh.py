@@ -58,6 +58,8 @@ def _make_recovery_client(monkeypatch, tmp_path, job_store_path, checkpoints_pat
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)
     monkeypatch.setattr(_cfg, "CHECKPOINTER_DB_PATH", checkpoints_path)
     monkeypatch.setattr(_cfg, "STARTUP_RECOVERY_ENABLED", True)
+    monkeypatch.setenv("AUTH_SECRET", "recover_queued_test_secret_" + "x" * 13)
+    monkeypatch.setattr(_cfg, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     return TestClient(create_app())
 
@@ -79,6 +81,8 @@ def test_queued_row_fresh_run(monkeypatch, tmp_path):
     _seed_row(job_store, "queued-job", JobState.queued)
 
     with _make_recovery_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         status = _wait_for(c, "queued-job", "completed")
         assert status["status"] == "completed"
 
@@ -91,5 +95,7 @@ def test_running_no_checkpoint_fresh_run(monkeypatch, tmp_path):
     # No checkpoint in checkpoints.db → has_checkpoint returns False → fresh run
 
     with _make_recovery_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         status = _wait_for(c, "running-job", "completed")
         assert status["status"] == "completed"

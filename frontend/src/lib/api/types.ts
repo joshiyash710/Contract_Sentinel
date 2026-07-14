@@ -124,6 +124,18 @@ export interface ContractReport {
   error_count: number;
 }
 
+// ── 014 auth boundary models ─────────────────────────────────────────────────
+// Mirror backend/app/api/auth.py Pydantic models (spec §2.1 / AC-19).
+
+export interface AuthUser {
+  id: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+
 // ── 018 dynamic-dashboard boundary models ────────────────────────────────────
 // Mirror app/runner/models.py (feature 018). Read-only aggregate/list surfaces built
 // from the 012 job store + 009 report JSONs — never internal ContractState (§4).

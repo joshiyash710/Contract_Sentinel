@@ -33,6 +33,8 @@ def _make_client(monkeypatch, tmp_path, job_store_path, checkpoints_path, recove
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)
     monkeypatch.setattr(_cfg, "CHECKPOINTER_DB_PATH", checkpoints_path)
     monkeypatch.setattr(_cfg, "STARTUP_RECOVERY_ENABLED", recovery_on)
+    monkeypatch.setenv("AUTH_SECRET", "ingest_error_test_secret_" + "x" * 16)
+    monkeypatch.setattr(_cfg, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     return TestClient(create_app())
 
@@ -54,6 +56,8 @@ def test_ingest_error_survives_restart(monkeypatch, tmp_path):
 
     # First instance: submit + get completed with error
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=False) as c1:
+        from tests.integration.conftest import authenticate
+        authenticate(c1)
         r = c1.post(
             "/api/analyze",
             files={"file": ("c.pdf", b"%PDF", "application/pdf")},
@@ -66,6 +70,8 @@ def test_ingest_error_survives_restart(monkeypatch, tmp_path):
 
     # Second instance on same DB (recovery disabled): GET still returns completed+error
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=False) as c2:
+        from tests.integration.conftest import authenticate
+        authenticate(c2)
         r2 = c2.get(f"/api/jobs/{job_id}")
         assert r2.status_code == 200
         s2 = r2.json()
@@ -103,6 +109,8 @@ def test_failed_job_not_resumed_on_restart(monkeypatch, tmp_path):
 
     # Build app with recovery ON — failed job must remain failed, not re-run
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         import time
         time.sleep(0.2)  # give recovery time to run
 

@@ -43,6 +43,9 @@ backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
 
+# Auth secret file (feature 014 — generated on first run, never committed)
+backend/data/auth_secret
+
 # Frontend (feature 013 — Next.js + node)
 frontend/node_modules/
 frontend/.next/

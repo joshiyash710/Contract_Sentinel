@@ -220,12 +220,16 @@ def test_eviction_returns_404(monkeypatch, tmp_path):
     monkeypatch.setattr(_config, "JOB_STORE_DB_PATH", str(tmp_path / "evict_job_store.db"))
     monkeypatch.setattr(_config, "CHECKPOINTER_DB_PATH", str(tmp_path / "evict_checkpoints.db"))
     monkeypatch.setattr(_config, "STARTUP_RECOVERY_ENABLED", False)
+    monkeypatch.setenv("AUTH_SECRET", "eviction_test_secret_" + "x" * 19)
+    monkeypatch.setattr(_config, "AUTH_SECRET_FILE", str(tmp_path / "auth_secret"))
 
     import app.graph.nodes.report_agent as ra_mod
 
     monkeypatch.setattr(ra_mod, "REPORT_OUTPUT_DIR", str(report_dir))
 
     with TestClient(create_app()) as c:
+        from tests.integration.conftest import authenticate
+        authenticate(c)
         job_ids = []
         for i in range(3):
             r = c.post(

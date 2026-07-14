@@ -1,12 +1,21 @@
+"use client";
+
 import type { ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
+import { PUBLIC_ROUTES } from "@/lib/authRoutes";
 
 /**
- * Composes the sidebar + content outlet (spec AC-7). The TopBar is rendered per-page (each
- * screen owns its title / optional search), matching the reference designs where the Command
- * Center shows a centered search while the Risk Dashboard shows a left-aligned title.
+ * Composes the sidebar + content outlet (spec AC-7). Shell-free for public routes
+ * (/, /login) so landing and auth pages render without the app sidebar (AC-11 / D16).
  */
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+
+  if (pathname && PUBLIC_ROUTES.includes(pathname)) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="flex min-h-screen bg-app text-text-primary">
       <Sidebar />

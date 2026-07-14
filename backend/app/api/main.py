@@ -2,10 +2,10 @@
 FastAPI application factory and lifespan for the ContractSentinel runner/API.
 
 create_app() builds and returns a FastAPI app with:
-  - Async lifespan: builds store/saver/registry/worker, runs startup recovery,
-    stores RunnerContext on app.state.ctx, tears down on shutdown.
+  - Async lifespan: builds store/saver/registry/worker, UserStore, loads auth secret,
+    runs startup recovery, stores RunnerContext + user_store on app.state.
   - CORSMiddleware with the configured localhost allowlist (spec D7).
-  - The /api router from routes.py.
+  - Three routers: public (health), auth (unguarded), gated (require_auth dependency).
 
 module-level 'app = create_app()' for uvicorn entry: uvicorn app.api.main:app
 """
@@ -14,8 +14,10 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 import app.config as _cfg
 from app.runner.migrations import upgrade_to_head
@@ -24,7 +26,10 @@ from app.runner.persistence import build_saver, has_checkpoint
 from app.runner.registry import JobRegistry
 from app.runner.worker import PipelineWorker
 from app.runner.models import JobState
-from app.api.routes import RunnerContext, router
+from app.runner.user_store import UserStore
+from app.api.security import bootstrap_secret
+from app.api.auth import auth_router, require_auth
+from app.api.routes import RunnerContext, router, public_router
 
 
 def _recover(registry: JobRegistry, store: JobStore, saver, worker: PipelineWorker) -> None:
@@ -53,8 +58,10 @@ async def lifespan(application: FastAPI):
     constants in tests affects the lifespan-created objects.
     """
     loop = asyncio.get_running_loop()
+    bootstrap_secret()
     upgrade_to_head(_cfg.JOB_STORE_DB_PATH)
     store = JobStore(_cfg.JOB_STORE_DB_PATH)
+    user_store = UserStore(_cfg.JOB_STORE_DB_PATH)
     saver = build_saver(_cfg.CHECKPOINTER_DB_PATH) if _cfg.CHECKPOINTER_ENABLED else None
     registry = JobRegistry(store, saver, loop, max_jobs=_cfg.JOB_STORE_RETENTION_MAX)
     worker = PipelineWorker(registry, saver=saver, concurrency=_cfg.RUNNER_WORKER_CONCURRENCY)
@@ -62,11 +69,13 @@ async def lifespan(application: FastAPI):
     if _cfg.STARTUP_RECOVERY_ENABLED:
         _recover(registry, store, saver, worker)
     application.state.ctx = RunnerContext(registry=registry, worker=worker, loop=loop)
+    application.state.user_store = user_store
     try:
         yield
     finally:
         worker.stop()
         store.close()
+        user_store.close()
         if saver is not None:
             saver.conn.close()
 
@@ -74,6 +83,19 @@ async def lifespan(application: FastAPI):
 def create_app() -> FastAPI:
     """Build and return a configured FastAPI application."""
     application = FastAPI(title="ContractSentinel API", lifespan=lifespan)
+
+    @application.exception_handler(RequestValidationError)
+    async def _validation_error_handler(request: Request, exc: RequestValidationError):
+        # Strip 'input' from error details so user-supplied values (e.g. passwords)
+        # are never echoed back in 422 responses (AC-7a / S3).
+        # Also convert non-serializable ctx values (e.g. ValueError objects) to strings.
+        errors = []
+        for e in exc.errors():
+            safe = {k: v for k, v in e.items() if k != "input"}
+            if "ctx" in safe and isinstance(safe["ctx"], dict):
+                safe["ctx"] = {ck: str(cv) for ck, cv in safe["ctx"].items()}
+            errors.append(safe)
+        return JSONResponse(status_code=422, content={"detail": errors})
 
     application.add_middleware(
         CORSMiddleware,
@@ -83,7 +105,10 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    application.include_router(router)
+    # Router order: public (health) → auth (unguarded) → gated (require_auth on every route)
+    application.include_router(public_router)
+    application.include_router(auth_router)
+    application.include_router(router, dependencies=[Depends(require_auth)])
     return application
 
 

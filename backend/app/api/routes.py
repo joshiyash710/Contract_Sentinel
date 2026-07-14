@@ -1,19 +1,26 @@
 """
 FastAPI route handlers for the ContractSentinel runner/API layer.
 
-Five endpoints:
+Public router (no auth):
   GET  /api/health
+
+Gated router (require_auth dependency applied at include time in main.py):
   POST /api/analyze
+  GET  /api/jobs
+  GET  /api/dashboard
   GET  /api/jobs/{job_id}
   GET  /api/jobs/{job_id}/events
   GET  /api/jobs/{job_id}/report
 """
 
 import asyncio
+import logging
 import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, Form
@@ -51,10 +58,11 @@ def _get_ctx(request: Request) -> RunnerContext:
     return request.app.state.ctx
 
 
+public_router = APIRouter(prefix="/api")
 router = APIRouter(prefix="/api")
 
 
-@router.get("/health")
+@public_router.get("/health")
 async def health():
     return {"status": "ok"}
 
@@ -103,7 +111,8 @@ async def analyze(
     except Exception as exc:
         if os.path.exists(dest_path):
             os.unlink(dest_path)
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        _logger.exception("Upload write failed")
+        raise HTTPException(status_code=500, detail="Internal error saving upload") from exc
 
     if total == 0:
         os.unlink(dest_path)
