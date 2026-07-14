@@ -50,6 +50,18 @@ Only 2 conditional edges exist: CRAG's confidence-based routing, and route_on_ri
 - "Contract Understanding Agent" or "Legal Classification Agent" as separate nodes
 - RBAC / granular permissions / multi-tenant access control
 
+**AMENDMENT (2026-07-14, feature 014) — single-user authentication is now IN scope.**
+A **single-user login gate** — email + password (hashed), session cookie — is permitted
+to gate the app UI and API. Rationale: the product needs to look and behave like a real,
+trustworthy SaaS (owner request), and the reference designs include a landing page and a
+login/sign-up screen. This narrowly **reverses feature 011's "no-auth, localhost-only"
+decision for the API surface**: all `/api/*` endpoints now require a valid session. It is
+explicitly **NOT** multi-tenancy, per-user data scoping, RBAC, or granular permissions —
+those remain PERMANENTLY CUT above. There is one shared data space behind a single account;
+the login is an *access gate*, not a data-partitioning mechanism. Real Google/Microsoft
+SSO is out of scope for now (the buttons render but are disabled). If true multi-tenancy is
+ever wanted, it requires a further, separate amendment.
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.
