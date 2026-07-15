@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Sparkles, FileText, Quote, BookOpen } from "lucide-react";
+import { ChevronDown, Sparkles, FileText, Quote, BookOpen, Columns2 } from "lucide-react";
 import type { ReportFinding } from "@/lib/api/types";
 import { findingTitle } from "@/lib/reportFormat";
 import { FindingRiskBadge } from "./FindingRiskBadge";
@@ -20,16 +20,31 @@ const ACCENT: Record<string, string> = {
  * Header (always visible): title, section locator, risk badge, confidence. Body (when open):
  * explanation (risk_rationale), collapsible clause_text, three-way rewrite, evidence.
  * NO "Business Impact" — that field does not exist in 009 (D4); nothing fabricated.
+ *
+ * Open state is optionally controlled (spec 022): when `open`/`onToggle` are passed the parent
+ * workspace owns expansion (so the ClauseNavigator and the card's own chevron stay in sync);
+ * omitted, the card falls back to its own `defaultOpen` state (017 standalone behavior). `active`
+ * highlights the card the navigator currently points at.
  */
 export function FindingCard({
   finding,
   defaultOpen = false,
+  open: openProp,
+  onToggle,
+  active = false,
 }: {
   finding: ReportFinding;
   defaultOpen?: boolean;
+  open?: boolean;
+  onToggle?: () => void;
+  active?: boolean;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const controlled = openProp !== undefined;
+  const [openState, setOpenState] = useState(defaultOpen);
+  const open = controlled ? (openProp as boolean) : openState;
+  const toggleOpen = () => (controlled ? onToggle?.() : setOpenState((o) => !o));
   const [showFullClause, setShowFullClause] = useState(false);
+  const [compare, setCompare] = useState(false);
 
   const title = findingTitle(finding);
   const long = finding.clause_text.length > CLAUSE_PREVIEW_CHARS;
@@ -38,15 +53,18 @@ export function FindingCard({
       ? finding.clause_text.slice(0, CLAUSE_PREVIEW_CHARS) + "…"
       : finding.clause_text;
   const accent = (finding.risk_level && ACCENT[finding.risk_level]) || "before:bg-card-raised";
+  const hasRewrite = finding.rewrite_state === "rewritten" && !!finding.suggested_rewrite;
 
   return (
     <div
       data-testid="finding-card"
-      className={`relative overflow-hidden rounded-card border border-subtle bg-card pl-1.5 transition hover:border-subtle before:absolute before:left-0 before:top-0 before:h-full before:w-1.5 before:content-[''] ${accent}`}
+      className={`relative overflow-hidden rounded-card border bg-card pl-1.5 transition before:absolute before:left-0 before:top-0 before:h-full before:w-1.5 before:content-[''] ${accent} ${
+        active ? "border-accent/50 ring-1 ring-accent/40" : "border-subtle hover:border-subtle"
+      }`}
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         aria-expanded={open}
         className="flex w-full items-center gap-3 p-4 text-left hover:bg-card-raised"
       >
@@ -99,15 +117,48 @@ export function FindingCard({
             )}
           </section>
 
-          {/* Suggested rewrite — three-way (D3/AC-6) */}
-          {finding.rewrite_state === "rewritten" && finding.suggested_rewrite && (
+          {/* Suggested rewrite — stacked, with an optional before/after Compare (spec 022 AC-6) */}
+          {hasRewrite && (
             <section data-testid="rewrite-block">
-              <SectionLabel icon={<Quote size={13} />} tone="text-risk-low">
-                Suggested rewrite
-              </SectionLabel>
-              <p className="rounded-input border border-risk-low/20 bg-risk-low/10 px-3 py-2 text-body text-text-primary">
-                {finding.suggested_rewrite}
-              </p>
+              <div className="mb-1.5 flex items-center justify-between">
+                <SectionLabel icon={<Quote size={13} />} tone="text-risk-low" className="mb-0">
+                  Suggested rewrite
+                </SectionLabel>
+                <button
+                  type="button"
+                  onClick={() => setCompare((c) => !c)}
+                  aria-pressed={compare}
+                  className="inline-flex items-center gap-1.5 rounded-input border border-subtle px-2 py-1 text-small font-medium text-text-secondary hover:bg-card-raised"
+                >
+                  <Columns2 size={13} />
+                  {compare ? "Hide compare" : "Compare"}
+                </button>
+              </div>
+
+              {compare ? (
+                <div data-testid="clause-compare" className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <p className="mb-1 text-small font-semibold uppercase tracking-wide text-text-tertiary">
+                      Original
+                    </p>
+                    <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-input border-l-2 border-risk-high/40 bg-app px-3 py-2 text-small text-text-secondary">
+                      {finding.clause_text}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-small font-semibold uppercase tracking-wide text-risk-low">
+                      Suggested
+                    </p>
+                    <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-input border border-risk-low/20 bg-risk-low/10 px-3 py-2 text-small text-text-primary">
+                      {finding.suggested_rewrite}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <p className="rounded-input border border-risk-low/20 bg-risk-low/10 px-3 py-2 text-body text-text-primary">
+                  {finding.suggested_rewrite}
+                </p>
+              )}
             </section>
           )}
           {finding.rewrite_state === "unavailable" && (
@@ -139,14 +190,16 @@ export function FindingCard({
 function SectionLabel({
   icon,
   tone = "text-text-tertiary",
+  className = "mb-1.5",
   children,
 }: {
   icon: React.ReactNode;
   tone?: string;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <h4 className={`mb-1.5 flex items-center gap-1.5 text-small font-semibold uppercase tracking-wide ${tone}`}>
+    <h4 className={`flex items-center gap-1.5 text-small font-semibold uppercase tracking-wide ${className} ${tone}`}>
       {icon}
       {children}
     </h4>

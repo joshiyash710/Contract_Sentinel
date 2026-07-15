@@ -21,11 +21,18 @@ beforeEach(() => {
   push.mockReset();
   replace.mockReset();
   vi.mocked(getApiClient).mockReset();
+  // 022 workspace calls scrollIntoView on navigator selection; jsdom lacks it.
+  Element.prototype.scrollIntoView = vi.fn();
 });
 
-/** Expand a collapsed FindingCard by clicking its header button (matched by title). */
+/** The analysis panel — clause titles also appear in the 022 navigator rail, so card-level
+ * queries must be scoped here to stay unambiguous. */
+const panel = () => screen.getByTestId("analysis-panel");
+
+/** Expand a collapsed FindingCard by clicking its header button (matched by title, scoped to
+ * the analysis panel so it doesn't match the navigator entry of the same name). */
 async function expandCard(title: RegExp) {
-  const header = await screen.findByRole("button", { name: title });
+  const header = await within(panel()).findByRole("button", { name: title });
   fireEvent.click(header);
 }
 
@@ -100,7 +107,7 @@ describe("ReportView (spec 017 AC-1,3-11, EC-2)", () => {
 
     // finding 3 (not_eligible) → expand → NO rewrite block at all.
     await expandCard(/governing law/i);
-    const card3 = screen.getByText("Governing Law").closest("[data-testid='finding-card']")!;
+    const card3 = within(panel()).getByText("Governing Law").closest("[data-testid='finding-card']")!;
     expect(within(card3 as HTMLElement).queryByTestId("rewrite-block")).not.toBeInTheDocument();
   });
 
@@ -122,7 +129,7 @@ describe("ReportView (spec 017 AC-1,3-11, EC-2)", () => {
     expect(await screen.findByText(/playbook:\/\/liability\/caps/i)).toBeInTheDocument();
     // finding 3 (not_eligible, no evidence) → expand → no "Supporting sources" header.
     await expandCard(/governing law/i);
-    const card3 = screen.getByText("Governing Law").closest("[data-testid='finding-card']")!;
+    const card3 = within(panel()).getByText("Governing Law").closest("[data-testid='finding-card']")!;
     expect(within(card3 as HTMLElement).queryByText(/supporting sources/i)).not.toBeInTheDocument();
   });
 
