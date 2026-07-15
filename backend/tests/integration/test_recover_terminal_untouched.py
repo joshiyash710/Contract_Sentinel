@@ -13,7 +13,7 @@ from app.runner.models import JobState
 from app.runner.store import JobRow, JobStore
 
 
-def _seed_terminal_jobs(job_store_path):
+def _seed_terminal_jobs(job_store_path, user_id):
     upgrade_to_head(job_store_path)
     store = JobStore(job_store_path)
     store.upsert(
@@ -30,6 +30,7 @@ def _seed_terminal_jobs(job_store_path):
             report_path=None,
             mcp_delivery_status={},
             error=None,
+            user_id=user_id,
         )
     )
     store.upsert(
@@ -46,6 +47,7 @@ def _seed_terminal_jobs(job_store_path):
             report_path=None,
             mcp_delivery_status={},
             error=None,
+            user_id=user_id,
         )
     )
     store.close()
@@ -83,16 +85,13 @@ def test_terminal_jobs_not_rerun(monkeypatch, tmp_path):
     """Completed + failed rows are NOT re-submitted on startup recovery (spec AC-14)."""
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
-    _seed_terminal_jobs(job_store)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
 
-    import app.runner.worker as worker_mod
-
-    submitted_ids = []
-    orig_submit = None
+    email, pw = seed_owner_user(job_store)
+    _seed_terminal_jobs(job_store, RECOVERY_USER_ID)
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c:
-        from tests.integration.conftest import authenticate
-        authenticate(c)
+        authenticate_as(c, email, pw)
         # Both jobs should be retrievable (AC-14)
         r1 = c.get("/api/jobs/completed-job")
         assert r1.status_code == 200
@@ -107,18 +106,19 @@ def test_recovery_is_idempotent(monkeypatch, tmp_path):
     """Building the app twice on the same DB does not double-enqueue (spec AC-15)."""
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
-    _seed_terminal_jobs(job_store)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
+
+    email, pw = seed_owner_user(job_store)
+    _seed_terminal_jobs(job_store, RECOVERY_USER_ID)
 
     # Build app twice — both GETs must succeed, no crash on second start
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c1:
-        from tests.integration.conftest import authenticate
-        authenticate(c1)
+        authenticate_as(c1, email, pw)
         r1 = c1.get("/api/jobs/completed-job")
         assert r1.status_code == 200
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c2:
-        from tests.integration.conftest import authenticate
-        authenticate(c2)
+        authenticate_as(c2, email, pw)
         r2 = c2.get("/api/jobs/completed-job")
         assert r2.status_code == 200
 

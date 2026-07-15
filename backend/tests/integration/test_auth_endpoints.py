@@ -266,22 +266,30 @@ def test_auth_signup_is_public(auth_client):
 
 
 # ---------------------------------------------------------------------------
-# AC-10: two accounts share the same jobs (no per-user scoping)
+# Feature 019 (AC-A(t)): two accounts are ISOLATED — this replaces 014's AC-10
+# "two accounts share the same jobs" test; the endpoint contract changed from
+# shared to per-user scoped.
 # ---------------------------------------------------------------------------
 
 
-def test_two_accounts_share_jobs(auth_client):
-    # Account A signs up — sees empty jobs
+def test_two_accounts_isolated(auth_client):
+    # Account A signs up and creates a job.
     _signup(auth_client, email="a@x.com", password="password123")
-    ra = auth_client.get("/api/jobs")
-    assert ra.status_code == 200
+    r = auth_client.post(
+        "/api/analyze",
+        files={"file": ("a.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    assert r.status_code == 202
+    a_job = r.json()["job_id"]
+    ra = auth_client.get("/api/jobs").json()
+    assert ra["total"] == 1 and ra["items"][0]["job_id"] == a_job
 
-    # Account B logs out from A, signs up as B — also sees the same (empty) jobs list
+    # Account B signs up fresh → does NOT see A's job, and 404s on it by id.
     auth_client.cookies.clear()
     _signup(auth_client, email="b@x.com", password="password123")
-    rb = auth_client.get("/api/jobs")
-    assert rb.status_code == 200
-    assert ra.json()["total"] == rb.json()["total"]
+    rb = auth_client.get("/api/jobs").json()
+    assert rb["total"] == 0 and rb["items"] == []
+    assert auth_client.get(f"/api/jobs/{a_job}").status_code == 404
 
 
 # ---------------------------------------------------------------------------

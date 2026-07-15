@@ -124,6 +124,36 @@ def test_rehydrate_after_restart(db, store, loop):
     assert got.to_status().status == JobState.completed
 
 
+def test_user_id_persists_and_rehydrates(db, store, loop):
+    """Feature 019 (AC-A8): a JobRecord's owner persists on insert and survives rehydration."""
+    from app.runner.events import JobEventBuffer
+    from app.runner.registry import JobRecord, JobRegistry
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    buf = JobEventBuffer.__new__(JobEventBuffer)
+    buf._subscribers = []
+    buf._history = []
+    buf._loop = None
+    rec = JobRecord(
+        job_id="owned1",
+        document_path="/tmp/c.pdf",
+        submitted_at="2026-01-01T00:00:00+00:00",
+        buffer=buf,
+        user_id="user-abc",
+    )
+    registry.add(rec)
+
+    # Owner is persisted on the initial durable insert.
+    row = store.get("owned1")
+    assert row is not None and row.user_id == "user-abc"
+
+    # Rehydrate after a simulated restart — the owner is carried through.
+    registry._live.clear()
+    got = registry.get("owned1")
+    assert got is not None
+    assert got.user_id == "user-abc"
+
+
 def test_store_none_record_still_works():
     """_store=None record mutates in memory without error (spec AC-7a)."""
     from app.runner.events import JobEventBuffer

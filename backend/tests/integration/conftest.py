@@ -43,6 +43,61 @@ def authenticate(client) -> None:
         assert r.status_code == 200, f"Signup failed: {r.text}"
 
 
+def authenticate_as(client, email: str, password: str = "IsoTestPass1!") -> None:
+    """Feature 019: sign up (or log in) a SPECIFIC account on the given client instance.
+
+    Idempotent (signup → on 409/403 fall back to login) so the same email can be re-used
+    across clients that share a DB. TestClient persists the cookie per instance, so after
+    this call the client acts as `email`.
+    """
+    r = client.post("/api/auth/signup", json={"email": email, "password": password})
+    if r.status_code in (409, 403):
+        r2 = client.post("/api/auth/login", json={"email": email, "password": password})
+        assert r2.status_code == 200, f"Login for {email} failed: {r2.text}"
+    else:
+        assert r.status_code == 200, f"Signup for {email} failed: {r.text}"
+
+
+def current_user_id(client) -> str:
+    """Feature 019: the authenticated account's id (for stamping directly-seeded rows)."""
+    r = client.get("/api/auth/me")
+    assert r.status_code == 200, f"/api/auth/me failed: {r.text}"
+    return r.json()["user"]["id"]
+
+
+RECOVERY_USER_ID = "recovery-owner-019"
+_RECOVERY_PASSWORD = "RecoverPass1!"
+
+
+def seed_owner_user(db_path: str, user_id: str = RECOVERY_USER_ID):
+    """Feature 019: insert a user row with a KNOWN id directly into db_path.
+
+    Recovery tests seed job rows BEFORE the app starts (so startup recovery picks them up),
+    which means the owning account cannot be created via the API first. Seeding a user with a
+    fixed id lets those pre-startup jobs be stamped with `user_id=RECOVERY_USER_ID` and then
+    read back by that account after it logs in. Returns (email, password) for authenticate_as.
+    """
+    import sqlite3
+    from datetime import datetime, timezone
+
+    from app.runner.migrations import upgrade_to_head
+    from app.api.security import hash_password
+
+    email = f"{user_id}@iso.test"
+    upgrade_to_head(db_path)
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO users (id, email, password_hash, created_at) VALUES (?,?,?,?)",
+            (user_id, email, hash_password(_RECOVERY_PASSWORD),
+             datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    return email, _RECOVERY_PASSWORD
+
+
 @pytest.fixture(autouse=True)
 def _reset_auth_secret(monkeypatch):
     """Reset the security module's in-process secret cache before each test.

@@ -87,7 +87,9 @@ def test_failed_job_not_resumed_on_restart(monkeypatch, tmp_path):
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
     upgrade_to_head(job_store)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
 
+    email, pw = seed_owner_user(job_store)
     store = JobStore(job_store)
     store.upsert(
         JobRow(
@@ -103,14 +105,14 @@ def test_failed_job_not_resumed_on_restart(monkeypatch, tmp_path):
             report_path=None,
             mcp_delivery_status={},
             error=None,
+            user_id=RECOVERY_USER_ID,
         )
     )
     store.close()
 
     # Build app with recovery ON — failed job must remain failed, not re-run
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints, recovery_on=True) as c:
-        from tests.integration.conftest import authenticate
-        authenticate(c)
+        authenticate_as(c, email, pw)
         import time
         time.sleep(0.2)  # give recovery time to run
 

@@ -16,8 +16,8 @@ def test_upgrade_creates_jobs_table(tmp_path):
     conn = sqlite3.connect(db)
     conn.row_factory = sqlite3.Row
 
-    # Table exists with the expected columns (13 after migration 0002 added
-    # original_filename for feature 018).
+    # Table exists with the expected columns (14 after migration 0004 added
+    # user_id for feature 019; 0002 added original_filename for feature 018).
     cols_info = conn.execute("PRAGMA table_info(jobs)").fetchall()
     col_names = {r["name"] for r in cols_info}
     expected = {
@@ -34,6 +34,7 @@ def test_upgrade_creates_jobs_table(tmp_path):
         "mcp_delivery_status",
         "error",
         "original_filename",  # migration 0002 (feature 018)
+        "user_id",  # migration 0004 (feature 019 — per-user data isolation)
     }
     assert col_names == expected
 

@@ -23,11 +23,12 @@ from pathlib import Path
 _logger = logging.getLogger(__name__)
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, Form
 from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 import app.config as _cfg
+from app.api.auth import AuthUser, require_auth
 from app.api.aggregate import build_dashboard_metrics, build_job_list, read_report_data
 from app.runner.events import JobEventBuffer
 from app.runner.models import (
@@ -58,6 +59,19 @@ def _get_ctx(request: Request) -> RunnerContext:
     return request.app.state.ctx
 
 
+def _owned_or_404(ctx: RunnerContext, job_id: str, current_user: AuthUser):
+    """Fetch a job the caller owns, else raise 404 (feature 019 — AC-A3/A4/EC-1).
+
+    A non-owned or legacy (NULL-owner) job is indistinguishable from a nonexistent one:
+    both raise the SAME 404, so job-ids never leak across accounts. Must be called BEFORE
+    any file is served / SSE stream is opened.
+    """
+    rec = ctx.registry.get(job_id)
+    if rec is None or rec.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return rec
+
+
 public_router = APIRouter(prefix="/api")
 router = APIRouter(prefix="/api")
 
@@ -72,6 +86,7 @@ async def analyze(
     request: Request,
     file: UploadFile,
     recipient: Optional[str] = Form(default=None),
+    current_user: AuthUser = Depends(require_auth),
 ) -> AnalyzeAccepted:
     ctx: RunnerContext = _get_ctx(request)
 
@@ -129,6 +144,8 @@ async def analyze(
         # Persist the REAL uploaded name (feature 018 / 001-alignment); fall back to the
         # job-id-based name if the client didn't send a filename.
         original_filename=file.filename or f"{job_id}{ext}",
+        # Stamp the owning account (feature 019 — AC-A1) so reads can be scoped to it.
+        user_id=current_user.id,
     )
     ctx.registry.add(rec)
     ctx.worker.submit(job_id)
@@ -149,37 +166,51 @@ async def list_jobs(
     request: Request,
     limit: int = _cfg.JOBS_LIST_DEFAULT_LIMIT,
     offset: int = 0,
+    current_user: AuthUser = Depends(require_auth),
 ) -> JobList:
     # NOTE: coexists with GET /jobs/{job_id} below — different segment counts, no shadowing.
     limit = max(1, min(limit, _cfg.JOBS_LIST_MAX_LIMIT))  # EC-6 clamp
     offset = max(0, offset)
     reg = _get_ctx(request).registry
     return build_job_list(
-        reg.list_jobs(limit, offset), read_report_data, limit, offset, reg.count()
+        reg.list_jobs(current_user.id, limit, offset),
+        read_report_data,
+        limit,
+        offset,
+        reg.count(current_user.id),
     )
 
 
 @router.get("/dashboard", response_model=DashboardMetrics)
-async def dashboard(request: Request) -> DashboardMetrics:
+async def dashboard(
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+) -> DashboardMetrics:
     reg = _get_ctx(request).registry
-    return build_dashboard_metrics(reg.all_rows(), read_report_data, today=_utc_today())
+    return build_dashboard_metrics(
+        reg.all_rows(current_user.id), read_report_data, today=_utc_today()
+    )
 
 
 @router.get("/jobs/{job_id}", response_model=JobStatus)
-async def get_job(job_id: str, request: Request) -> JobStatus:
+async def get_job(
+    job_id: str,
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+) -> JobStatus:
     ctx: RunnerContext = _get_ctx(request)
-    rec = ctx.registry.get(job_id)
-    if rec is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    rec = _owned_or_404(ctx, job_id, current_user)
     return rec.to_status()
 
 
 @router.get("/jobs/{job_id}/events")
-async def get_job_events(job_id: str, request: Request):
+async def get_job_events(
+    job_id: str,
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+):
     ctx: RunnerContext = _get_ctx(request)
-    rec = ctx.registry.get(job_id)
-    if rec is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    rec = _owned_or_404(ctx, job_id, current_user)
 
     async def event_generator():
         backlog, q, closed = rec.buffer.subscribe()
@@ -206,11 +237,14 @@ async def get_job_events(job_id: str, request: Request):
 
 
 @router.get("/jobs/{job_id}/report")
-async def get_job_report(job_id: str, request: Request, format: str = "md"):
+async def get_job_report(
+    job_id: str,
+    request: Request,
+    format: str = "md",
+    current_user: AuthUser = Depends(require_auth),
+):
     ctx: RunnerContext = _get_ctx(request)
-    rec = ctx.registry.get(job_id)
-    if rec is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+    rec = _owned_or_404(ctx, job_id, current_user)
 
     # report_path is intentionally NOT on the boundary JobStatus (spec §2.3);
     # resolve it from the record's thread-safe accessor alone (AC-13).

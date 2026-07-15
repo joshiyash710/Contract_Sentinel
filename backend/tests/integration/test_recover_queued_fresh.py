@@ -10,7 +10,7 @@ from app.runner.models import JobState
 from app.runner.store import JobRow, JobStore
 
 
-def _seed_row(job_store_path, job_id, status):
+def _seed_row(job_store_path, job_id, status, user_id):
     upgrade_to_head(job_store_path)
     store = JobStore(job_store_path)
     store.upsert(
@@ -27,6 +27,7 @@ def _seed_row(job_store_path, job_id, status):
             report_path=None,
             mcp_delivery_status={},
             error=None,
+            user_id=user_id,
         )
     )
     store.close()
@@ -78,11 +79,13 @@ def test_queued_row_fresh_run(monkeypatch, tmp_path):
     """Seeded queued row → fresh run → completed (spec AC-12)."""
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
-    _seed_row(job_store, "queued-job", JobState.queued)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
+
+    email, pw = seed_owner_user(job_store)
+    _seed_row(job_store, "queued-job", JobState.queued, RECOVERY_USER_ID)
 
     with _make_recovery_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
-        from tests.integration.conftest import authenticate
-        authenticate(c)
+        authenticate_as(c, email, pw)
         status = _wait_for(c, "queued-job", "completed")
         assert status["status"] == "completed"
 
@@ -91,11 +94,13 @@ def test_running_no_checkpoint_fresh_run(monkeypatch, tmp_path):
     """Seeded running row with no checkpoint → fresh re-run → completed (spec AC-13, EC-2)."""
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
-    _seed_row(job_store, "running-job", JobState.running)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
+
+    email, pw = seed_owner_user(job_store)
+    _seed_row(job_store, "running-job", JobState.running, RECOVERY_USER_ID)
     # No checkpoint in checkpoints.db → has_checkpoint returns False → fresh run
 
     with _make_recovery_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
-        from tests.integration.conftest import authenticate
-        authenticate(c)
+        authenticate_as(c, email, pw)
         status = _wait_for(c, "running-job", "completed")
         assert status["status"] == "completed"

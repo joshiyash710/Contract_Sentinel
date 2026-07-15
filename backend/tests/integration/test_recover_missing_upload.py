@@ -11,7 +11,7 @@ from app.runner.models import JobState
 from app.runner.store import JobRow, JobStore
 
 
-def _seed_queued_missing_file(job_store_path, job_id):
+def _seed_queued_missing_file(job_store_path, job_id, user_id):
     upgrade_to_head(job_store_path)
     store = JobStore(job_store_path)
     store.upsert(
@@ -28,6 +28,7 @@ def _seed_queued_missing_file(job_store_path, job_id):
             report_path=None,
             mcp_delivery_status={},
             error=None,
+            user_id=user_id,
         )
     )
     store.close()
@@ -70,11 +71,13 @@ def test_missing_upload_terminates(monkeypatch, tmp_path):
     job_id = "missing-upload-job"
     job_store = str(tmp_path / "job_store.db")
     checkpoints = str(tmp_path / "checkpoints.db")
-    _seed_queued_missing_file(job_store, job_id)
+    from tests.integration.conftest import RECOVERY_USER_ID, authenticate_as, seed_owner_user
+
+    email, pw = seed_owner_user(job_store)
+    _seed_queued_missing_file(job_store, job_id, RECOVERY_USER_ID)
 
     with _make_client(monkeypatch, tmp_path, job_store, checkpoints) as c:
-        from tests.integration.conftest import authenticate
-        authenticate(c)
+        authenticate_as(c, email, pw)
         deadline = time.monotonic() + 5.0
         while time.monotonic() < deadline:
             r = c.get(f"/api/jobs/{job_id}")

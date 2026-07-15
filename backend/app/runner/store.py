@@ -37,9 +37,12 @@ class JobRow:
     report_path: Optional[str]
     mcp_delivery_status: dict
     error: Optional[ErrorInfo]
-    # Appended LAST (feature 018). Keep this ordering identical in _encode(), the INSERT
-    # column list/VALUES, and _decode() — the encode tuple is positional (spec plan §3.3).
+    # Appended LAST (feature 018, then 019). Keep this ordering identical in _encode(), the
+    # INSERT column list/VALUES, and _decode() — the encode tuple is positional (plan §3.2).
     original_filename: Optional[str] = None
+    # Owning account (feature 019 — per-user data isolation). NULL = legacy/unowned row,
+    # hidden from every scoped read. Set once at create; never mutated.
+    user_id: Optional[str] = None
 
 
 class JobStore:
@@ -61,8 +64,8 @@ class JobStore:
                 """INSERT INTO jobs (job_id, document_path, recipient, status,
                        submitted_at, started_at, finished_at, current_node,
                        completed_nodes, report_path, mcp_delivery_status, error,
-                       original_filename)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       original_filename, user_id)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(job_id) DO UPDATE SET
                        status=excluded.status,
                        started_at=excluded.started_at,
@@ -93,27 +96,33 @@ class JobStore:
             rows = cur.fetchall()
         return [self._decode(r) for r in rows]
 
-    def list(self, limit: int, offset: int) -> List[JobRow]:
-        """Newest-first page of jobs for GET /api/jobs (feature 018, spec AC-1)."""
+    def list(self, user_id: str, limit: int, offset: int) -> List[JobRow]:
+        """Newest-first page of the owner's jobs for GET /api/jobs (feature 018; scoped to
+        user_id in feature 019 — AC-A2). NULL-owner (legacy) rows are excluded."""
         with self._lock:
             cur = self._conn.execute(
-                "SELECT * FROM jobs ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
-                (limit, offset),
+                "SELECT * FROM jobs WHERE user_id=? ORDER BY submitted_at DESC LIMIT ? OFFSET ?",
+                (user_id, limit, offset),
             )
             rows = cur.fetchall()
         return [self._decode(r) for r in rows]
 
-    def count(self) -> int:
-        """Total job rows (feature 018 — total_contracts / list total)."""
+    def count(self, user_id: str) -> int:
+        """The owner's job count (feature 018 total_contracts; scoped in 019 — AC-A2)."""
         with self._lock:
-            cur = self._conn.execute("SELECT COUNT(*) AS n FROM jobs")
+            cur = self._conn.execute(
+                "SELECT COUNT(*) AS n FROM jobs WHERE user_id=?", (user_id,)
+            )
             return int(cur.fetchone()["n"])
 
-    def all(self) -> List[JobRow]:
-        """All jobs newest-first for dashboard aggregation (feature 018). Bounded by the
-        insert-time retention cap (JOB_STORE_RETENTION_MAX)."""
+    def all(self, user_id: str) -> List[JobRow]:
+        """All of the owner's jobs newest-first for dashboard aggregation (feature 018;
+        scoped in 019 — AC-A5). Bounded by the insert-time retention cap
+        (JOB_STORE_RETENTION_MAX). NULL-owner (legacy) rows are excluded."""
         with self._lock:
-            cur = self._conn.execute("SELECT * FROM jobs ORDER BY submitted_at DESC")
+            cur = self._conn.execute(
+                "SELECT * FROM jobs WHERE user_id=? ORDER BY submitted_at DESC", (user_id,)
+            )
             rows = cur.fetchall()
         return [self._decode(r) for r in rows]
 
@@ -160,6 +169,7 @@ class JobStore:
             json.dumps(row.mcp_delivery_status),
             error_json,
             row.original_filename,
+            row.user_id,
         )
 
     def _decode(self, r: sqlite3.Row) -> JobRow:
@@ -183,4 +193,5 @@ class JobStore:
             original_filename=(
                 r["original_filename"] if "original_filename" in r.keys() else None
             ),
+            user_id=(r["user_id"] if "user_id" in r.keys() else None),
         )

@@ -54,8 +54,10 @@ def test_list_count_all_rows_passthrough(registry):
                 submitted_at=f"2026-01-0{i + 1}T00:00:00+00:00",
                 buffer=JobEventBuffer(loop=None),
                 original_filename=f"c{i}.pdf",
+                user_id="u1",
             )
         )
-    assert registry.count() == 3
-    assert [r.job_id for r in registry.list_jobs(limit=2, offset=0)] == ["j2", "j1"]
-    assert [r.job_id for r in registry.all_rows()] == ["j2", "j1", "j0"]
+    # Pass-throughs are scoped by user_id (feature 019).
+    assert registry.count("u1") == 3
+    assert [r.job_id for r in registry.list_jobs("u1", limit=2, offset=0)] == ["j2", "j1"]
+    assert [r.job_id for r in registry.all_rows("u1")] == ["j2", "j1", "j0"]

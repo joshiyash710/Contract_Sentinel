@@ -51,6 +51,9 @@ class JobRecord:
     # last defaulted init field (recipient) and before the field(init=False) block, so the
     # dataclass "no non-default after default" rule holds. Seeded by the analyze route.
     original_filename: Optional[str] = None
+    # Owning account (feature 019 — per-user data isolation). Set once by the analyze route;
+    # persisted with the row and never mutated. NULL = legacy/unowned.
+    user_id: Optional[str] = None
 
     # Mutable fields — written only via lock methods
     _status: JobState = field(default=JobState.queued, init=False, repr=False)
@@ -80,6 +83,7 @@ class JobRecord:
             document_path=self.document_path,
             recipient=self.recipient,
             original_filename=self.original_filename,
+            user_id=self.user_id,
             status=self._status,
             submitted_at=self.submitted_at,
             started_at=self._started_at,
@@ -194,6 +198,7 @@ class JobRecord:
             buffer=buffer,
             recipient=row.recipient,
             original_filename=row.original_filename,
+            user_id=row.user_id,
         )
         rec._status = row.status
         rec._started_at = row.started_at
@@ -282,19 +287,21 @@ class JobRegistry:
 
     # ── feature 018 read pass-throughs (durable store, not just the live dict) ──────
 
-    def list_jobs(self, limit: int, offset: int):
-        """Newest-first page of JobRows for GET /api/jobs (spec AC-1)."""
+    def list_jobs(self, user_id: str, limit: int, offset: int):
+        """Newest-first page of the owner's JobRows for GET /api/jobs (018 AC-1; scoped to
+        user_id in feature 019 — AC-A2)."""
         if self._store is None:
             return []
-        return self._store.list(limit, offset)
+        return self._store.list(user_id, limit, offset)
 
-    def count(self) -> int:
+    def count(self, user_id: str) -> int:
         if self._store is None:
             return 0
-        return self._store.count()
+        return self._store.count(user_id)
 
-    def all_rows(self):
-        """All JobRows for dashboard aggregation (spec §2.3)."""
+    def all_rows(self, user_id: str):
+        """All of the owner's JobRows for dashboard aggregation (018 §2.3; scoped in 019 —
+        AC-A5)."""
         if self._store is None:
             return []
-        return self._store.all()
+        return self._store.all(user_id)

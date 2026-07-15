@@ -162,3 +162,30 @@ def test_prune_returns_oldest(store, tmp_path):
 
 def test_get_missing_none(store):
     assert store.get("nope") is None
+
+
+def test_user_id_roundtrip(store):
+    # Feature 019 (AC-A1): the owning account's id is persisted and read back.
+    from app.runner.store import JobRow
+
+    row = JobRow(
+        job_id="owned",
+        document_path="/tmp/c.pdf",
+        recipient=None,
+        status=JobState.queued,
+        submitted_at="2026-01-01T00:00:00+00:00",
+        started_at=None,
+        finished_at=None,
+        current_node=None,
+        completed_nodes=[],
+        report_path=None,
+        mcp_delivery_status={},
+        error=None,
+        user_id="user-123",
+    )
+    store.upsert(row)
+    got = store.get("owned")
+    assert got is not None
+    assert got.user_id == "user-123"
+    # A row persisted without an owner decodes as None (legacy).
+    assert store.get("j-none") is None

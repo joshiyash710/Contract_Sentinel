@@ -11,6 +11,7 @@ import json
 from app.runner.events import JobEventBuffer
 from app.runner.models import JobState
 from app.runner.registry import JobRecord
+from tests.integration.conftest import current_user_id
 
 
 def _seed_completed(client, tmp_path, job_id, filename, summary, findings, submitted_at):
@@ -28,6 +29,7 @@ def _seed_completed(client, tmp_path, job_id, filename, summary, findings, submi
         submitted_at=submitted_at,
         buffer=JobEventBuffer(loop=None),
         original_filename=filename,
+        user_id=current_user_id(client),  # feature 019 — owned by the authed user
     )
     reg.add(rec)
     rec.mark_running(submitted_at)
@@ -42,6 +44,7 @@ def _seed_status(client, job_id, status, submitted_at):
         submitted_at=submitted_at,
         buffer=JobEventBuffer(loop=None),
         original_filename=f"{job_id}.pdf",
+        user_id=current_user_id(client),  # feature 019 — owned by the authed user
     )
     reg.add(rec)
     if status != JobState.queued:
@@ -124,7 +127,8 @@ def test_dashboard_missing_report_skipped(client, tmp_path):
     reg = client.app.state.ctx.registry
     rec = JobRecord(job_id="gone", document_path="/u/gone.pdf",
                     submitted_at="2026-01-03T00:00:00+00:00",
-                    buffer=JobEventBuffer(loop=None), original_filename="gone.pdf")
+                    buffer=JobEventBuffer(loop=None), original_filename="gone.pdf",
+                    user_id=current_user_id(client))
     reg.add(rec)
     rec.mark_running("2026-01-03T00:00:00+00:00")
     rec.mark_terminal(status=JobState.completed, finished_at="t", report_path="/nope/x.md")

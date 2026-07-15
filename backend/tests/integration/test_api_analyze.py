@@ -50,6 +50,23 @@ def test_analyze_pdf_returns_202(client):
     assert data["status"] in ("queued", "running")
 
 
+def test_analyze_stamps_owner(client):
+    """POST /api/analyze stamps the created job with the authed user's id (AC-A1)."""
+    from tests.integration.conftest import current_user_id
+
+    uid = current_user_id(client)
+    resp = client.post(
+        "/api/analyze",
+        files={"file": ("contract.pdf", b"%PDF-1.4 fake", "application/pdf")},
+    )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+
+    row = client.app.state.ctx.registry._store.get(job_id)
+    assert row is not None
+    assert row.user_id == uid
+
+
 def test_analyze_docx_accepted(client):
     """.docx is accepted identically to .pdf."""
     resp = client.post(
