@@ -228,15 +228,19 @@ function ActivityRow({ item }: { item: JobListItem }) {
 function EmptyState() {
   return (
     <Centered>
-      <div className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15 text-accent">
-        <FileCheck2 size={28} />
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-accent-gradient text-accent-fg shadow-glow">
+        <FileCheck2 size={30} />
       </div>
       <h2 className="text-h2 font-bold">No contracts analyzed yet</h2>
       <p className="max-w-md text-body text-text-secondary">
-        Upload your first contract to see your portfolio dashboard come to life.
+        Upload your first contract to see your portfolio dashboard come to life — risk scores,
+        findings, and trends, all in your private workspace.
       </p>
-      <Link href="/upload" className="text-accent font-medium hover:underline">
-        Upload a contract
+      <Link
+        href="/upload"
+        className="mt-2 inline-flex items-center gap-2 rounded-lg bg-accent-gradient px-6 py-3 text-body font-semibold text-accent-fg shadow-glow transition hover:opacity-95"
+      >
+        <Plus size={16} /> Upload a contract
       </Link>
     </Centered>
   );

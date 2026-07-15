@@ -56,6 +56,51 @@
   --heat-4: #ef4444;
 }
 
+/* ────────────────────────────────────────────────────────────────────────────
+   Feature 019 — marketing/auth "aurora" backdrop. Animation + gradient COMPOSITION
+   only; every color is reused from the tokens above (no new color token). A slow
+   drift of layered radial gradients built from the brand accent. Disabled under
+   prefers-reduced-motion.
+   ──────────────────────────────────────────────────────────────────────────── */
+.bg-aurora {
+  position: relative;
+  background-color: var(--bg-app);
+  overflow: hidden;
+}
+.bg-aurora::before {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(40% 45% at 20% 20%, rgba(122, 92, 255, 0.22), transparent 70%),
+    radial-gradient(38% 42% at 82% 28%, rgba(91, 141, 239, 0.20), transparent 70%),
+    radial-gradient(45% 50% at 55% 88%, rgba(124, 108, 245, 0.16), transparent 72%);
+  filter: blur(8px);
+  animation: aurora-drift 22s ease-in-out infinite alternate;
+}
+.bg-aurora > * {
+  position: relative;
+  z-index: 1;
+}
+@keyframes aurora-drift {
+  0% {
+    transform: translate3d(-3%, -2%, 0) scale(1.05) rotate(0deg);
+  }
+  50% {
+    transform: translate3d(2%, 3%, 0) scale(1.12) rotate(4deg);
+  }
+  100% {
+    transform: translate3d(3%, -3%, 0) scale(1.08) rotate(-3deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bg-aurora::before {
+    animation: none;
+  }
+}
+
 html,
 body {
   padding: 0;

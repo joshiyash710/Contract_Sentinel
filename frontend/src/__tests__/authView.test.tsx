@@ -56,6 +56,27 @@ describe("AC-12: SSO buttons disabled and Forgot-Password inert", () => {
   });
 });
 
+// ── AC-B3: underline tabs switch the active form ─────────────────────────────
+
+describe("AC-B3: tabs switch the active form", () => {
+  it("clicking the Sign Up tab makes submit call signup()", async () => {
+    fakeClient = makeFakeClient({ authUser: authUserFixture });
+    renderAuth("login");
+
+    // Start on login; switch to Sign Up via the tab.
+    fireEvent.click(screen.getByRole("tab", { name: /sign up/i }));
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@b.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password123" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /continue/i }));
+    });
+
+    await waitFor(() => expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123"));
+    expect(fakeClient.login).not.toHaveBeenCalled();
+  });
+});
+
 // ── AC-13: Login tab submit ───────────────────────────────────────────────────
 
 describe("AC-13: Login tab", () => {
