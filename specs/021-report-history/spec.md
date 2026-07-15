@@ -73,9 +73,18 @@ The sidebar **"Contracts"** item points to **`/contracts`** (the history list) i
 - **D5 — Status/risk semantics reuse 017/018.** `risk_band` and the findings counts come
   straight from `JobListItem` (already derived server-side from the 009 report). Running/queued
   rows show no risk (dashes); failed rows show a Failed badge and no report link.
-- **D6 — No selection/bulk/compare/download here.** The `DataTable` supports select-all and a
-  Compare/Download action slot (screen 12), but contract **comparison** and bulk actions are
-  **out of scope** (comparison is a separate future feature). v1 is: browse, search, sort, open.
+- **D6 — No compare/download/bulk actions here.** Contract **comparison** and multi-select bulk
+  actions (download) are **out of scope** (comparison is a separate future feature). v1 is:
+  browse, search, filter, sort, open.
+- **D8 — Screen-12 cosmetic parity (added after review of the reference mockup).** To match the
+  "History of Analyzed Contracts" reference image while keeping the honest data model, the list
+  renders the mockup's **select-all + per-row checkboxes** (via `DataTable selectable`; inert —
+  no bulk action wired, per D6), a **filter cluster** (client-side **Risk** and **Status**
+  dropdowns over the fetched set, alongside filename search), and **score-style risk pills**
+  (filled/ringed band pills). Deliberately **not** reproduced: the mockup's `NN/100` numeric risk
+  **score** (no such backend field — 018 established the derived **band**, not a fabricated
+  score) and the **Compare/Download** row actions (D6). Status keeps the real job lifecycle
+  (completed/running/queued/failed), not the mockup's Analysed/Redlined/Needs-Review labels.
 - **D7 — Seam preserved.** The view reaches the backend only via `getApiClient()` (no direct
   provider import); mock provider returns `jobListFixture` so the page renders in mock dev/tests.
 

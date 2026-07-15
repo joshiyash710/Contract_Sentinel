@@ -121,6 +121,36 @@ describe("ReportHistoryView (spec 021)", () => {
     expect(within(failed).queryByRole("link", { name: /view report/i })).toBeNull();
   });
 
+  test("parity: renders select-all + per-row checkboxes (screen-12 chrome)", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({}));
+    render(<ReportHistoryView />);
+    await screen.findByText("MSA_AcmeCorp.pdf");
+    expect(screen.getByLabelText(/select all rows/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/select row job-a/i)).toBeInTheDocument();
+  });
+
+  test("parity: risk filter narrows rows client-side", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({}));
+    render(<ReportHistoryView />);
+    await screen.findByText("MSA_AcmeCorp.pdf");
+
+    fireEvent.change(screen.getByLabelText(/filter by risk/i), { target: { value: "high" } });
+    expect(screen.getByText("MSA_AcmeCorp.pdf")).toBeInTheDocument(); // high
+    expect(screen.queryByText("NDA_draft.docx")).toBeNull(); // running, no band
+    expect(screen.queryByText("vendor_terms.pdf")).toBeNull(); // failed, no band
+  });
+
+  test("parity: status filter narrows rows client-side", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({}));
+    render(<ReportHistoryView />);
+    await screen.findByText("MSA_AcmeCorp.pdf");
+
+    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "failed" } });
+    expect(screen.getByText("vendor_terms.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("MSA_AcmeCorp.pdf")).toBeNull();
+    expect(screen.queryByText("NDA_draft.docx")).toBeNull();
+  });
+
   test("AC-3: Upload New Contract links to /upload", async () => {
     vi.mocked(getApiClient).mockReturnValue(makeFakeClient({}));
     render(<ReportHistoryView />);

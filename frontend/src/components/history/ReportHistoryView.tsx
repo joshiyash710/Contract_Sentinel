@@ -2,7 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, FileText, ArrowUpRight, ChevronLeft, ChevronRight } from "lucide-react";
+import clsx from "clsx";
+import {
+  Plus,
+  FileText,
+  ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
 import { useJobs } from "@/lib/useJobs";
 import type { JobListItem } from "@/lib/api/types";
 import { Card } from "@/components/ui/Card";
@@ -10,10 +18,10 @@ import { Button } from "@/components/ui/Button";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
-import { formatSubmitted, riskTone, overflowNote } from "@/lib/history";
+import { formatSubmitted, overflowNote } from "@/lib/history";
 
-// Fetch the most-recent 100 (backend JOBS_LIST_MAX_LIMIT clamp) in one call, then search / sort /
-// paginate client-side over the retention-bounded set (spec D2). Do NOT import backend config.
+// Fetch the most-recent 100 (backend JOBS_LIST_MAX_LIMIT clamp) in one call, then search / filter /
+// sort / paginate client-side over the retention-bounded set (spec D2). Do NOT import backend config.
 const FETCH_LIMIT = 100;
 const PAGE_SIZE = 20;
 
@@ -28,6 +36,28 @@ const STATUS_TONE: Record<string, BadgeTone> = {
   failed: "danger",
 };
 
+// Score-style risk pills (screen-12 parity): a filled, ringed pill per band. We show the honest
+// risk BAND (high/medium/low) — there is no fabricated 0–100 score (feature 018 rule).
+const RISK_PILL: Record<string, string> = {
+  high: "bg-risk-high/15 text-risk-high ring-1 ring-inset ring-risk-high/40",
+  medium: "bg-risk-medium/15 text-risk-medium ring-1 ring-inset ring-risk-medium/40",
+  low: "bg-risk-low/15 text-risk-low ring-1 ring-inset ring-risk-low/40",
+};
+
+const RISK_OPTIONS = [
+  { value: "all", label: "All risks" },
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+];
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "completed", label: "Completed" },
+  { value: "running", label: "Running" },
+  { value: "queued", label: "Queued" },
+  { value: "failed", label: "Failed" },
+];
+
 function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
@@ -35,14 +65,20 @@ function cap(s: string): string {
 export function ReportHistoryView() {
   const { state, retry } = useJobs({ limit: FETCH_LIMIT });
   const [search, setSearch] = useState("");
+  const [riskFilter, setRiskFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(0);
 
   const items = useMemo(() => state.data?.items ?? [], [state.data]);
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((i) => i.original_filename.toLowerCase().includes(q));
-  }, [items, search]);
+    return items.filter((i) => {
+      if (q && !i.original_filename.toLowerCase().includes(q)) return false;
+      if (riskFilter !== "all" && i.risk_band !== riskFilter) return false;
+      if (statusFilter !== "all" && i.status !== statusFilter) return false;
+      return true;
+    });
+  }, [items, search, riskFilter, statusFilter]);
 
   if (state.phase === "loading") return <Centered>Loading your contracts…</Centered>;
   if (state.phase === "error")
@@ -58,6 +94,7 @@ export function ReportHistoryView() {
 
   const total = state.data?.total ?? items.length;
   const note = overflowNote(items.length, total);
+  const filtersActive = search.trim() !== "" || riskFilter !== "all" || statusFilter !== "all";
 
   // Client-side pagination over the filtered set (DataTable has no pager — plan §6).
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -66,8 +103,8 @@ export function ReportHistoryView() {
   const pageRows = filtered.slice(start, start + PAGE_SIZE);
   const showPager = filtered.length > PAGE_SIZE;
 
-  const onSearch = (v: string) => {
-    setSearch(v);
+  const setFilter = (fn: () => void) => {
+    fn();
     setPage(0);
   };
 
@@ -105,18 +142,19 @@ export function ReportHistoryView() {
       ),
     },
     {
-      key: "status",
-      header: "Status",
-      render: (row) => (
-        <StatusBadge label={cap(row.status)} tone={STATUS_TONE[row.status] ?? "neutral"} />
-      ),
-    },
-    {
       key: "risk_band",
       header: "Risk",
       render: (row) =>
-        row.status === "completed" && row.risk_band ? (
-          <StatusBadge label={cap(row.risk_band)} tone={riskTone(row.risk_band)} />
+        row.status === "completed" && row.risk_band && RISK_PILL[row.risk_band] ? (
+          <span
+            className={clsx(
+              "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-small font-semibold",
+              RISK_PILL[row.risk_band],
+            )}
+          >
+            <span className="h-1.5 w-1.5 rounded-pill bg-current" />
+            {cap(row.risk_band)}
+          </span>
         ) : (
           <span className="text-text-tertiary">—</span>
         ),
@@ -132,6 +170,13 @@ export function ReportHistoryView() {
         ) : (
           <span className="text-text-tertiary">—</span>
         ),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <StatusBadge label={cap(row.status)} tone={STATUS_TONE[row.status] ?? "neutral"} />
+      ),
     },
   ];
 
@@ -174,15 +219,29 @@ export function ReportHistoryView() {
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls: search + filter chips (screen-12 parity, all client-side) */}
       <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <SearchInput
-          aria-label="Search contracts"
-          placeholder="Search contracts by filename…"
-          value={search}
-          onChange={(e) => onSearch(e.target.value)}
-          className="w-full md:max-w-sm"
-        />
+        <div className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+          <SearchInput
+            aria-label="Search contracts"
+            placeholder="Search contracts by filename…"
+            value={search}
+            onChange={(e) => setFilter(() => setSearch(e.target.value))}
+            className="w-full sm:max-w-xs"
+          />
+          <FilterSelect
+            label="Filter by risk"
+            value={riskFilter}
+            options={RISK_OPTIONS}
+            onChange={(v) => setFilter(() => setRiskFilter(v))}
+          />
+          <FilterSelect
+            label="Filter by status"
+            value={statusFilter}
+            options={STATUS_OPTIONS}
+            onChange={(v) => setFilter(() => setStatusFilter(v))}
+          />
+        </div>
         {note && <span className="text-small text-text-tertiary">{note}</span>}
       </div>
 
@@ -190,13 +249,16 @@ export function ReportHistoryView() {
       <Card className="overflow-hidden p-0">
         {filtered.length === 0 ? (
           <p className="py-14 text-center text-body text-text-secondary">
-            No contracts match “{search.trim()}”.
+            {filtersActive
+              ? "No contracts match your search or filters."
+              : "No contracts to show."}
           </p>
         ) : (
           <DataTable<HistoryRow>
             columns={columns}
             rows={pageRows as HistoryRow[]}
             actions={rowAction}
+            selectable
             rowKey={(r) => r.job_id}
           />
         )}
@@ -226,6 +288,39 @@ export function ReportHistoryView() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="relative inline-flex items-center">
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full appearance-none rounded-input border border-subtle bg-card-raised py-2.5 pl-3 pr-9 text-body text-text-primary outline-none transition focus:border-border-focus"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={16}
+        className="pointer-events-none absolute right-3 text-text-tertiary"
+      />
     </div>
   );
 }
