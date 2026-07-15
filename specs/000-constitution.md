@@ -62,6 +62,20 @@ the login is an *access gate*, not a data-partitioning mechanism. Real Google/Mi
 SSO is out of scope for now (the buttons render but are disabled). If true multi-tenancy is
 ever wanted, it requires a further, separate amendment.
 
+**AMENDMENT (2026-07-15, feature 019) — per-user data isolation is now IN scope.**
+This narrows the "multi-tenant access control" item in PERMANENTLY CUT and reverses feature
+014's "one shared data space / NOT per-user data scoping" stance (014 D4/AC-10). Each
+authenticated account now **privately owns the contracts it uploads**: every data read
+(`/api/jobs`, `/api/dashboard`, `/api/jobs/{id}` and its `report`/`events`) is **scoped to the
+owning account**, and a job is stamped with its creator's `user_id` at upload. What remains
+**permanently cut**: RBAC, roles, permission grants, teams/orgs, cross-account sharing or
+collaboration, and any tenant-admin surface — there is **no cross-account visibility and no
+access-control matrix**; every account is a flat, single-owner, private workspace. This adds
+no LangGraph node/edge and no `ContractState` field. Legacy rows created before this feature
+(no owner) are hidden from all accounts, not migrated. Open signup is re-enabled
+(`AUTH_SIGNUP_OPEN=True`) because isolation removes the shared-data exposure that justified
+closing it.
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.
