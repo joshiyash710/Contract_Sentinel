@@ -31,6 +31,16 @@ describe("app shell", () => {
     expect(NAV_ITEMS).toHaveLength(5);
   });
 
+  test("contracts_item_links_to_history_and_active_there", () => {
+    // Feature 021 D1: the Contracts nav points at the history list (/contracts), not /upload.
+    currentPath = "/contracts";
+    render(<Sidebar />);
+    const contracts = screen.getByText("Contracts").closest("a");
+    expect(contracts).toHaveAttribute("href", "/contracts");
+    expect(contracts).toHaveAttribute("data-active", "true");
+    expect(NAV_ITEMS).toHaveLength(5);
+  });
+
   test("active_item_by_route", () => {
     currentPath = "/reports";
     const { rerender } = render(<Sidebar />);

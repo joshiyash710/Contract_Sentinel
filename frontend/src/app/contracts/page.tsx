@@ -1,7 +1,14 @@
-import { redirect } from "next/navigation";
+import { TopBar } from "@/components/shell/TopBar";
+import { ReportHistoryView } from "@/components/history/ReportHistoryView";
 
-// The Contracts nav entry is the upload flow (spec 015 D5). redirect() throws a control-flow
-// signal by design — call it at the top level, never inside try/catch.
+// Server shell — the live, data-driven body is the client ReportHistoryView (feature 021).
+// The "Contracts" nav now lands here (the history list); upload moved to a button (021 D1),
+// reversing the 015 D5 redirect("/upload").
 export default function ContractsPage() {
-  redirect("/upload");
+  return (
+    <>
+      <TopBar title="Contracts" />
+      <ReportHistoryView />
+    </>
+  );
 }

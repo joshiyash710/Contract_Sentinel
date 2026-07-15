@@ -16,7 +16,7 @@ export interface NavItem {
 // Drive+Gmail only (Q2), expandable chevron variant (review N-1).
 export const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/upload", label: "Contracts", icon: FileText },
+  { href: "/contracts", label: "Contracts", icon: FileText },
   { href: "/reports", label: "Reports", icon: BarChart3 },
   { href: "/integrations", label: "Integrations", icon: Plug, expandable: true },
   { href: "/settings", label: "Settings", icon: Settings },
