@@ -20,6 +20,8 @@ export const FIXTURE_JOB_ID = "job-fixture-1";
 export const authUserFixture: AuthUser = {
   id: "user-fixture-1",
   email: "fixture@example.com",
+  name: "Alex Morgan",
+  title: "Legal Counsel",
 };
 
 export const acceptedFixture: AnalyzeAccepted = {

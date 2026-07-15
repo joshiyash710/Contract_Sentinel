@@ -95,10 +95,17 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
     }),
     health: vi.fn(async () => ({ status: "ok" })),
     // ── Feature 014 auth ─────────────────────────────────────────────────
-    signup: vi.fn(async (_email: string, _password: string): Promise<AuthResponse> => {
-      if (opts.authError) throw opts.authError;
-      return { user: opts.authUser ?? authUserFixture };
-    }),
+    signup: vi.fn(
+      async (
+        _email: string,
+        _password: string,
+        _name?: string,
+        _title?: string,
+      ): Promise<AuthResponse> => {
+        if (opts.authError) throw opts.authError;
+        return { user: opts.authUser ?? authUserFixture };
+      },
+    ),
     login: vi.fn(async (_email: string, _password: string): Promise<AuthResponse> => {
       if (opts.authError) throw opts.authError;
       return { user: opts.authUser ?? authUserFixture };

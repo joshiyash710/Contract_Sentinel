@@ -35,8 +35,8 @@ export interface ApiClient {
   /** Feature 018 — portfolio aggregate metrics for the dashboard/reports pages. */
   getDashboardMetrics(): Promise<DashboardMetrics>;
   health(): Promise<{ status: string }>;
-  // ── Feature 014 auth (AC-19) ─────────────────────────────────────────────
-  signup(email: string, password: string): Promise<AuthResponse>;
+  // ── Feature 014 auth (AC-19); name/title added in 020 ───────────────────
+  signup(email: string, password: string, name: string, title?: string): Promise<AuthResponse>;
   login(email: string, password: string): Promise<AuthResponse>;
   logout(): Promise<void>;
   me(): Promise<AuthUser>;

@@ -14,10 +14,13 @@ import { AppShell } from "@/components/shell/AppShell";
 import { UserProfileBlock } from "@/components/shell/UserProfileBlock";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { getApiClient } from "@/lib/api/provider";
+import { clearCurrentUser } from "@/lib/useCurrentUser";
+import { authUserFixture } from "@/lib/api/fixtures";
 
 describe("app shell", () => {
   beforeEach(() => {
     currentPath = "/dashboard";
+    clearCurrentUser(); // reset the module-level current-user cache between tests
   });
 
   test("sidebar_five_items", () => {
@@ -46,12 +49,21 @@ describe("app shell", () => {
     expect(screen.getByTestId("nav-chevron")).toBeInTheDocument();
   });
 
-  test("user_profile_block", () => {
+  test("user_profile_block_prop_override", () => {
     const spy = vi.spyOn(getApiClient(), "getJob");
     render(<UserProfileBlock name="Ada Lovelace" role="Legal Counsel" />);
     expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.getByText("Legal Counsel")).toBeInTheDocument();
-    expect(spy).not.toHaveBeenCalled(); // no auth/backend call (AC-5)
+    expect(spy).not.toHaveBeenCalled(); // no live-data (getJob) call (AC-5)
+  });
+
+  test("user_profile_block_shows_current_user", async () => {
+    // Feature 020 (AC-7): with no props, the block shows the logged-in user's real name/title
+    // from useCurrentUser (mock provider → authUserFixture), never the old "Sarah Jenkins".
+    render(<UserProfileBlock />);
+    expect(await screen.findByText(authUserFixture.name as string)).toBeInTheDocument();
+    expect(screen.getByText(authUserFixture.title as string)).toBeInTheDocument();
+    expect(screen.queryByText("Sarah Jenkins")).toBeNull();
   });
 
   test("topbar_slots", () => {

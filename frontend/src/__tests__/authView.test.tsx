@@ -63,16 +63,19 @@ describe("AC-B3: tabs switch the active form", () => {
     fakeClient = makeFakeClient({ authUser: authUserFixture });
     renderAuth("login");
 
-    // Start on login; switch to Sign Up via the tab.
+    // Start on login; switch to Sign Up via the tab (reveals the name field).
     fireEvent.click(screen.getByRole("tab", { name: /sign up/i }));
 
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "New User" } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@b.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password123" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     });
 
-    await waitFor(() => expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123"));
+    await waitFor(() =>
+      expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123", "New User", undefined),
+    );
     expect(fakeClient.login).not.toHaveBeenCalled();
   });
 });
@@ -116,24 +119,35 @@ describe("AC-14: Sign-Up tab", () => {
     renderAuth("signup");
   }
 
-  it("success → calls signup() and navigates to /dashboard", async () => {
+  it("success → calls signup() with name/title and navigates to /dashboard", async () => {
     fakeClient = makeFakeClient({ authUser: authUserFixture });
     goToSignup();
 
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Grace Hopper" } });
+    fireEvent.change(screen.getByLabelText(/job title/i), { target: { value: "Admiral" } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "new@b.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password123" } });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /continue/i }));
     });
 
-    await waitFor(() => expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123"));
+    await waitFor(() =>
+      expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123", "Grace Hopper", "Admiral"),
+    );
     await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+  });
+
+  it("Login tab has no name/title fields", () => {
+    renderAuth("login");
+    expect(screen.queryByLabelText(/full name/i)).toBeNull();
+    expect(screen.queryByLabelText(/job title/i)).toBeNull();
   });
 
   it("409 → shows 'account already exists' error", async () => {
     fakeClient = makeFakeClient({ authError: new ApiError("dup", 409) });
     goToSignup();
 
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Dup User" } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "dup@b.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "password123" } });
     await act(async () => {
@@ -148,6 +162,7 @@ describe("AC-14: Sign-Up tab", () => {
     fakeClient = makeFakeClient({ authError: new ApiError("weak pw", 422) });
     goToSignup();
 
+    fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: "Weak Pw" } });
     fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "a@b.com" } });
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "short" } });
     await act(async () => {

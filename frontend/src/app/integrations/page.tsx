@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 export default function IntegrationsPage() {
   return (
     <>
-      <TopBar title="Integrations" userName="Sarah Jenkins" />
+      <TopBar title="Integrations" />
       <div className="p-6">
         <Card className="max-w-2xl">
           <h2 className="text-h3 font-semibold">Integrations</h2>

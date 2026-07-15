@@ -32,6 +32,8 @@ export function AuthView({ defaultTab = "login" }: Props) {
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,7 +46,7 @@ export function AuthView({ defaultTab = "login" }: Props) {
       if (tab === "login") {
         await client.login(email, password);
       } else {
-        await client.signup(email, password);
+        await client.signup(email, password, name, title.trim() || undefined);
       }
       router.replace("/dashboard");
     } catch (err) {
@@ -107,6 +109,43 @@ export function AuthView({ defaultTab = "login" }: Props) {
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {tab === "signup" && (
+                <>
+                  <div>
+                    <label
+                      htmlFor="name"
+                      className="mb-1.5 block text-small font-medium text-text-secondary"
+                    >
+                      Full Name
+                    </label>
+                    <TextInput
+                      id="name"
+                      type="text"
+                      autoComplete="name"
+                      placeholder="Jane Doe"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="title"
+                      className="mb-1.5 block text-small font-medium text-text-secondary"
+                    >
+                      Job Title <span className="text-text-tertiary">(optional)</span>
+                    </label>
+                    <TextInput
+                      id="title"
+                      type="text"
+                      autoComplete="organization-title"
+                      placeholder="Legal Counsel"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
               <div>
                 <label
                   htmlFor="email"

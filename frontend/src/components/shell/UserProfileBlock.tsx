@@ -4,21 +4,26 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { getApiClient } from "@/lib/api/provider";
+import { useCurrentUser, clearCurrentUser } from "@/lib/useCurrentUser";
 
 /**
- * Sidebar-bottom profile block (avatar + name + role + logout).
- * Logout calls apiClient.logout() then redirects to /login (AC-15 / D1).
+ * Sidebar-bottom profile block (avatar + name + title + logout). The name/title come from the
+ * logged-in user via useCurrentUser (feature 020); optional props still override for tests.
+ * Logout clears the cached user then redirects to /login (014 AC-15).
  */
 export function UserProfileBlock({
   name,
   role,
   avatarSrc,
 }: {
-  name: string;
+  name?: string;
   role?: string;
   avatarSrc?: string;
 }) {
   const router = useRouter();
+  const { displayName, title } = useCurrentUser();
+  const shownName = name ?? displayName;
+  const shownRole = role ?? title ?? undefined;
 
   async function handleLogout() {
     try {
@@ -26,15 +31,18 @@ export function UserProfileBlock({
     } catch {
       // Always redirect even on error — the cookie is cleared server-side
     }
+    clearCurrentUser();
     router.replace("/login");
   }
 
   return (
     <div className="flex items-center gap-3 border-t border-subtle px-4 py-4">
-      <Avatar name={name} src={avatarSrc} size="md" />
+      <Avatar name={shownName} src={avatarSrc} size="md" />
       <div className="min-w-0 flex-1">
-        <div className="truncate text-body font-medium text-text-primary">{name}</div>
-        {role ? <div className="truncate text-small text-text-secondary">{role}</div> : null}
+        <div className="truncate text-body font-medium text-text-primary">{shownName}</div>
+        {shownRole ? (
+          <div className="truncate text-small text-text-secondary">{shownRole}</div>
+        ) : null}
       </div>
       <button
         type="button"

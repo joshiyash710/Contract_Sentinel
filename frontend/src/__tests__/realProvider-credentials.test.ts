@@ -113,7 +113,7 @@ describe("realProvider credentials", () => {
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
       .mockResolvedValue(okResponse({ user: { id: "u1", email: "a@b.com" } }));
-    await realClient.signup("a@b.com", "password123");
+    await realClient.signup("a@b.com", "password123", "A B");
     expect(fetchSpy.mock.calls[0][1]).toMatchObject({ credentials: "include" });
     fetchSpy.mockRestore();
   });

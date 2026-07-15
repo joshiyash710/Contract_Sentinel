@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/Card";
 export default function SettingsPage() {
   return (
     <>
-      <TopBar title="Settings" userName="Sarah Jenkins" />
+      <TopBar title="Settings" />
       <div className="p-6">
         <Card className="max-w-2xl">
           <h2 className="text-h3 font-semibold">Settings</h2>

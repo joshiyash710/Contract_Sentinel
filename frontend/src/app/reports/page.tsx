@@ -5,7 +5,7 @@ import { ReportsView } from "@/components/dashboard/ReportsView";
 export default function ReportsPage() {
   return (
     <>
-      <TopBar title="Risk Dashboard" userName="Sarah Jenkins" />
+      <TopBar title="Risk Dashboard" />
       <ReportsView />
     </>
   );

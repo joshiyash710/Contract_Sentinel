@@ -139,12 +139,17 @@ export const realClient: ApiClient = {
 
   // ── Feature 014 auth (D15 / AC-18a) ──────────────────────────────────────
 
-  async signup(email: string, password: string): Promise<AuthResponse> {
+  async signup(
+    email: string,
+    password: string,
+    name: string,
+    title?: string,
+  ): Promise<AuthResponse> {
     try {
       const res = await fetch(`${base()}/api/auth/signup`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, name, title }),
         credentials: "include",
       });
       return await asJson<AuthResponse>(res);

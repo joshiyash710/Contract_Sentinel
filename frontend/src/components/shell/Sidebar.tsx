@@ -36,7 +36,7 @@ export function Sidebar() {
           <SidebarNavItem key={item.href} item={item} />
         ))}
       </nav>
-      <UserProfileBlock name="Sarah Jenkins" role="Legal Counsel" />
+      <UserProfileBlock />
     </aside>
   );
 }

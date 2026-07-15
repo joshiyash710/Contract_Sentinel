@@ -130,6 +130,10 @@ export interface ContractReport {
 export interface AuthUser {
   id: string;
   email: string;
+  // Feature 020 profile. Nullable so legacy 014/019 accounts (no name) load; the UI falls
+  // back to the email local part.
+  name?: string | null;
+  title?: string | null;
 }
 
 export interface AuthResponse {

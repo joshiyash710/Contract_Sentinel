@@ -13,9 +13,16 @@ describe("AuthUser drift-lock", () => {
   it("has email: string", () => {
     expectTypeOf<AuthUser["email"]>().toBeString();
   });
-  it("has exactly the expected keys", () => {
+  it("has optional name/title (feature 020)", () => {
+    // Both are optional string|null — a full user with them typechecks.
+    const full: AuthUser = { id: "x", email: "a@b.com", name: "Grace", title: "Admiral" };
+    expect(full.name).toBe("Grace");
+    // and null is accepted (legacy accounts).
+    const legacy: AuthUser = { id: "y", email: "b@b.com", name: null, title: null };
+    expect(legacy.name).toBeNull();
+  });
+  it("still constructs with only the required keys", () => {
     const u: AuthUser = { id: "x", email: "a@b.com" };
-    // If backend adds a required field, this object literal becomes a TS error.
     expect(Object.keys(u).sort()).toEqual(["email", "id"]);
   });
 });

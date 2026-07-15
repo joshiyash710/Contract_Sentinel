@@ -6,7 +6,7 @@ import { DashboardView } from "@/components/dashboard/DashboardView";
 export default function DashboardPage() {
   return (
     <>
-      <TopBar search={<SearchInput />} userName="Sarah Jenkins" />
+      <TopBar search={<SearchInput />} />
       <DashboardView />
     </>
   );

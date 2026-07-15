@@ -72,9 +72,21 @@ export const mockClient: ApiClient = {
     return { status: "ok" };
   },
 
-  // ── Feature 014 auth — mock is always authenticated (D10) ────────────────
-  async signup(_email: string, _password: string): Promise<AuthResponse> {
-    return { user: { ...authUserFixture } };
+  // ── Feature 014 auth — mock is always authenticated (D10); 020 name/title ─
+  async signup(
+    email: string,
+    _password: string,
+    name?: string,
+    title?: string,
+  ): Promise<AuthResponse> {
+    return {
+      user: {
+        ...authUserFixture,
+        email: email || authUserFixture.email,
+        name: name ?? authUserFixture.name,
+        title: title ?? authUserFixture.title,
+      },
+    };
   },
   async login(_email: string, _password: string): Promise<AuthResponse> {
     return { user: { ...authUserFixture } };
