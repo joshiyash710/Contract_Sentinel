@@ -46,6 +46,10 @@ def test_upgrade_creates_jobs_table(tmp_path):
     indexes = {r["name"] for r in conn.execute("PRAGMA index_list(jobs)").fetchall()}
     assert "ix_jobs_submitted_at" in indexes
 
+    # users table (migration 0003) with name/title added by migration 0005 (feature 020).
+    user_cols = {r["name"] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+    assert {"id", "email", "password_hash", "created_at", "name", "title"} <= user_cols
+
     conn.close()
 
 

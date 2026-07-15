@@ -62,8 +62,11 @@ def auth_client(monkeypatch, tmp_path):
         yield c
 
 
-def _signup(client, email=TEST_EMAIL, password=TEST_PW):
-    return client.post("/api/auth/signup", json={"email": email, "password": password})
+def _signup(client, email=TEST_EMAIL, password=TEST_PW, name="Test User", title=None):
+    body = {"email": email, "password": password, "name": name}
+    if title is not None:
+        body["title"] = title
+    return client.post("/api/auth/signup", json=body)
 
 
 def _login(client, email=TEST_EMAIL, password=TEST_PW):
@@ -112,7 +115,10 @@ def test_signup_dup_409(auth_client):
 
 
 def test_signup_email_stored_lowercase(auth_client):
-    r = auth_client.post("/api/auth/signup", json={"email": "UPPER@EXAMPLE.COM", "password": TEST_PW})
+    r = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "UPPER@EXAMPLE.COM", "password": TEST_PW, "name": "Upper User"},
+    )
     assert r.status_code == 200
     us = auth_client.app.state.user_store
     assert us.get_by_email("upper@example.com") is not None
@@ -124,7 +130,10 @@ def test_signup_email_stored_lowercase(auth_client):
 
 
 def test_signup_short_password_422(auth_client):
-    r = auth_client.post("/api/auth/signup", json={"email": "x@x.com", "password": "short"})
+    r = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "x@x.com", "password": "short", "name": "Valid Name"},
+    )
     assert r.status_code == 422
     body_text = r.text
     assert "short" not in body_text  # AC-7a — password not echoed
@@ -132,18 +141,84 @@ def test_signup_short_password_422(auth_client):
 
 def test_signup_long_password_422(auth_client):
     long_pw = "A" * 129
-    r = auth_client.post("/api/auth/signup", json={"email": "x@x.com", "password": long_pw})
+    r = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "x@x.com", "password": long_pw, "name": "Valid Name"},
+    )
     assert r.status_code == 422
     assert long_pw not in r.text  # AC-7a — password not echoed
 
 
 def test_signup_exact_boundary_passwords(auth_client):
     # 8-char (minimum valid) succeeds
-    r = auth_client.post("/api/auth/signup", json={"email": "min@x.com", "password": "12345678"})
+    r = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "min@x.com", "password": "12345678", "name": "Min User"},
+    )
     assert r.status_code == 200
     # 128-char (maximum valid) succeeds
-    r2 = auth_client.post("/api/auth/signup", json={"email": "max@x.com", "password": "A" * 128})
+    r2 = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "max@x.com", "password": "A" * 128, "name": "Max User"},
+    )
     assert r2.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# Feature 020: name/title captured + returned; name required; legacy null name
+# ---------------------------------------------------------------------------
+
+
+def test_signup_stores_and_returns_name_title(auth_client):
+    r = _signup(auth_client, email="named@x.com", name="Grace Hopper", title="Rear Admiral")
+    assert r.status_code == 200
+    user = r.json()["user"]
+    assert user["name"] == "Grace Hopper" and user["title"] == "Rear Admiral"  # AC-1
+    # /me returns them too
+    me = auth_client.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["user"]["name"] == "Grace Hopper"
+    assert me.json()["user"]["title"] == "Rear Admiral"
+    # Persisted on the row
+    row = auth_client.app.state.user_store.get_by_email("named@x.com")
+    assert row.name == "Grace Hopper" and row.title == "Rear Admiral"
+
+
+def test_signup_title_optional(auth_client):
+    r = _signup(auth_client, email="notitle@x.com", name="No Title")
+    assert r.status_code == 200
+    assert r.json()["user"]["title"] is None  # AC-2 (title omitted → null)
+
+
+def test_signup_missing_name_422(auth_client):
+    r = auth_client.post(
+        "/api/auth/signup", json={"email": "noname@x.com", "password": TEST_PW}
+    )
+    assert r.status_code == 422  # AC-2 (name required)
+
+
+def test_signup_blank_name_422(auth_client):
+    r = auth_client.post(
+        "/api/auth/signup",
+        json={"email": "blank@x.com", "password": TEST_PW, "name": "   "},
+    )
+    assert r.status_code == 422  # AC-2 (whitespace-only name → 422, EC-1)
+
+
+def test_me_tolerates_legacy_null_name(auth_client):
+    """A pre-020 user row with name=NULL → /me 200 with name null (AC-3)."""
+    us = auth_client.app.state.user_store
+    from app.api.security import hash_password
+
+    # Insert a legacy user directly (no name/title), then log in as them.
+    us.create("legacy@x.com", hash_password(TEST_PW))
+    r = auth_client.post(
+        "/api/auth/login", json={"email": "legacy@x.com", "password": TEST_PW}
+    )
+    assert r.status_code == 200
+    me = auth_client.get("/api/auth/me")
+    assert me.status_code == 200
+    assert me.json()["user"]["name"] is None
 
 
 # ---------------------------------------------------------------------------

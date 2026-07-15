@@ -12,6 +12,8 @@ require_auth: FastAPI dependency applied router-level to the existing gated rout
 
 from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
 
@@ -34,6 +36,8 @@ from app.runner.user_store import EmailExists
 class SignupRequest(BaseModel):
     email: str
     password: str
+    name: str
+    title: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -50,6 +54,26 @@ class SignupRequest(BaseModel):
             )
         return v
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not (1 <= len(v) <= 100):
+            raise ValueError("Name must be between 1 and 100 characters")
+        return v
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return None
+        v = v.strip()
+        if v == "":
+            return None
+        if len(v) > 100:
+            raise ValueError("Title must be at most 100 characters")
+        return v
+
 
 class LoginRequest(BaseModel):
     email: str
@@ -64,6 +88,8 @@ class LoginRequest(BaseModel):
 class AuthUser(BaseModel):
     id: str
     email: str
+    name: Optional[str] = None
+    title: Optional[str] = None
 
 
 class AuthResponse(BaseModel):
@@ -93,7 +119,7 @@ def require_auth(request: Request) -> AuthUser:
     row = user_store.get_by_id(claims.get("sub", ""))
     if row is None:
         raise HTTPException(status_code=401, detail="Authentication required")
-    return AuthUser(id=row.id, email=row.email)
+    return AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
 
 
 # ---------------------------------------------------------------------------
@@ -140,13 +166,14 @@ async def signup(body: SignupRequest, request: Request, response: Response):
 
     pw_hash = hash_password(body.password)
     try:
-        row = user_store.create(body.email, pw_hash)
+        row = user_store.create(body.email, pw_hash, body.name, body.title)
     except EmailExists:
         raise HTTPException(status_code=409, detail="Email already registered")
 
-    token = make_session(AuthUser(id=row.id, email=row.email))
+    user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
+    token = make_session(user)  # JWT uses only id/email — name/title stay in the DB
     _set_session_cookie(response, token)
-    return AuthResponse(user=AuthUser(id=row.id, email=row.email))
+    return AuthResponse(user=user)
 
 
 @auth_router.post("/login", response_model=AuthResponse)
@@ -162,9 +189,10 @@ async def login(body: LoginRequest, request: Request, response: Response):
     if not verify_password(body.password, row.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = make_session(AuthUser(id=row.id, email=row.email))
+    user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
+    token = make_session(user)
     _set_session_cookie(response, token)
-    return AuthResponse(user=AuthUser(id=row.id, email=row.email))
+    return AuthResponse(user=user)
 
 
 @auth_router.post("/logout")

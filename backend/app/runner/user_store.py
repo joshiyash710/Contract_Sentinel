@@ -25,6 +25,10 @@ class UserRow:
     email: str
     password_hash: str
     created_at: str
+    # Profile (feature 020). name is required at the API (SignupRequest) but nullable in the
+    # store so legacy 014/019 rows load; title is always optional.
+    name: Optional[str] = None
+    title: Optional[str] = None
 
 
 class UserStore:
@@ -43,53 +47,60 @@ class UserStore:
         with self._lock:
             self._conn.close()
 
-    def create(self, email: str, password_hash: str) -> UserRow:
+    def create(
+        self,
+        email: str,
+        password_hash: str,
+        name: Optional[str] = None,
+        title: Optional[str] = None,
+    ) -> UserRow:
         """Insert a new user row and return it.
 
         Raises EmailExists if the email is already registered (UNIQUE constraint).
+        name/title (feature 020) are persisted as-is; the API layer enforces required-name.
         """
         uid = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
         try:
             with self._lock:
                 self._conn.execute(
-                    "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
-                    (uid, email, password_hash, now),
+                    "INSERT INTO users (id, email, password_hash, created_at, name, title) "
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (uid, email, password_hash, now, name, title),
                 )
                 self._conn.commit()
         except sqlite3.IntegrityError as exc:
             raise EmailExists(f"Email already registered: {email!r}") from exc
-        return UserRow(id=uid, email=email, password_hash=password_hash, created_at=now)
+        return UserRow(
+            id=uid, email=email, password_hash=password_hash, created_at=now,
+            name=name, title=title,
+        )
+
+    def _row_to_user(self, row: sqlite3.Row) -> UserRow:
+        return UserRow(
+            id=row["id"],
+            email=row["email"],
+            password_hash=row["password_hash"],
+            created_at=row["created_at"],
+            name=row["name"] if "name" in row.keys() else None,
+            title=row["title"] if "title" in row.keys() else None,
+        )
 
     def get_by_email(self, email: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at FROM users WHERE email = ?",
+                "SELECT id, email, password_hash, created_at, name, title FROM users WHERE email = ?",
                 (email,),
             ).fetchone()
-        if row is None:
-            return None
-        return UserRow(
-            id=row["id"],
-            email=row["email"],
-            password_hash=row["password_hash"],
-            created_at=row["created_at"],
-        )
+        return self._row_to_user(row) if row is not None else None
 
     def get_by_id(self, user_id: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at FROM users WHERE id = ?",
+                "SELECT id, email, password_hash, created_at, name, title FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
-        if row is None:
-            return None
-        return UserRow(
-            id=row["id"],
-            email=row["email"],
-            password_hash=row["password_hash"],
-            created_at=row["created_at"],
-        )
+        return self._row_to_user(row) if row is not None else None
 
     def count(self) -> int:
         with self._lock:

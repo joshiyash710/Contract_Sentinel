@@ -132,6 +132,23 @@ def test_recipient_forwarded(client, monkeypatch):
     assert recipients_seen and recipients_seen[0] == "user@example.com"
 
 
+def test_recipient_defaults_to_owner_email(client):
+    """With NO explicit recipient, the job is stamped with the authed user's own email (AC-4)."""
+    from tests.integration.conftest import current_user_id  # noqa: F401 (ensures /me works)
+
+    my_email = client.get("/api/auth/me").json()["user"]["email"]
+    resp = client.post(
+        "/api/analyze",
+        files={"file": ("c.pdf", b"%PDF", "application/pdf")},
+    )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+
+    row = client.app.state.ctx.registry._store.get(job_id)
+    assert row is not None
+    assert row.recipient == my_email
+
+
 def test_unsupported_extension_400_no_job(client):
     """.txt → 400; no job created."""
     resp = client.post(

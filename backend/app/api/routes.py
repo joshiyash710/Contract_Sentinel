@@ -133,6 +133,10 @@ async def analyze(
         os.unlink(dest_path)
         raise HTTPException(status_code=400, detail="Empty file upload rejected")
 
+    # Default the report recipient to the logged-in user's own email (feature 020 — AC-4),
+    # so each user's report is delivered to their inbox. An explicit request recipient wins.
+    recipient = recipient or current_user.email
+
     submitted_at = _now_iso()
     buf = JobEventBuffer(ctx.loop)
     rec = JobRecord(

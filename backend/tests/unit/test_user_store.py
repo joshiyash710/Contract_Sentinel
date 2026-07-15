@@ -63,6 +63,23 @@ def test_email_normalized_before_storage(user_db):
     assert row.email == "carol@example.com"
 
 
+def test_create_with_name_title_roundtrip(user_db):
+    """Feature 020 (AC-1): name/title persist and read back; title may be None."""
+    row = user_db.create("dana@example.com", "hash_dana", "Dana Scully", "Special Agent")
+    assert row.name == "Dana Scully"
+    assert row.title == "Special Agent"
+
+    by_email = user_db.get_by_email("dana@example.com")
+    assert by_email.name == "Dana Scully" and by_email.title == "Special Agent"
+    by_id = user_db.get_by_id(row.id)
+    assert by_id.name == "Dana Scully" and by_id.title == "Special Agent"
+
+    # title omitted → stored None (legacy-friendly).
+    row2 = user_db.create("eve@example.com", "hash_eve", "Eve")
+    assert row2.name == "Eve" and row2.title is None
+    assert user_db.get_by_id(row2.id).title is None
+
+
 def test_count(user_db):
     assert user_db.count() == 0
     user_db.create("a@x.com", "h1")

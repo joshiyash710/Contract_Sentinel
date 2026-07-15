@@ -29,7 +29,7 @@ def authenticate(client) -> None:
     """
     r = client.post(
         "/api/auth/signup",
-        json={"email": _AUTH_EMAIL, "password": _AUTH_PASSWORD},
+        json={"email": _AUTH_EMAIL, "password": _AUTH_PASSWORD, "name": "Integration Test"},
     )
     if r.status_code in (409, 403):
         # 409 = dup email (same DB shared across clients in restart tests)
@@ -50,7 +50,10 @@ def authenticate_as(client, email: str, password: str = "IsoTestPass1!") -> None
     across clients that share a DB. TestClient persists the cookie per instance, so after
     this call the client acts as `email`.
     """
-    r = client.post("/api/auth/signup", json={"email": email, "password": password})
+    r = client.post(
+        "/api/auth/signup",
+        json={"email": email, "password": password, "name": "Iso Test User"},
+    )
     if r.status_code in (409, 403):
         r2 = client.post("/api/auth/login", json={"email": email, "password": password})
         assert r2.status_code == 200, f"Login for {email} failed: {r2.text}"
