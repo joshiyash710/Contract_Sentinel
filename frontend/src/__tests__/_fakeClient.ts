@@ -41,6 +41,8 @@ export interface FakeClientOpts {
   // ── Feature 014 auth scripting ──────────────────────────────────────────
   authUser?: AuthUser; // login/signup/me resolve this
   authError?: unknown; // login/signup/me reject this
+  updateProfileError?: unknown; // updateProfile rejects this (feature 023)
+  changePasswordError?: unknown; // changePassword rejects this (feature 023)
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -117,6 +119,17 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
       if (opts.authError) throw opts.authError;
       return opts.authUser ?? authUserFixture;
     }),
+    updateProfile: vi.fn(
+      async (body: { name: string; title?: string | null }): Promise<AuthUser> => {
+        if (opts.updateProfileError) throw opts.updateProfileError;
+        return { ...(opts.authUser ?? authUserFixture), name: body.name, title: body.title ?? null };
+      },
+    ),
+    changePassword: vi.fn(
+      async (_body: { current_password: string; new_password: string }): Promise<void> => {
+        if (opts.changePasswordError) throw opts.changePasswordError;
+      },
+    ),
   };
 }
 

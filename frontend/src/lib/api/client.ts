@@ -40,6 +40,12 @@ export interface ApiClient {
   login(email: string, password: string): Promise<AuthResponse>;
   logout(): Promise<void>;
   me(): Promise<AuthUser>;
+  // ── Feature 023 account settings ────────────────────────────────────────
+  /** Update the caller's own profile (name/title). Returns the refreshed user. */
+  updateProfile(body: { name: string; title?: string | null }): Promise<AuthUser>;
+  /** Change the caller's own password (verify current, set new). Rejects with ApiError
+   * (message = the backend detail, e.g. "Current password is incorrect") on failure. */
+  changePassword(body: { current_password: string; new_password: string }): Promise<void>;
 }
 
 /** Typed error surfaced by the real provider on network/HTTP failure (spec EC-1). */

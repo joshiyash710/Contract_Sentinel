@@ -13,6 +13,9 @@ import type { AuthUser } from "@/lib/api/types";
  */
 
 let _cached: Promise<AuthUser | null> | null = null;
+// Mounted useCurrentUser instances subscribe so a profile edit (023) live-updates the
+// shell (Sidebar/TopBar) without a full reload.
+const _subscribers = new Set<() => void>();
 
 function fetchCurrentUser(): Promise<AuthUser | null> {
   if (_cached) return _cached;
@@ -25,6 +28,16 @@ function fetchCurrentUser(): Promise<AuthUser | null> {
 
 export function clearCurrentUser(): void {
   _cached = null;
+}
+
+/**
+ * Feature 023 — after a profile save, drop the cache, re-fetch, and notify every mounted
+ * useCurrentUser so the sidebar/top bar reflect the new name/title immediately.
+ */
+export async function refreshCurrentUser(): Promise<void> {
+  _cached = null;
+  await fetchCurrentUser();
+  _subscribers.forEach((fn) => fn());
 }
 
 function emailLocalPart(email?: string | null): string {
@@ -54,13 +67,21 @@ export function useCurrentUser(): CurrentUserState {
 
   useEffect(() => {
     let cancelled = false;
-    fetchCurrentUser().then((u) => {
-      if (cancelled) return;
-      setUser(u);
-      setLoading(false);
-    });
+    const load = () =>
+      fetchCurrentUser().then((u) => {
+        if (cancelled) return;
+        setUser(u);
+        setLoading(false);
+      });
+    load();
+    // Re-read on refreshCurrentUser() (023 profile save).
+    const bump = () => {
+      load();
+    };
+    _subscribers.add(bump);
     return () => {
       cancelled = true;
+      _subscribers.delete(bump);
     };
   }, []);
 

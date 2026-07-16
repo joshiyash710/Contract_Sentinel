@@ -197,4 +197,47 @@ export const realClient: ApiClient = {
       throw new ApiError(`Network error on me: ${String(err)}`);
     }
   },
+
+  async updateProfile(body: { name: string; title?: string | null }): Promise<AuthUser> {
+    try {
+      const res = await fetch(`${base()}/api/auth/me`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      return (await asJson<AuthResponse>(res)).user;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error on updateProfile: ${String(err)}`);
+    }
+  },
+
+  async changePassword(body: {
+    current_password: string;
+    new_password: string;
+  }): Promise<void> {
+    try {
+      const res = await fetch(`${base()}/api/auth/me/password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      if (!res.ok) {
+        // Surface the backend detail (e.g. "Current password is incorrect") for the form.
+        let detail = `HTTP ${res.status}`;
+        try {
+          const j = (await res.json()) as { detail?: unknown };
+          if (typeof j?.detail === "string") detail = j.detail;
+        } catch {
+          /* non-JSON body — keep the status message */
+        }
+        throw new ApiError(detail, res.status);
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error on changePassword: ${String(err)}`);
+    }
+  },
 };

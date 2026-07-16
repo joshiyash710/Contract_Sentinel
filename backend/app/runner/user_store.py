@@ -106,3 +106,28 @@ class UserStore:
         with self._lock:
             result = self._conn.execute("SELECT COUNT(*) FROM users").fetchone()
         return result[0]
+
+    def update_profile(
+        self, user_id: str, name: str, title: Optional[str]
+    ) -> Optional[UserRow]:
+        """Feature 023: update the user's name/title; return the refreshed row.
+
+        Only name/title are touched — email/id/created_at/password_hash are untouched.
+        Returns None only if the user id does not exist (require_auth precludes that at the API).
+        """
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET name = ?, title = ? WHERE id = ?",
+                (name, title, user_id),
+            )
+            self._conn.commit()
+        return self.get_by_id(user_id)
+
+    def update_password(self, user_id: str, new_hash: str) -> None:
+        """Feature 023: replace the user's password hash (already hashed by the caller)."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET password_hash = ? WHERE id = ?",
+                (new_hash, user_id),
+            )
+            self._conn.commit()

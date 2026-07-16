@@ -29,6 +29,38 @@ from app.runner.user_store import EmailExists
 
 
 # ---------------------------------------------------------------------------
+# Shared field validators (reused by signup + feature-023 profile/password edits)
+# ---------------------------------------------------------------------------
+
+
+def _validate_password(v: str) -> str:
+    if len(v) < _cfg.AUTH_PASSWORD_MIN or len(v) > _cfg.AUTH_PASSWORD_MAX:
+        raise ValueError(
+            f"Password must be between {_cfg.AUTH_PASSWORD_MIN} and "
+            f"{_cfg.AUTH_PASSWORD_MAX} characters"
+        )
+    return v
+
+
+def _validate_name(v: str) -> str:
+    v = (v or "").strip()
+    if not (1 <= len(v) <= 100):
+        raise ValueError("Name must be between 1 and 100 characters")
+    return v
+
+
+def _validate_title(v: Optional[str]) -> Optional[str]:
+    if v is None:
+        return None
+    v = v.strip()
+    if v == "":
+        return None
+    if len(v) > 100:
+        raise ValueError("Title must be at most 100 characters")
+    return v
+
+
+# ---------------------------------------------------------------------------
 # Pydantic boundary models (spec §2.1 / AC-19)
 # ---------------------------------------------------------------------------
 
@@ -47,32 +79,46 @@ class SignupRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v: str) -> str:
-        if len(v) < _cfg.AUTH_PASSWORD_MIN or len(v) > _cfg.AUTH_PASSWORD_MAX:
-            raise ValueError(
-                f"Password must be between {_cfg.AUTH_PASSWORD_MIN} and "
-                f"{_cfg.AUTH_PASSWORD_MAX} characters"
-            )
-        return v
+        return _validate_password(v)
 
     @field_validator("name")
     @classmethod
     def validate_name(cls, v: str) -> str:
-        v = (v or "").strip()
-        if not (1 <= len(v) <= 100):
-            raise ValueError("Name must be between 1 and 100 characters")
-        return v
+        return _validate_name(v)
 
     @field_validator("title")
     @classmethod
     def validate_title(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return None
-        v = v.strip()
-        if v == "":
-            return None
-        if len(v) > 100:
-            raise ValueError("Title must be at most 100 characters")
-        return v
+        return _validate_title(v)
+
+
+class UpdateProfileRequest(BaseModel):
+    """Feature 023 — PATCH /api/auth/me body."""
+
+    name: str
+    title: Optional[str] = None
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, v: str) -> str:
+        return _validate_name(v)
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, v: Optional[str]) -> Optional[str]:
+        return _validate_title(v)
+
+
+class ChangePasswordRequest(BaseModel):
+    """Feature 023 — POST /api/auth/me/password body."""
+
+    current_password: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return _validate_password(v)
 
 
 class LoginRequest(BaseModel):
@@ -204,3 +250,35 @@ async def logout(response: Response):
 @auth_router.get("/me", response_model=AuthResponse)
 async def me(current_user: AuthUser = Depends(require_auth)):
     return AuthResponse(user=current_user)
+
+
+@auth_router.patch("/me", response_model=AuthResponse)
+async def update_me(
+    body: UpdateProfileRequest,
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+):
+    """Feature 023 — edit the caller's own profile (name/title). Scoped to current_user (019)."""
+    user_store = request.app.state.user_store
+    row = user_store.update_profile(current_user.id, body.name, body.title)
+    return AuthResponse(
+        user=AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
+    )
+
+
+@auth_router.post("/me/password")
+async def change_password(
+    body: ChangePasswordRequest,
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+):
+    """Feature 023 — change the caller's own password after verifying the current one.
+
+    Wrong current password → 400 with no write. The session cookie stays valid (spec D3).
+    """
+    user_store = request.app.state.user_store
+    row = user_store.get_by_id(current_user.id)
+    if row is None or not verify_password(body.current_password, row.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    user_store.update_password(current_user.id, hash_password(body.new_password))
+    return {"ok": True}

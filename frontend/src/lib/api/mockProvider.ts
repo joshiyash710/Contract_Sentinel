@@ -97,4 +97,13 @@ export const mockClient: ApiClient = {
   async me(): Promise<AuthUser> {
     return { ...authUserFixture };
   },
+  async updateProfile(body: { name: string; title?: string | null }): Promise<AuthUser> {
+    return { ...authUserFixture, name: body.name, title: body.title ?? null };
+  },
+  async changePassword(_body: {
+    current_password: string;
+    new_password: string;
+  }): Promise<void> {
+    return;
+  },
 };
