@@ -40,6 +40,7 @@ OLLAMA_MODEL_NAME = _config.OLLAMA_MODEL_NAME
 CLAUSE_SPLITTER_TIMEOUT_SECONDS = _config.CLAUSE_SPLITTER_TIMEOUT_SECONDS
 MIN_CLAUSE_LENGTH = _config.MIN_CLAUSE_LENGTH
 MAX_CLAUSES_LIMIT = _config.MAX_CLAUSES_LIMIT
+CLAUSE_SPLITTER_LLM_MAX_CLAUSES = _config.CLAUSE_SPLITTER_LLM_MAX_CLAUSES
 
 
 def clause_splitter_agent(state: ContractState) -> dict:
@@ -102,9 +103,20 @@ def clause_splitter_agent(state: ContractState) -> dict:
         )
         regex_clauses = regex_clauses[:MAX_CLAUSES_LIMIT]
 
-    refined = refine_with_llm(
-        regex_clauses, CLAUSE_SPLITTER_TIMEOUT_SECONDS, OLLAMA_MODEL_NAME
-    )
+    # Latency lever A (feature 025 / §3): for large documents (regex clause count above the
+    # threshold), skip the LLM refinement and use the regex output directly. Normal contracts
+    # (≤ threshold) still get full LLM clause typing + boundary refinement.
+    if len(regex_clauses) > CLAUSE_SPLITTER_LLM_MAX_CLAUSES:
+        logger.info(
+            "ClauseSplitterAgent: %d regex clauses > %d — skipping LLM refine (latency gate)",
+            len(regex_clauses),
+            CLAUSE_SPLITTER_LLM_MAX_CLAUSES,
+        )
+        refined = regex_clauses
+    else:
+        refined = refine_with_llm(
+            regex_clauses, CLAUSE_SPLITTER_TIMEOUT_SECONDS, OLLAMA_MODEL_NAME
+        )
 
     # Post-refinement re-clamp: LLM may split run-ons beyond the limit
     if len(refined) > MAX_CLAUSES_LIMIT:

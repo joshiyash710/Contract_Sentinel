@@ -50,6 +50,13 @@ MAX_CLAUSES_LIMIT: int = 500
 # Documents exceeding this are truncated with a logged warning.
 # Safety valve against pathological regex matches on unusual formatting.
 
+CLAUSE_SPLITTER_LLM_MAX_CLAUSES: int = 40
+# §3 latency lever A: above this regex-clause count, ClauseSplitter skips the LLM refinement
+# (refine_with_llm) and uses the regex splitter output directly. The real corpus clusters into
+# ~8-clause (normal) and ~185-clause (large) documents; 40 keeps full LLM clause typing/boundary
+# quality for normal contracts while gating only the large-doc outliers where the refine call is
+# slowest. Tunable against real node_timings.
+
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
 # Source: specs/005-crag-retrieval/spec.md §6
 CRAG_CONFIDENCE_THRESHOLD: float = (
@@ -100,12 +107,13 @@ CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD: int = 5
 # ── Self-RAG validation thresholds ─────────────────────────────────────────────
 # Source: specs/006-self-rag-validation/spec.md §6
 
-SELF_RAG_MAX_ATTEMPTS: int = 3
-# Maximum number of ISSUP ("worth flagging") judgment attempts per clause, per
-# constitution §2 ("retry on ISSUP fail, max 3 attempts"). First attempt + retries
-# together may not exceed this. retry_count = attempts_taken - 1, so
-# retry_count ∈ {0, 1, 2} at this default. Renames the old SELF_RAG_MAX_RETRIES
-# placeholder (spec §8b Q2).
+SELF_RAG_MAX_ATTEMPTS: int = 1
+# Maximum number of ISSUP ("worth flagging") judgment attempts per clause. Constitution §2 caps
+# this at 3 ("retry on ISSUP fail, max 3 attempts"); §3 latency lever B tunes the DEFAULT down to
+# 1 (one attempt, no retries) — retries re-ask the identical prompt on a False verdict and, with a
+# near-deterministic local model (think=False), rarely change the answer, so they mostly add
+# latency. Still an upper bound: retry_count = attempts_taken - 1 (0 at this default). Raise toward
+# 3 to restore retries. Renames the old SELF_RAG_MAX_RETRIES placeholder (spec §8b Q2).
 
 SELF_RAG_TIMEOUT_SECONDS: int = 120
 # Wall-clock timeout for a single Self-RAG LLM call (Relevance / ISREL / one ISSUP

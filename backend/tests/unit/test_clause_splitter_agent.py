@@ -279,3 +279,29 @@ def test_splitter_no_error_count_on_fallback(monkeypatch):
     result = clause_splitter_agent(make_state(LONG_TEXT))
 
     assert "error_count" not in result
+
+
+def test_splitter_gated_skips_llm(monkeypatch):
+    """Feature 025 lever A: when split_by_regex yields > CLAUSE_SPLITTER_LLM_MAX_CLAUSES clauses,
+    the LLM refinement is SKIPPED and the regex boundaries are returned verbatim.
+
+    make_state(LONG_TEXT) (> MIN_CLAUSE_LENGTH) selects the NORMAL path so split_by_regex runs;
+    the boundaries' own text length is irrelevant to the gate.
+    """
+    monkeypatch.setattr(clause_splitter_agent_module, "CLAUSE_SPLITTER_LLM_MAX_CLAUSES", 2)
+    regex_boundaries = [make_boundary(1), make_boundary(2), make_boundary(3)]  # 3 > 2 → gate fires
+    monkeypatch.setattr(
+        clause_splitter_agent_module, "split_by_regex", lambda t: regex_boundaries
+    )
+    refine_spy = MagicMock()
+    monkeypatch.setattr(clause_splitter_agent_module, "refine_with_llm", refine_spy)
+
+    result = clause_splitter_agent(make_state(LONG_TEXT))
+
+    refine_spy.assert_not_called()
+    clauses = result["clauses"]
+    assert list(clauses.keys()) == ["clause_001", "clause_002", "clause_003"]
+    for cid, b in zip(["clause_001", "clause_002", "clause_003"], regex_boundaries):
+        assert clauses[cid]["text"] == b.text
+        assert clauses[cid]["position"] == b.position
+        assert clauses[cid]["clause_type"] is None  # regex infers no type

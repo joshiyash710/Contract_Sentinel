@@ -132,8 +132,13 @@ def test_issup_pass_first_attempt_validated():
 # ── AC-5: ISSUP retry then pass → validated ──────────────────────────────────
 
 
-def test_issup_retry_then_pass_validated():
-    """ISSUP [False, True] → issup=True, retry_count=1, VALIDATED."""
+def test_issup_retry_then_pass_validated(monkeypatch):
+    """ISSUP [False, True] → issup=True, retry_count=1, VALIDATED.
+
+    Exercises the multi-attempt retry path, so it pins SELF_RAG_MAX_ATTEMPTS=3 independent of the
+    feature-025 latency default (1). Assertions unchanged.
+    """
+    monkeypatch.setattr(node_mod, "SELF_RAG_MAX_ATTEMPTS", 3)
     clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
     mock_issup = MagicMock(side_effect=[False, True])
     with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
@@ -149,8 +154,14 @@ def test_issup_retry_then_pass_validated():
 # ── AC-6: ISSUP exhaustion → discard ─────────────────────────────────────────
 
 
-def test_issup_exhaustion_discarded():
-    """ISSUP False every attempt → issup=False, retry_count=MAX-1, DISCARDED."""
+def test_issup_exhaustion_discarded(monkeypatch):
+    """ISSUP False every attempt → issup=False, retry_count=MAX-1, DISCARDED.
+
+    Pins SELF_RAG_MAX_ATTEMPTS=3 so it keeps exercising MULTI-attempt exhaustion (retry_count=2)
+    independent of the feature-025 latency default (1); the single-attempt case is covered by
+    test_issup_single_attempt_no_retry below.
+    """
+    monkeypatch.setattr(node_mod, "SELF_RAG_MAX_ATTEMPTS", 3)
     clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
     max_attempts = node_mod.SELF_RAG_MAX_ATTEMPTS
     with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
@@ -160,6 +171,25 @@ def test_issup_exhaustion_discarded():
     r = result["clauses"]["c1"]
     assert r["issup_verdict"] is False
     assert r["retry_count"] == max_attempts - 1
+    assert r["final_status"] == ValidationStatus.DISCARDED
+
+
+def test_issup_single_attempt_no_retry(monkeypatch):
+    """Feature 025 lever B: SELF_RAG_MAX_ATTEMPTS=1 → ISSUP judged ONCE, no retries.
+
+    A single False verdict discards immediately (retry_count=0), with check_issup called exactly once.
+    """
+    monkeypatch.setattr(node_mod, "SELF_RAG_MAX_ATTEMPTS", 1)
+    clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
+    mock_issup = MagicMock(return_value=False)
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", return_value=True
+    ), patch.object(node_mod, "check_issup", mock_issup):
+        result = _call_node(clauses)
+    r = result["clauses"]["c1"]
+    assert mock_issup.call_count == 1
+    assert r["issup_verdict"] is False
+    assert r["retry_count"] == 0
     assert r["final_status"] == ValidationStatus.DISCARDED
 
 

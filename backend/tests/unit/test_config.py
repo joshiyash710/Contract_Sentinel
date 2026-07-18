@@ -45,12 +45,14 @@ def test_clause_splitter_constants_match_spec():
         CLAUSE_SPLITTER_TIMEOUT_SECONDS,
         MIN_CLAUSE_LENGTH,
         MAX_CLAUSES_LIMIT,
+        CLAUSE_SPLITTER_LLM_MAX_CLAUSES,
     )
 
     assert OLLAMA_MODEL_NAME == "qwen3:8b"
     assert CLAUSE_SPLITTER_TIMEOUT_SECONDS == 120
     assert MIN_CLAUSE_LENGTH == 100
     assert MAX_CLAUSES_LIMIT == 500
+    assert CLAUSE_SPLITTER_LLM_MAX_CLAUSES == 40  # feature 025 latency lever A (§3)
 
 
 def test_clause_splitter_constants_correct_types():
@@ -124,7 +126,7 @@ def test_self_rag_constants_match_spec():
         SELF_RAG_PROMPT_MAX_CHARS,
     )
 
-    assert SELF_RAG_MAX_ATTEMPTS == 3
+    assert SELF_RAG_MAX_ATTEMPTS == 1  # feature 025 latency lever B (§3): default tuned 3 → 1
     assert SELF_RAG_TIMEOUT_SECONDS == 120
     assert SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
     assert SELF_RAG_PROMPT_MAX_CHARS == 6000
