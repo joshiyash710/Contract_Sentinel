@@ -1,0 +1,46 @@
+{
+  "document": "eval/corpus/heavy_contract.docx",
+  "notes": "SEED / INDICATIVE only (feature 026 D5) — best-effort labels for an aggressively one-sided synthetic contract; every clause is risk-worthy, so this doc measures recall/miss but has no clean clauses. Not lawyer-reviewed.",
+  "clauses": [
+    {
+      "locator": { "section_number": "1", "text_snippet": "Provider shall bear unlimited liability" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "limitation_of_liability",
+      "note": "unlimited liability, no cap"
+    },
+    {
+      "locator": { "section_number": "2", "text_snippet": "Client shall indemnify, defend, and hold harmless the Provider" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "indemnification",
+      "note": "one-sided indemnity for any and all claims"
+    },
+    {
+      "locator": { "section_number": "3", "text_snippet": "Provider may terminate this Agreement at any time, for any reason or no reason" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "termination",
+      "note": "immediate unilateral termination for convenience"
+    },
+    {
+      "locator": { "section_number": "4", "text_snippet": "irrevocably assigns to the Provider all right, title, and interest" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "ip_assignment",
+      "note": "total IP assignment to Provider"
+    },
+    {
+      "locator": { "section_number": "5", "text_snippet": "binding arbitration administered by an arbitrator selected solel" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "dispute_resolution",
+      "note": "arbitrator selected solely by Provider"
+    },
+    {
+      "locator": { "section_number": "6", "text_snippet": "automatically renew for successive one-year terms" },
+      "should_flag": true, "expected_severity": "medium", "clause_type": "auto_renewal",
+      "note": "auto-renewal with price increase"
+    },
+    {
+      "locator": { "section_number": "7", "text_snippet": "keep all terms of this Agreement strictly confidential in perpetuity" },
+      "should_flag": true, "expected_severity": "medium", "clause_type": "confidentiality",
+      "note": "perpetual one-sided confidentiality"
+    },
+    {
+      "locator": { "section_number": "8", "text_snippet": "governed by the laws of a jurisdiction to be designated by the Provider at its sole discretion" },
+      "should_flag": true, "expected_severity": "high", "clause_type": "governing_law",
+      "note": "unilateral jurisdiction choice + warranty disclaimer"
+    }
+  ]
+}

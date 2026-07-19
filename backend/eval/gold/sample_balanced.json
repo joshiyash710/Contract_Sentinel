@@ -1,0 +1,48 @@
+{
+  "document": "eval/corpus/sample_balanced.docx",
+  "notes": "SEED / INDICATIVE only — authored synthetic contract with known ground truth (feature 026 D5). Not lawyer-reviewed; a real corpus needs expert labels.",
+  "clauses": [
+    {
+      "locator": { "section_number": "1", "text_snippet": "pay all undisputed invoices within thirty" },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "payment_terms",
+      "note": "standard net-30 payment terms with good-faith dispute right — benign"
+    },
+    {
+      "locator": { "section_number": "2", "text_snippet": "bear unlimited liability for any and all damages" },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "limitation_of_liability",
+      "note": "one-sided: disclaims all caps, unlimited liability onto the Client"
+    },
+    {
+      "locator": { "section_number": "3", "text_snippet": "protect the other party Confidential Information using reasonable care" },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "confidentiality",
+      "note": "mutual, reasonable-care, time-limited confidentiality — standard"
+    },
+    {
+      "locator": { "section_number": "4", "text_snippet": "indemnify, defend, and hold harmless the Provider from and against any and all claims" },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "indemnification",
+      "note": "one-sided indemnity regardless of Provider fault"
+    },
+    {
+      "locator": { "section_number": "5", "text_snippet": "governed by and construed in accordance with the laws of the State of Delaware" },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "standard governing-law clause — benign"
+    },
+    {
+      "locator": { "section_number": "6", "text_snippet": "terminate this Agreement at any time, for any reason or no reason, effective immediately" },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination",
+      "note": "unilateral termination for convenience, immediate, no liability"
+    }
+  ]
+}
