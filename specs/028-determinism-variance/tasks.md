@@ -118,9 +118,9 @@ Create `tests/unit/test_eval_variance_stats.py` (pure, synthetic dicts — no Ol
 ## T11 — Live measurement (manual, live Ollama, `python -X utf8`) (AC-11, AC-12)
 Run from `backend/`, delivery off (inherited from `run.py`), UTF-8 mode (027 harness gotcha — the ✓
 print crashes cp1252).
-- [~] **AC-11 before/after:** the N=3 temp=0 sweep IS the "after" picture (near-flat CVs; see below).
-      The explicit main-vs-branch two-`metrics.json` diff was NOT run separately; the `--vary-seed`
-      contrast (mode b) is the optional way to show the "before" sampling spread. Documented below.
+- [x] **AC-11 before/after:** demonstrated via the temp=0 (after) vs `--vary-seed` sampling (before)
+      contrast — temp=0 halves precision/recall/F1 CV and cuts within-one CV ~10×. See table below.
+      (Used the variance driver's two modes rather than a literal main-vs-branch checkout diff.)
 - [x] **AC-12 sweep:** `python -X utf8 -m eval.harness.variance --runs 3` → coherent
       `mean ± std (min–max, CV)` + stable/unstable summary with plausible seed-set numbers. ✅
 - [x] Recorded in the "Measured result" section below.
@@ -160,10 +160,23 @@ Part A collapses the *sampling* component (the stable-clause CVs are ~0) while P
 irreducible residual. `false_flag_rate` CV=0 is the governing-law/confidentiality FF from 027 (D3),
 now shown deterministic.
 
-**AC-11 (before/after) not run as a separate main-vs-branch diff** — the temp=0 sweep above IS the
-"after" picture (near-flat CVs). To show the "before" sampling contrast, run
-`python -X utf8 -m eval.harness.variance --vary-seed` (mode b: seed=None + temp 0.8) and compare CVs
-(expected: materially larger, incl. precision/false-flag which are flat here). Optional follow-up.
+### AC-11 before/after contrast — deterministic (temp=0) vs sampled (`--vary-seed`, temp=0.8), both N=3
+
+| metric | temp=0 CV | sampled CV |
+| --- | --- | --- |
+| precision | **0.4%** | 0.9% |
+| recall | **4.4%** | 9.8% |
+| F1 | **2.4%** | 5.3% |
+| severity within-one | **0.5%** | 5.2% |
+| severity exact | 7.4% | 9.1% |
+| false-flag | 0.0% | 0.0% (deterministic clause-typing FF, 027 D3) |
+
+Stability: temp=0 → 10/11 stable-caught, 1 unstable, verdict-stability 83.3%. Sampled → 9/11, **2
+unstable**, verdict-stability **75.0%**. **Read:** temp=0 roughly halves precision/recall/F1 CV and
+cuts within-one CV ~10×, and holds one more clause stable — Part A's determinism materially reduces
+variance vs sampling. Residual under temp=0 (recall CV 4.4%) is the web-fallback/GPU-margin floor no
+seed removes (EC-1/EC-2). Tiny corpus (11 clauses, N=3): direction + rough magnitude, not a tight
+bound. Sampled report: `eval/runs/variance_sampled/<ts>/variance.json`.
 
 ---
 
