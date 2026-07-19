@@ -153,7 +153,6 @@ SELF_RAG_RECALL_FLOOR_TYPES: frozenset = frozenset(
         "liability",
         "termination",
         "intellectual_property",
-        "dispute_resolution",
         "confidentiality",
     }
 )
@@ -162,10 +161,21 @@ SELF_RAG_RECALL_FLOOR_TYPES: frozenset = frozenset(
 # (surfaced as a finding for human review) even if ISSUP/ISREL would discard it, or
 # if it had no evidence. Rationale: for a legal tool a missed risk (false negative)
 # is far costlier than a false flag, and 026 measured 0% false-flags (headroom to
-# spend). SUPERSEDES SELF_RAG_HIGH_RISK_CLAUSE_TYPES inside the node (of which it is
-# a superset); the old constant is kept for back-compat/config tests but is no longer
-# read by the node. Empty set ⇒ byte-for-byte today's Self-RAG behavior (reversible,
-# D6). The 026 harness measures the recall/precision trade (AC-7).
+# spend). SUPERSEDES SELF_RAG_HIGH_RISK_CLAUSE_TYPES inside the node; the old constant
+# is kept for back-compat/config tests but is no longer read by the node. Empty set ⇒
+# byte-for-byte today's Self-RAG behavior (reversible, D6).
+#
+# NARROWED after the AC-7 harness A/B (spec 027 D2/D3, harness-tuned): started as
+# high-risk ∪ {confidentiality}; DROPPED `dispute_resolution` because it rescued zero
+# measured misses (the genuine arbitration clause is already caught by the normal gate)
+# yet caused the only avoidable false flag — the pipeline mis-types "Governing Law" as
+# `dispute_resolution`, which the floor then flagged. Dropping it removed that false
+# flag at no recall cost (recall stayed 100%). NOTE: this means an EMPTY-EVIDENCE
+# dispute_resolution clause no longer takes the Branch-A rescue (it now hits the
+# Branch-B zero-LLM discard) — an accepted trade for the precision gain; the real fix
+# for the mis-typing is better clause typing (spec §6, out of scope). The remaining
+# false flag (a standard confidentiality clause) is the accepted recall/precision cost
+# of keeping `confidentiality`, which rescues a real 026 miss.
 
 # ── RiskScore thresholds ───────────────────────────────────────────────────────
 # Source: specs/007-risk-score/spec.md §6

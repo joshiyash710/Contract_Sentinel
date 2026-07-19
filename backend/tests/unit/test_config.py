@@ -157,13 +157,16 @@ def test_self_rag_high_risk_types_are_valid_clause_types():
 
 def test_self_rag_recall_floor_types_are_valid_clause_types():
     """Every recall-floor entry must be a real ClauseType.value (spec 027, AC-5)."""
-    from app.config import SELF_RAG_RECALL_FLOOR_TYPES, SELF_RAG_HIGH_RISK_CLAUSE_TYPES
+    from app.config import SELF_RAG_RECALL_FLOOR_TYPES
     from app.graph.state import ClauseType
 
     valid = {ct.value for ct in ClauseType}
     assert SELF_RAG_RECALL_FLOOR_TYPES <= valid
-    # Default floor is a superset of the old high-risk set (spec §2.1 consolidation).
-    assert SELF_RAG_HIGH_RISK_CLAUSE_TYPES <= SELF_RAG_RECALL_FLOOR_TYPES
+    # Harness-tuned default (spec 027 D2/D3): includes confidentiality (rescues a real
+    # 026 miss) and EXCLUDES dispute_resolution (dropped after the AC-7 A/B — it caused
+    # the governing-law false flag at no recall gain). Guards against silent re-widening.
+    assert "confidentiality" in SELF_RAG_RECALL_FLOOR_TYPES
+    assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
 
 
 def test_self_rag_max_retries_renamed():
