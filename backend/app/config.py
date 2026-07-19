@@ -145,6 +145,27 @@ SELF_RAG_HIGH_RISK_CLAUSE_TYPES: frozenset = frozenset(
 # §7.5 / §8a R4). Deliberately narrow: the categories where a silent miss is
 # costliest. Types NOT listed (and clause_type=None) fall through to discard.
 # Widen only if the empty-evidence discard metric (spec §9.6) shows real misses.
+# SUPERSEDED inside the Self-RAG node by SELF_RAG_RECALL_FLOOR_TYPES (spec 027, a
+# superset of this set); kept here for back-compat / its own config test.
+
+SELF_RAG_RECALL_FLOOR_TYPES: frozenset = frozenset(
+    {
+        "liability",
+        "termination",
+        "intellectual_property",
+        "dispute_resolution",
+        "confidentiality",
+    }
+)
+# ClauseType.value strings that get the Self-RAG "recall floor" (spec 027): once a
+# clause of one of these types passes the light relevance gate, it is VALIDATED
+# (surfaced as a finding for human review) even if ISSUP/ISREL would discard it, or
+# if it had no evidence. Rationale: for a legal tool a missed risk (false negative)
+# is far costlier than a false flag, and 026 measured 0% false-flags (headroom to
+# spend). SUPERSEDES SELF_RAG_HIGH_RISK_CLAUSE_TYPES inside the node (of which it is
+# a superset); the old constant is kept for back-compat/config tests but is no longer
+# read by the node. Empty set ⇒ byte-for-byte today's Self-RAG behavior (reversible,
+# D6). The 026 harness measures the recall/precision trade (AC-7).
 
 # ── RiskScore thresholds ───────────────────────────────────────────────────────
 # Source: specs/007-risk-score/spec.md §6

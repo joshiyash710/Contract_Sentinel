@@ -142,6 +142,8 @@ def test_self_rag_constants_correct_types():
     assert isinstance(config.SELF_RAG_PROMPT_MAX_CHARS, int)
     assert isinstance(config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES, frozenset)
     assert all(isinstance(t, str) for t in config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES)
+    assert isinstance(config.SELF_RAG_RECALL_FLOOR_TYPES, frozenset)
+    assert all(isinstance(t, str) for t in config.SELF_RAG_RECALL_FLOOR_TYPES)
 
 
 def test_self_rag_high_risk_types_are_valid_clause_types():
@@ -151,6 +153,17 @@ def test_self_rag_high_risk_types_are_valid_clause_types():
 
     valid = {ct.value for ct in ClauseType}
     assert SELF_RAG_HIGH_RISK_CLAUSE_TYPES <= valid
+
+
+def test_self_rag_recall_floor_types_are_valid_clause_types():
+    """Every recall-floor entry must be a real ClauseType.value (spec 027, AC-5)."""
+    from app.config import SELF_RAG_RECALL_FLOOR_TYPES, SELF_RAG_HIGH_RISK_CLAUSE_TYPES
+    from app.graph.state import ClauseType
+
+    valid = {ct.value for ct in ClauseType}
+    assert SELF_RAG_RECALL_FLOOR_TYPES <= valid
+    # Default floor is a superset of the old high-risk set (spec §2.1 consolidation).
+    assert SELF_RAG_HIGH_RISK_CLAUSE_TYPES <= SELF_RAG_RECALL_FLOOR_TYPES
 
 
 def test_self_rag_max_retries_renamed():

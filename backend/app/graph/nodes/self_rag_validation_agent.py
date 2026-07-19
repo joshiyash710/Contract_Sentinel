@@ -48,6 +48,7 @@ SELF_RAG_TIMEOUT_SECONDS = _config.SELF_RAG_TIMEOUT_SECONDS
 SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD = _config.SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD
 SELF_RAG_PROMPT_MAX_CHARS = _config.SELF_RAG_PROMPT_MAX_CHARS
 SELF_RAG_HIGH_RISK_CLAUSE_TYPES = _config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES
+SELF_RAG_RECALL_FLOOR_TYPES = _config.SELF_RAG_RECALL_FLOOR_TYPES  # spec 027; supersedes high-risk in-node
 
 
 def self_rag_validation_agent(state: ContractState) -> dict:
@@ -161,13 +162,13 @@ def _process_clause(clause_id: str, record: dict, cb: dict, document_id: str) ->
     ct = _clause_type_value(record.get("clause_type"))
 
     if empty_evidence:
-        if ct in SELF_RAG_HIGH_RISK_CLAUSE_TYPES:
+        if ct in SELF_RAG_RECALL_FLOOR_TYPES:
             return _branch_a_rescue(text, ct, cb)
         else:
             # Branch B: zero-LLM discard — exempt from fail-open even after circuit trip
             return _all_none_discard()
     else:
-        return _branch_c_normal(text, evidence, cb)
+        return _branch_c_normal(text, evidence, cb, ct)
 
 
 def _branch_a_rescue(text: str, ct: Optional[str], cb: dict) -> dict:
@@ -205,6 +206,19 @@ def _branch_a_rescue(text: str, ct: Optional[str], cb: dict) -> dict:
             "final_status": ValidationStatus.DISCARDED,
         }
 
+    # Recall floor (spec 027): a floor clause_type that is on-topic (relevance True)
+    # is VALIDATED without the text-only ISSUP gate — a missed high-risk clause is
+    # costlier than a false flag. Rescues the empty-evidence confidentiality/IP
+    # ISSUP-false misses. (Empty/narrowed floor set falls through to _issup_loop.)
+    if ct in SELF_RAG_RECALL_FLOOR_TYPES:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": None,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.VALIDATED,
+        }
+
     # relevance True → ISSUP on clause text alone (no evidence)
     issup_verdict, retry_count, final_status = _issup_loop(text, None, cb)
     return {
@@ -216,8 +230,9 @@ def _branch_a_rescue(text: str, ct: Optional[str], cb: dict) -> dict:
     }
 
 
-def _branch_c_normal(text: str, evidence: list, cb: dict) -> dict:
-    """Branch C: evidence present — run full Relevance → ISREL → ISSUP gate."""
+def _branch_c_normal(text: str, evidence: list, cb: dict, ct: Optional[str] = None) -> dict:
+    """Branch C: evidence present — run full Relevance → ISREL → ISSUP gate.
+    For a recall-floor clause_type, relevance-True short-circuits to VALIDATED (spec 027)."""
     if cb["open"]:
         return {
             "relevance_verdict": None,
@@ -247,6 +262,18 @@ def _branch_c_normal(text: str, evidence: list, cb: dict) -> dict:
             "issup_verdict": None,
             "retry_count": None,
             "final_status": ValidationStatus.DISCARDED,
+        }
+
+    # Recall floor (spec 027): an on-topic floor clause_type is VALIDATED without the
+    # ISREL/ISSUP discard gates — rescues the liability/indemnification ISSUP-false and
+    # termination ISREL-false misses (026), and skips 1-2 LLM calls per floor clause.
+    if ct in SELF_RAG_RECALL_FLOOR_TYPES:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": None,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.VALIDATED,
         }
 
     # Relevance True → ISREL check

@@ -408,8 +408,13 @@ def test_circuit_resets_on_success(monkeypatch):
 
 
 def test_empty_evidence_high_risk_validates_on_text():
-    """Empty evidence + high-risk type + Relevance True + text-ISSUP True → VALIDATED.
-    isrel_verdict = None (not-assessable, not False)."""
+    """Empty evidence + recall-floor type (LIABILITY) + Relevance True → VALIDATED.
+
+    SUPERSEDED BY 027: pre-027 this ran a text-only ISSUP loop in Branch A. The recall
+    floor (spec 027 §2.2) now short-circuits an on-topic floor type to VALIDATED without
+    ISSUP — so issup_verdict is None (not True) and check_issup is not called. The clause
+    is still VALIDATED (the safety-relevant outcome); isrel_verdict stays None (AC-16a)."""
+    mock_issup = MagicMock(return_value=True)
     clauses = {
         "c1": clause_record(
             position=1, evidence_snippets=[], clause_type=ClauseType.LIABILITY
@@ -417,13 +422,14 @@ def test_empty_evidence_high_risk_validates_on_text():
     }
     with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
         node_mod, "check_isrel", MagicMock()
-    ) as mock_isrel, patch.object(node_mod, "check_issup", return_value=True):
+    ), patch.object(node_mod, "check_issup", mock_issup):
         result = _call_node(clauses)
     r = result["clauses"]["c1"]
     assert r["relevance_verdict"] is True
     assert r["isrel_verdict"] is None  # not-assessable (absent evidence ≠ off-topic)
-    assert r["issup_verdict"] is True
+    assert r["issup_verdict"] is None  # recall floor skips ISSUP
     assert r["final_status"] == ValidationStatus.VALIDATED
+    mock_issup.assert_not_called()
 
 
 def test_empty_evidence_high_risk_relevance_false_discards():
@@ -447,8 +453,15 @@ def test_empty_evidence_high_risk_relevance_false_discards():
     mock_issup.assert_not_called()
 
 
-def test_empty_evidence_high_risk_issup_false_discards():
-    """Empty evidence + high-risk type + Relevance True + ISSUP always False → DISCARDED."""
+def test_empty_evidence_high_risk_issup_false_validates_under_floor():
+    """Empty evidence + recall-floor type (INTELLECTUAL_PROPERTY) + Relevance True → VALIDATED.
+
+    SUPERSEDED BY 027 (renamed from ..._issup_false_discards): pre-027 an empty-evidence
+    high-risk clause with an ISSUP-False text judgment was DISCARDED. The recall floor
+    (spec 027 §2.2, AC-5) now rescues it — the clause VALIDATEs without ISSUP being relied
+    on, exactly the miss the feature targets. Reversibility of the pre-027 discard is
+    covered by test_recall_floor_empty_set_restores_old_behavior (empty floor)."""
+    mock_issup = MagicMock(return_value=False)
     clauses = {
         "c1": clause_record(
             position=1,
@@ -458,12 +471,13 @@ def test_empty_evidence_high_risk_issup_false_discards():
     }
     with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
         node_mod, "check_isrel", MagicMock()
-    ), patch.object(node_mod, "check_issup", return_value=False):
+    ), patch.object(node_mod, "check_issup", mock_issup):
         result = _call_node(clauses)
     r = result["clauses"]["c1"]
     assert r["isrel_verdict"] is None
-    assert r["issup_verdict"] is False
-    assert r["final_status"] == ValidationStatus.DISCARDED
+    assert r["issup_verdict"] is None  # recall floor: ISSUP not relied on
+    assert r["final_status"] == ValidationStatus.VALIDATED
+    mock_issup.assert_not_called()
 
 
 def test_empty_evidence_non_high_risk_zero_llm_discard():
@@ -720,3 +734,195 @@ def test_zero_llm_branches_exempt_from_fail_open_after_trip(monkeypatch):
     assert result["clauses"]["c2"]["final_status"] == ValidationStatus.DISCARDED
     # c3 (empty text, zero-LLM) → still DISCARDED
     assert result["clauses"]["c3"]["final_status"] == ValidationStatus.DISCARDED
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Feature 027 — Self-RAG recall floor for high-risk clause types
+#   Once a recall-floor clause_type passes the light relevance gate, it is
+#   VALIDATED even if ISSUP/ISREL would discard it, or if it had no evidence.
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def _floor_verdict(shape):
+    """Assert the record shape of a recall-floor VALIDATE (spec §2.3):
+    relevance True, isrel/issup/retry all None, final_status VALIDATED."""
+    assert shape["relevance_verdict"] is True
+    assert shape["isrel_verdict"] is None  # AC-16a: never False + VALIDATED
+    assert shape["issup_verdict"] is None
+    assert shape["retry_count"] is None
+    assert shape["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_recall_floor_evidence_issup_false_validates():
+    """AC-1: floor type + evidence + relevance True + ISSUP-would-be-False → VALIDATED.
+    A non-floor type in the same scenario → DISCARDED (today's behavior)."""
+    clauses = {
+        "floor": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        ),
+        "nonfloor": clause_record(
+            position=2,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.GENERAL,
+        ),
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", return_value=True
+    ), patch.object(node_mod, "check_issup", return_value=False):
+        result = _call_node(clauses)
+    _floor_verdict(result["clauses"]["floor"])
+    # non-floor: ISSUP False → DISCARDED, unchanged
+    assert result["clauses"]["nonfloor"]["final_status"] == ValidationStatus.DISCARDED
+    assert result["clauses"]["nonfloor"]["issup_verdict"] is False
+
+
+def test_recall_floor_evidence_isrel_false_validates():
+    """AC-2: floor type + evidence + relevance True + ISREL-would-be-False → VALIDATED.
+    Non-floor type → DISCARDED."""
+    clauses = {
+        "floor": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.TERMINATION,
+        ),
+        "nonfloor": clause_record(
+            position=2,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.GENERAL,
+        ),
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", return_value=False
+    ), patch.object(node_mod, "check_issup", return_value=True):
+        result = _call_node(clauses)
+    _floor_verdict(result["clauses"]["floor"])
+    r = result["clauses"]["nonfloor"]
+    assert r["isrel_verdict"] is False
+    assert r["final_status"] == ValidationStatus.DISCARDED
+
+
+def test_recall_floor_branch_c_skips_isrel_and_issup():
+    """AC-4c: for a floor Branch-C clause, once relevance passes, neither ISREL nor
+    ISSUP is called (side benefit: skips 1-2 LLM calls)."""
+    mock_isrel = MagicMock(return_value=False)
+    mock_issup = MagicMock(return_value=False)
+    clauses = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", mock_isrel
+    ), patch.object(node_mod, "check_issup", mock_issup):
+        result = _call_node(clauses)
+    _floor_verdict(result["clauses"]["c1"])
+    mock_isrel.assert_not_called()
+    mock_issup.assert_not_called()
+
+
+def test_recall_floor_empty_evidence_validates():
+    """AC-3: floor type + empty evidence + relevance True → VALIDATED via Branch A
+    rescue WITHOUT entering the ISSUP loop (issup not called)."""
+    mock_issup = MagicMock(return_value=False)
+    clauses = {
+        "c1": clause_record(
+            position=1, evidence_snippets=[], clause_type=ClauseType.LIABILITY
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", MagicMock()
+    ), patch.object(node_mod, "check_issup", mock_issup):
+        result = _call_node(clauses)
+    _floor_verdict(result["clauses"]["c1"])
+    mock_issup.assert_not_called()
+
+
+def test_recall_floor_confidentiality_empty_evidence_validates():
+    """AC-3b: CONFIDENTIALITY (NOT in the old high-risk set) + empty evidence +
+    relevance True → VALIDATED. Proves the empty-evidence routing fix (spec §2.2)."""
+    clauses = {
+        "c1": clause_record(
+            position=1, evidence_snippets=None, clause_type=ClauseType.CONFIDENTIALITY
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", MagicMock()
+    ), patch.object(node_mod, "check_issup", return_value=False):
+        result = _call_node(clauses)
+    _floor_verdict(result["clauses"]["c1"])
+
+
+def test_recall_floor_non_floor_empty_evidence_still_zero_llm_discard():
+    """AC-3 (control): a non-floor type with empty evidence still hits the Branch-B
+    zero-LLM discard — no reflector calls."""
+    mock_rel = MagicMock()
+    clauses = {
+        "c1": clause_record(
+            position=1, evidence_snippets=[], clause_type=ClauseType.GENERAL
+        )
+    }
+    with patch.object(node_mod, "check_relevance", mock_rel), patch.object(
+        node_mod, "check_isrel", MagicMock()
+    ), patch.object(node_mod, "check_issup", MagicMock()):
+        result = _call_node(clauses)
+    assert result["clauses"]["c1"]["final_status"] == ValidationStatus.DISCARDED
+    mock_rel.assert_not_called()
+
+
+def test_recall_floor_relevance_false_discards():
+    """AC-4 / EC-2: floor type + relevance False → still DISCARDED (off-topic wins)."""
+    clauses = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=False), patch.object(
+        node_mod, "check_isrel", MagicMock()
+    ), patch.object(node_mod, "check_issup", MagicMock()):
+        result = _call_node(clauses)
+    r = result["clauses"]["c1"]
+    assert r["relevance_verdict"] is False
+    assert r["final_status"] == ValidationStatus.DISCARDED
+
+
+def test_recall_floor_relevance_none_validates():
+    """AC-4 / EC-1: floor type + relevance None (LLM failure) → VALIDATED (fail-open)."""
+    clauses = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=None), patch.object(
+        node_mod, "check_isrel", MagicMock()
+    ), patch.object(node_mod, "check_issup", MagicMock()):
+        result = _call_node(clauses)
+    r = result["clauses"]["c1"]
+    assert r["relevance_verdict"] is None
+    assert r["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_recall_floor_empty_set_restores_old_behavior(monkeypatch):
+    """AC-5 (reversibility): with the node's recall-floor set empty, a floor-type
+    clause with evidence + ISSUP-False → DISCARDED, exactly as before 027."""
+    monkeypatch.setattr(node_mod, "SELF_RAG_RECALL_FLOOR_TYPES", frozenset())
+    clauses = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        )
+    }
+    with patch.object(node_mod, "check_relevance", return_value=True), patch.object(
+        node_mod, "check_isrel", return_value=True
+    ), patch.object(node_mod, "check_issup", return_value=False):
+        result = _call_node(clauses)
+    assert result["clauses"]["c1"]["final_status"] == ValidationStatus.DISCARDED
+    assert result["clauses"]["c1"]["issup_verdict"] is False
