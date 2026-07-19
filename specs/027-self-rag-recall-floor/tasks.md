@@ -66,21 +66,45 @@ Add to `tests/unit/test_self_rag_validation_agent.py` (all mock reflectors at no
       `tests/unit/test_self_rag_validation_agent.py`, `tests/unit/test_config.py`.
 - **AC:** AC-6.
 
-## T8 — Live harness measurement, before vs. after (AC-7)
-- [ ] Confirm exact run/score entry points in `eval/harness/run.py` + `score.py`.
-- [ ] With Ollama up and delivery disabled (`MCP_DELIVERY_ENABLED=False`), capture baseline metrics
-      on the current default set, then (recall floor is already on by default) capture post metrics
-      by comparing against the 026 recorded baseline (recall 63.6%, precision 100%, false-flag 0%).
-      If a clean A/B is needed, run once with `SELF_RAG_RECALL_FLOOR_TYPES` empty (env/monkeypatch)
-      vs. default.
-- [ ] Record recall, miss, precision, false-flag, severity accuracy for both; note the four rescued
-      misses and any new governing-law false-flag (D3).
-- **AC:** AC-7.
+## T8 — Live harness measurement, before vs. after (AC-7) ✅
+- [x] Confirm exact run/score entry points (`python -m eval.harness.run` / `... score <run_dir>`).
+- [x] Clean A/B on the current gold: BEFORE = checkout `main`'s config+node, run; AFTER = 027 branch
+      (default floor). (Empty-floor monkeypatch does NOT reproduce true pre-027 because §2.1
+      consolidated the empty-evidence routing onto the same set — so the true BEFORE is main's code.)
+- [x] Recorded recall/miss/precision/false-flag/severity + seen-but-discarded for both. See
+      "Measured result" table below.
+- **AC:** AC-7. ✅
 
 ## T9 — Wrap up
 - [ ] Update spec/plan/tasks if the harness numbers suggest narrowing the default set (D2/D3 knob).
-- [ ] Commit on `feature/027-self-rag-recall-floor`; summarize the measured recall/precision trade.
-- [ ] Update memory (feature 027 status).
+- [x] Commit on `feature/027-self-rag-recall-floor`; summarize the measured recall/precision trade.
+- [x] Update memory (feature 027 status).
+
+---
+
+## Measured result (AC-7) — clean same-corpus A/B, qwen3:8b, seed gold (11 risky + 3 clean)
+
+BEFORE = pre-027 `main` source; AFTER = 027 default recall floor. Same gold, same box/model.
+
+| metric | BEFORE (main) | AFTER (027) | delta |
+| --- | --- | --- | --- |
+| recall | 45.5% (tp=5, fn=6) | **100%** (tp=11, fn=0) | **+54.5pp** |
+| miss rate | 54.5% | **0%** | −54.5pp |
+| precision | 100% | 84.6% | −15.4pp |
+| false-flag rate | 0% (fp=0) | 66.7% (fp_clean=2) | +66.7pp |
+| F1 | 62.5% | **91.7%** | +29.2pp |
+| severity exact | 20% | 45.5% | +25.5pp |
+| Self-RAG seen-but-discarded misses | 6 | **0** | −6 |
+
+**Read:** the recall floor rescued **all 6** "seen-but-discarded" misses (recall 45.5%→100%,
+seen-but-discarded 6→0) at the cost of **2** false flags on 3 clean-labeled clauses (D3's expected
+precision cost — the mis-typed governing-law→`dispute_resolution` case). Net F1 +29pp. The trade is
+measured, not assumed. Knob to narrow (e.g. drop `dispute_resolution`) is documented (D2/D3).
+Note: BEFORE recall (45.5%) differs from the 026 memory note (63.6%) because the gold corpus grew
+since 026; this A/B is on the current gold under identical conditions.
+
+Harness note: run.py's `✓` progress print crashes on Windows cp1252 stdout — run with
+`PYTHONIOENCODING=utf-8` / `python -X utf8`. Pre-existing harness bug, out of 027's file scope.
 
 ---
 
