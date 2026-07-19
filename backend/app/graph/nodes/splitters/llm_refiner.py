@@ -15,6 +15,13 @@ import ollama
 from app.graph.nodes.splitters import ClauseBoundary
 from app.graph.state import ClauseType
 
+import app.config as _config
+
+# Read by bare name below (never via _config.NAME) so tests monkeypatch the node-module attr
+# — feature 028 determinism sampling options; mirrors the 027 alias pattern.
+OLLAMA_TEMPERATURE = _config.OLLAMA_TEMPERATURE
+OLLAMA_SEED = _config.OLLAMA_SEED
+
 logger = logging.getLogger("contractsentinel.clause_splitter.llm_refiner")
 
 _VALID_CLAUSE_TYPES = {ct.value for ct in ClauseType}
@@ -106,7 +113,11 @@ def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> 
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.
-        options={"num_predict": 4096},
+        options={
+            "num_predict": 4096,
+            "temperature": OLLAMA_TEMPERATURE,
+            **({"seed": OLLAMA_SEED} if OLLAMA_SEED is not None else {}),
+        },
     )
     raw_content = response["message"]["content"]
     return _parse_response(raw_content, regex_clauses)

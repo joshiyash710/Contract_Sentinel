@@ -70,6 +70,22 @@ def test_clause_splitter_constants_correct_types():
     assert isinstance(MAX_CLAUSES_LIMIT, int)
 
 
+def test_ollama_sampling_constants_match_spec():
+    """Verify determinism constants match specs/028 §2.1 (AC-1)."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    assert OLLAMA_TEMPERATURE == 0.0  # greedy decode, product-wide (028 D1)
+    assert OLLAMA_SEED == 42  # fixed seed for reproducibility (028 D7)
+
+
+def test_ollama_sampling_constants_correct_types():
+    """Verify types: float temperature, int (Optional[int]) seed (AC-1)."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    assert isinstance(OLLAMA_TEMPERATURE, float)
+    assert isinstance(OLLAMA_SEED, int)  # default is a concrete int; None is the escape hatch
+
+
 def test_crag_runtime_constants_match_spec():
     """Verify CRAG runtime constants match specs/005 §6."""
     from app.config import (

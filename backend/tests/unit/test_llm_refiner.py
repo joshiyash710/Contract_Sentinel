@@ -333,3 +333,50 @@ def test_refine_json_mode_used(two_clauses):
     assert call_kwargs.kwargs.get("format") == "json" or (
         len(call_kwargs.args) > 2 and call_kwargs.args[2] == "json"
     )
+
+
+# ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
+_DET_MERGED = {
+    "clauses": [
+        {"text": "A merged clause body.", "section_number": "1", "clause_type": "definitions"}
+    ]
+}
+
+
+def _lr_options(two_clauses):
+    client = _mock_client(_DET_MERGED)
+    with patch("ollama.Client", return_value=client):
+        refine_with_llm(two_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    return client.chat.call_args.kwargs["options"]
+
+
+def test_chat_options_carry_sampling_config(two_clauses):
+    """AC-2/AC-3: options carry temperature + seed, preserve num_predict."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    opts = _lr_options(two_clauses)
+    assert opts["num_predict"] == 4096
+    assert opts["temperature"] == OLLAMA_TEMPERATURE
+    assert opts["seed"] == OLLAMA_SEED
+
+
+def test_chat_options_omit_seed_when_none(two_clauses, monkeypatch):
+    """AC-3: OLLAMA_SEED None → 'seed' key absent."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _lr_options(two_clauses)
+    assert "seed" not in opts
+    assert opts["num_predict"] == 4096
+
+
+def test_chat_options_reversible_to_sampling(two_clauses, monkeypatch):
+    """AC-4: temp 0.8 + seed None → pre-028 behavior."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "OLLAMA_TEMPERATURE", 0.8)
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _lr_options(two_clauses)
+    assert opts["temperature"] == 0.8
+    assert "seed" not in opts
+    assert opts["num_predict"] == 4096

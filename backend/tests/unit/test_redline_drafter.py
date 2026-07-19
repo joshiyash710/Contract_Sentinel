@@ -289,3 +289,44 @@ def test_rewrite_returned_untruncated():
         result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
     assert result == long_rewrite  # drafter does NOT truncate
     assert len(result) == 5000
+
+
+# ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
+def _rd_options():
+    client = _make_client(_ok_response("safer text"))
+    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+        MockClient.return_value = client
+        draft_rewrite("The vendor bears unlimited liability.", **_DEFAULT_KWARGS)
+    return client.chat.call_args.kwargs["options"]
+
+
+def test_chat_options_carry_sampling_config():
+    """AC-2/AC-3: options carry temperature + seed, preserve num_predict."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    opts = _rd_options()
+    assert opts["num_predict"] == 1536
+    assert opts["temperature"] == OLLAMA_TEMPERATURE
+    assert opts["seed"] == OLLAMA_SEED
+
+
+def test_chat_options_omit_seed_when_none(monkeypatch):
+    """AC-3: OLLAMA_SEED None → 'seed' key absent."""
+    import app.graph.nodes.drafters.redline_drafter as node
+
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rd_options()
+    assert "seed" not in opts
+    assert opts["num_predict"] == 1536
+
+
+def test_chat_options_reversible_to_sampling(monkeypatch):
+    """AC-4: temp 0.8 + seed None → pre-028 behavior."""
+    import app.graph.nodes.drafters.redline_drafter as node
+
+    monkeypatch.setattr(node, "OLLAMA_TEMPERATURE", 0.8)
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rd_options()
+    assert opts["temperature"] == 0.8
+    assert "seed" not in opts
+    assert opts["num_predict"] == 1536

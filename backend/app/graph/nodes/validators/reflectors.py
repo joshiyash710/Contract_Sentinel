@@ -16,6 +16,13 @@ import ollama
 
 from app.graph.nodes.validators import format_evidence
 
+import app.config as _config
+
+# Read by bare name below (never via _config.NAME) so tests monkeypatch the node-module attr
+# — feature 028 determinism sampling options; mirrors the 027 alias pattern.
+OLLAMA_TEMPERATURE = _config.OLLAMA_TEMPERATURE
+OLLAMA_SEED = _config.OLLAMA_SEED
+
 logger = logging.getLogger("contractsentinel.self_rag_validation.reflectors")
 
 _RELEVANCE_PROMPT = """\
@@ -184,7 +191,11 @@ def _call_ollama(prompt: str, timeout_seconds: int, model_name: str) -> Optional
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.
-        options={"num_predict": 256},
+        options={
+            "num_predict": 256,
+            "temperature": OLLAMA_TEMPERATURE,
+            **({"seed": OLLAMA_SEED} if OLLAMA_SEED is not None else {}),
+        },
     )
     raw = response["message"]["content"]
     return _parse_verdict(raw)

@@ -354,3 +354,46 @@ def test_rationale_returned_untruncated():
     assert result is not None
     _, rationale = result
     assert rationale == long_rationale  # returned untruncated from scorer
+
+
+# ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
+def _rs_options(mock_client):
+    from app.graph.nodes.scorers.risk_scorer import score_risk
+
+    with patch(
+        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+    ):
+        score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
+    return mock_client.chat.call_args.kwargs["options"]
+
+
+def test_chat_options_carry_sampling_config():
+    """AC-2: options carry temperature and preserve num_predict; AC-3 seed present."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    opts = _rs_options(_make_mock_client("high"))
+    assert opts["num_predict"] == 384
+    assert opts["temperature"] == OLLAMA_TEMPERATURE
+    assert opts["seed"] == OLLAMA_SEED
+
+
+def test_chat_options_omit_seed_when_none(monkeypatch):
+    """AC-3: OLLAMA_SEED None → 'seed' key absent (not None)."""
+    import app.graph.nodes.scorers.risk_scorer as node
+
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rs_options(_make_mock_client("high"))
+    assert "seed" not in opts
+    assert opts["num_predict"] == 384
+
+
+def test_chat_options_reversible_to_sampling(monkeypatch):
+    """AC-4: temp 0.8 + seed None → pre-028 default-sampling behavior."""
+    import app.graph.nodes.scorers.risk_scorer as node
+
+    monkeypatch.setattr(node, "OLLAMA_TEMPERATURE", 0.8)
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rs_options(_make_mock_client("high"))
+    assert opts["temperature"] == 0.8
+    assert "seed" not in opts
+    assert opts["num_predict"] == 384

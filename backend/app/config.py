@@ -35,6 +35,23 @@ OLLAMA_MODEL_NAME: str = "qwen3:8b"
 # Used by ClauseSplitterAgent for semantic refinement and clause_type inference.
 # Future nodes (CRAG, Self-RAG, etc.) may also use this constant.
 
+OLLAMA_TEMPERATURE: float = 0.0
+# Source: specs/028-determinism-variance/spec.md §2.1, plan §1 (D1).
+# Sampling temperature for ALL generative Ollama chat() calls (the 4 nodes: clause-splitter
+# refine, Self-RAG reflectors, risk scorer, redline drafter). 0.0 = greedy decode → repeated runs
+# on the same input converge on the same output, which (a) makes the same contract yield the same
+# report — a trust property for a legal tool — and (b) removes the run-to-run noise that made the
+# 026/027 tuning loop hard to read. Standard choice for the structured-JSON (format="json") calls
+# these already are. Raise to 0.8 to restore pre-028 default-sampling behavior (reversible). Does
+# NOT eliminate GPU-float / web-fallback residual non-determinism — 028 Part B measures that.
+
+OLLAMA_SEED: Optional[int] = 42
+# Source: specs/028-determinism-variance/spec.md §2.1, plan §1 (D7).
+# Fixed RNG seed passed to every generative chat() call, for reproducibility of any residual
+# sampling (belt-and-braces at temperature 0). None ⇒ the "seed" key is OMITTED (Ollama picks a
+# random seed) — the escape hatch the 028 variance driver uses (with a raised temperature) to probe
+# true model wobble.
+
 CLAUSE_SPLITTER_TIMEOUT_SECONDS: int = 120
 # Wall-clock timeout for the LLM call in ClauseSplitterAgent.
 # Conservative starting value — Qwen3 14B is fast on GPU but needs headroom

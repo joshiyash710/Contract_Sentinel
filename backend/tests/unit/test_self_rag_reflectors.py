@@ -228,3 +228,44 @@ def test_prompt_truncated_to_max_chars():
     assert len(clause_trunc) + len(evidence_str) <= prompt_max_chars
     # Also assert those truncated strings actually appear in the prompt
     assert clause_trunc in prompt_sent or clause_trunc[:50] in prompt_sent
+
+
+# ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
+def _rf_options():
+    check_relevance, _, _ = _import_reflectors()
+    mock_cls, mock_inst = _make_client_mock(True)
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        check_relevance("A clause text.", 10, "qwen3:14b", 6000)
+    return mock_inst.chat.call_args.kwargs["options"]
+
+
+def test_chat_options_carry_sampling_config():
+    """AC-2/AC-3: options carry temperature + seed, preserve num_predict."""
+    from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
+
+    opts = _rf_options()
+    assert opts["num_predict"] == 256
+    assert opts["temperature"] == OLLAMA_TEMPERATURE
+    assert opts["seed"] == OLLAMA_SEED
+
+
+def test_chat_options_omit_seed_when_none(monkeypatch):
+    """AC-3: OLLAMA_SEED None → 'seed' key absent."""
+    import app.graph.nodes.validators.reflectors as node
+
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rf_options()
+    assert "seed" not in opts
+    assert opts["num_predict"] == 256
+
+
+def test_chat_options_reversible_to_sampling(monkeypatch):
+    """AC-4: temp 0.8 + seed None → pre-028 behavior."""
+    import app.graph.nodes.validators.reflectors as node
+
+    monkeypatch.setattr(node, "OLLAMA_TEMPERATURE", 0.8)
+    monkeypatch.setattr(node, "OLLAMA_SEED", None)
+    opts = _rf_options()
+    assert opts["temperature"] == 0.8
+    assert "seed" not in opts
+    assert opts["num_predict"] == 256
