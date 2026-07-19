@@ -83,7 +83,9 @@ def test_ollama_sampling_constants_correct_types():
     from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
 
     assert isinstance(OLLAMA_TEMPERATURE, float)
-    assert isinstance(OLLAMA_SEED, int)  # default is a concrete int; None is the escape hatch
+    assert isinstance(
+        OLLAMA_SEED, int
+    )  # default is a concrete int; None is the escape hatch
 
 
 def test_crag_runtime_constants_match_spec():
@@ -142,7 +144,9 @@ def test_self_rag_constants_match_spec():
         SELF_RAG_PROMPT_MAX_CHARS,
     )
 
-    assert SELF_RAG_MAX_ATTEMPTS == 1  # feature 025 latency lever B (§3): default tuned 3 → 1
+    assert (
+        SELF_RAG_MAX_ATTEMPTS == 1
+    )  # feature 025 latency lever B (§3): default tuned 3 → 1
     assert SELF_RAG_TIMEOUT_SECONDS == 120
     assert SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD == 5
     assert SELF_RAG_PROMPT_MAX_CHARS == 6000

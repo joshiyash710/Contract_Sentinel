@@ -13,8 +13,8 @@ import pytest
 from app.graph.nodes.drafters.redline_drafter import draft_rewrite
 from app.config import OLLAMA_MODEL_NAME, OLLAMA_EMBED_MODEL_NAME
 
-
 # ── Helpers ────────────────────────────────────────────────────────────────────
+
 
 def _make_client(content: str) -> MagicMock:
     client = MagicMock()
@@ -44,13 +44,16 @@ def test_returns_rewrite_string():
     """Valid JSON with suggested_rewrite → returns the string."""
     with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
         MockClient.return_value = _make_client(_ok_response("safer text"))
-        result = draft_rewrite("The vendor bears unlimited liability.", **_DEFAULT_KWARGS)
+        result = draft_rewrite(
+            "The vendor bears unlimited liability.", **_DEFAULT_KWARGS
+        )
     assert result == "safer text"
 
 
 def test_timeout_returns_none(caplog):
     """Simulated timeout → returns None, warning logged."""
     import concurrent.futures
+
     with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
         MockClient.return_value.chat.side_effect = concurrent.futures.TimeoutError()
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
@@ -100,7 +103,9 @@ def test_empty_rewrite_returns_none(caplog):
 def test_non_string_rewrite_returns_none():
     """Non-str suggested_rewrite (int, null) → None."""
     for bad_value in [5, None, [], {}]:
-        with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+        with patch(
+            "app.graph.nodes.drafters.redline_drafter.ollama.Client"
+        ) as MockClient:
             MockClient.return_value = _make_client(
                 json.dumps({"suggested_rewrite": bad_value})
             )
@@ -116,7 +121,11 @@ def test_uses_generative_model_only():
         draft_rewrite("clause text", **_DEFAULT_KWARGS)
         chat_call = mock_client.chat.call_args
     assert chat_call is not None
-    model_used = chat_call.kwargs.get("model") or chat_call.args[0] if chat_call.args else chat_call.kwargs["model"]
+    model_used = (
+        chat_call.kwargs.get("model") or chat_call.args[0]
+        if chat_call.args
+        else chat_call.kwargs["model"]
+    )
     # Extract from keyword args
     assert mock_client.chat.call_args[1]["model"] == OLLAMA_MODEL_NAME
     assert OLLAMA_MODEL_NAME != OLLAMA_EMBED_MODEL_NAME
@@ -128,7 +137,7 @@ def test_prompt_truncated_to_max_chars():
     Uses characters (§ and ®) that don't appear in the prompt template so the counts
     are exact.
     """
-    long_clause = "§" * 300   # unique marker absent from all template text
+    long_clause = "§" * 300  # unique marker absent from all template text
     long_rationale = "®" * 200  # unique marker absent from all template text
     small_budget = 200
     small_reserve = 50
@@ -156,7 +165,7 @@ def test_prompt_truncated_to_max_chars():
 
     # The combined variable portion in the prompt must be bounded by the budget.
     prompt_text = captured_prompt["prompt"]
-    clause_count = prompt_text.count("§")    # unique to clause
+    clause_count = prompt_text.count("§")  # unique to clause
     rationale_count = prompt_text.count("®")  # unique to rationale
     assert clause_count + rationale_count <= small_budget
 
@@ -193,15 +202,17 @@ def test_long_clause_preserves_rationale():
             rationale_reserve=small_reserve,
         )
 
-    assert marker in captured_prompt["prompt"], (
-        "risk_rationale must appear in the prompt even when the clause exceeds the budget"
-    )
+    assert (
+        marker in captured_prompt["prompt"]
+    ), "risk_rationale must appear in the prompt even when the clause exceeds the budget"
 
 
 def test_empty_evidence_drafts_on_text():
     """evidence_snippets=None/[] uses the text-only prompt variant; no crash (AC-26)."""
     for evidence in [None, []]:
-        with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+        with patch(
+            "app.graph.nodes.drafters.redline_drafter.ollama.Client"
+        ) as MockClient:
             MockClient.return_value = _make_client(_ok_response("safer clause"))
             result = draft_rewrite(
                 "clause text",
@@ -266,9 +277,9 @@ def test_clause_type_included_in_prompt():
                 rationale_reserve=100,
             )
 
-        assert expected in captured_prompt["prompt"], (
-            f"Expected {expected!r} in prompt for clause_type={clause_type!r}"
-        )
+        assert (
+            expected in captured_prompt["prompt"]
+        ), f"Expected {expected!r} in prompt for clause_type={clause_type!r}"
 
 
 def test_drafter_never_raises():

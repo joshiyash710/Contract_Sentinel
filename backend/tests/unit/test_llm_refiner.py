@@ -148,7 +148,11 @@ def test_refine_invalid_clause_type_becomes_none(two_clauses):
     """Unrecognised clause_type string → None (not stored as-is)."""
     response = {
         "clauses": [
-            {"text": two_clauses[0].text, "section_number": None, "clause_type": "banana"},
+            {
+                "text": two_clauses[0].text,
+                "section_number": None,
+                "clause_type": "banana",
+            },
             {
                 "text": two_clauses[1].text,
                 "section_number": None,
@@ -338,7 +342,11 @@ def test_refine_json_mode_used(two_clauses):
 # ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
 _DET_MERGED = {
     "clauses": [
-        {"text": "A merged clause body.", "section_number": "1", "clause_type": "definitions"}
+        {
+            "text": "A merged clause body.",
+            "section_number": "1",
+            "clause_type": "definitions",
+        }
     ]
 }
 

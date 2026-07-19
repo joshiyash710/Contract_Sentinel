@@ -72,7 +72,9 @@ def refine_with_llm(
     """
     result = regex_clauses
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_ollama, regex_clauses, model_name, timeout_seconds)
+        future = executor.submit(
+            _call_ollama, regex_clauses, model_name, timeout_seconds
+        )
         try:
             result = future.result(timeout=timeout_seconds)
         except (concurrent.futures.TimeoutError, httpx.TimeoutException):
@@ -141,7 +143,9 @@ def _parse_response(raw_content: str, regex_clauses: list) -> list:
         )
 
     if not data["clauses"]:
-        raise ValueError("LLM returned empty clauses list, falling back to regex output")
+        raise ValueError(
+            "LLM returned empty clauses list, falling back to regex output"
+        )
 
     refined = []
     for i, item in enumerate(data["clauses"], start=1):

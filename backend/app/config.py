@@ -410,8 +410,14 @@ AUTH_SESSION_TTL_SECONDS: int = 7 * 24 * 3600  # D12 — 7 days
 AUTH_COOKIE_SECURE: bool = False  # D1 — must be True behind TLS
 AUTH_BCRYPT_ROUNDS: int = 12  # D2
 AUTH_PASSWORD_MIN: int = 8
-AUTH_PASSWORD_MAX: int = 128  # D2 — bcrypt 72-byte truncation neutralized by SHA-256 pre-hash
-AUTH_SIGNUP_OPEN: bool = True  # 019 — open signup is safe again: per-user isolation means a
+AUTH_PASSWORD_MAX: int = (
+    128  # D2 — bcrypt 72-byte truncation neutralized by SHA-256 pre-hash
+)
+AUTH_SIGNUP_OPEN: bool = (
+    True  # 019 — open signup is safe again: per-user isolation means a
+)
 # new account sees only its own empty workspace (was closed in 014 when data was shared).
 # Set False to lock signup after provisioning.
-AUTH_SECRET_FILE: str = "data/auth_secret"  # D1 — persisted random secret if AUTH_SECRET unset
+AUTH_SECRET_FILE: str = (
+    "data/auth_secret"  # D1 — persisted random secret if AUTH_SECRET unset
+)

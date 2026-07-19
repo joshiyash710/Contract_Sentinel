@@ -132,9 +132,7 @@ def draft_rewrite(
     return _run_drafting(prompt, timeout_seconds, model_name)
 
 
-def _run_drafting(
-    prompt: str, timeout_seconds: int, model_name: str
-) -> Optional[str]:
+def _run_drafting(prompt: str, timeout_seconds: int, model_name: str) -> Optional[str]:
     """Submit a drafting prompt to Ollama and parse the suggested_rewrite result.
 
     Uses ollama.Client(timeout=...) as the primary abort bound (kills the
@@ -154,9 +152,7 @@ def _run_drafting(
             return None
 
 
-def _call_ollama(
-    prompt: str, timeout_seconds: int, model_name: str
-) -> Optional[str]:
+def _call_ollama(prompt: str, timeout_seconds: int, model_name: str) -> Optional[str]:
     """Perform the Ollama chat call and parse the rewrite. Raises on any error."""
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
