@@ -20,6 +20,19 @@ import pytest
 
 import app.graph.nodes.crag_retrieval_agent as crag_mod
 import app.graph.nodes.self_rag_validation_agent as self_rag_mod
+
+
+import pytest as _pytest_029
+
+
+@_pytest_029.fixture(autouse=True)
+def _pin_self_rag_sequential(monkeypatch):
+    """Feature 029: these graph tests mock the sequential Self-RAG reflectors
+    (check_relevance/isrel/issup); pin SELF_RAG_MERGE_JUDGMENTS=False so the node
+    uses that path rather than the new merged default (Lever C)."""
+    monkeypatch.setattr(self_rag_mod, "SELF_RAG_MERGE_JUDGMENTS", False)
+    import app.graph.nodes.splitters.llm_refiner as _refiner_029
+    monkeypatch.setattr(_refiner_029, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
 import app.graph.nodes.retrievers.kb_retriever as kb_mod
 from app.graph.builder import build_graph
 from app.graph.nodes.retrievers import RetrievalResult

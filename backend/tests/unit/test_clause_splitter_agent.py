@@ -305,3 +305,40 @@ def test_splitter_gated_skips_llm(monkeypatch):
         assert clauses[cid]["text"] == b.text
         assert clauses[cid]["position"] == b.position
         assert clauses[cid]["clause_type"] is None  # regex infers no type
+
+
+# ── Feature 029 Lever F: grouping mode end-to-end through the node ─────────────
+
+
+def test_splitter_grouping_mode_end_to_end(monkeypatch):
+    """AC-11/12/17: default flags → the REAL refiner runs in grouping mode. The node
+    preserves the concatenated input text and sets clause_type; the Lever-A size gate is
+    inactive (3 ≤ CLAUSE_SPLITTER_LLM_MAX_CLAUSES)."""
+    import json
+    from unittest.mock import patch
+
+    seg1 = make_boundary(1, "First clause about liability terms.", "1")
+    seg2 = make_boundary(2, "Second clause continues liability.", "2")
+    seg3 = make_boundary(3, "Third clause on payment.", "3")
+    monkeypatch.setattr(
+        clause_splitter_agent_module, "split_by_regex", lambda t: [seg1, seg2, seg3]
+    )
+    # refine_with_llm is NOT mocked here — the real grouping path runs; mock the ollama client.
+    grouping = {
+        "clauses": [
+            {"indices": [1, 2], "section_number": "1", "clause_type": "liability"},
+            {"indices": [3], "section_number": "3", "clause_type": "payment"},
+        ]
+    }
+    mock_client = MagicMock()
+    mock_client.chat.return_value = {"message": {"content": json.dumps(grouping)}}
+    with patch("ollama.Client", return_value=mock_client):
+        result = clause_splitter_agent(make_state(LONG_TEXT))
+
+    clauses = result["clauses"]
+    assert len(clauses) == 2
+    ordered = sorted(clauses.values(), key=lambda c: c["position"])
+    joined = "\n".join(c["text"] for c in ordered)
+    assert joined == "\n".join(s.text for s in [seg1, seg2, seg3])  # text preserved
+    assert clauses["clause_001"]["clause_type"] == ClauseType.LIABILITY
+    assert clauses["clause_002"]["clause_type"] == ClauseType.PAYMENT

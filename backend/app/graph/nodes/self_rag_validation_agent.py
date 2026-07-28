@@ -36,6 +36,7 @@ from app.graph.nodes.validators.reflectors import (
     check_relevance,
     check_isrel,
     check_issup,
+    check_combined,
 )
 
 logger = logging.getLogger("contractsentinel.self_rag_validation")
@@ -49,6 +50,7 @@ SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD = _config.SELF_RAG_LLM_CIRCUIT_BREAKER_TH
 SELF_RAG_PROMPT_MAX_CHARS = _config.SELF_RAG_PROMPT_MAX_CHARS
 SELF_RAG_HIGH_RISK_CLAUSE_TYPES = _config.SELF_RAG_HIGH_RISK_CLAUSE_TYPES
 SELF_RAG_RECALL_FLOOR_TYPES = _config.SELF_RAG_RECALL_FLOOR_TYPES  # spec 027; supersedes high-risk in-node
+SELF_RAG_MERGE_JUDGMENTS = _config.SELF_RAG_MERGE_JUDGMENTS  # feature 029 Lever C
 
 
 def self_rag_validation_agent(state: ContractState) -> dict:
@@ -230,9 +232,104 @@ def _branch_a_rescue(text: str, ct: Optional[str], cb: dict) -> dict:
     }
 
 
+def _validated_all_none() -> dict:
+    """Fail-open / circuit-open outcome: VALIDATED with all verdict fields None."""
+    return {
+        "relevance_verdict": None,
+        "isrel_verdict": None,
+        "issup_verdict": None,
+        "retry_count": None,
+        "final_status": ValidationStatus.VALIDATED,
+    }
+
+
+def _branch_c_merged(text: str, evidence: list, cb: dict, ct: Optional[str]) -> dict:
+    """Branch C, Lever C (feature 029): one combined judgment call, then the SAME
+    decision table as the sequential path. Preserves every verdict field, the 027
+    recall-floor short-circuit, and fail-open semantics. Circuit-breaker accounts ONCE
+    per clause (whole-call failure); a parsed object with a bad key is not a failure."""
+    if cb["open"]:
+        return _validated_all_none()
+
+    merged = check_combined(
+        text, evidence, SELF_RAG_TIMEOUT_SECONDS, OLLAMA_MODEL_NAME, SELF_RAG_PROMPT_MAX_CHARS
+    )
+    _account(None if merged is None else True, cb)
+    if merged is None:
+        return _validated_all_none()  # whole-call failure → fail-open (AC-6)
+
+    relevance, isrel, issup = merged["relevance"], merged["isrel"], merged["issup"]
+
+    if relevance is None:
+        return _validated_all_none()  # per-key fail-open (AC-7)
+    if relevance is False:
+        return {
+            "relevance_verdict": False,
+            "isrel_verdict": None,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.DISCARDED,
+        }
+    # relevance True — recall floor (spec 027): on-topic floor type → VALIDATED
+    if ct in SELF_RAG_RECALL_FLOOR_TYPES:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": None,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.VALIDATED,
+        }
+    if isrel is None:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": None,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.VALIDATED,  # fail-open
+        }
+    if isrel is False:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": False,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.DISCARDED,
+        }
+    if issup is None:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": True,
+            "issup_verdict": None,
+            "retry_count": None,
+            "final_status": ValidationStatus.VALIDATED,  # fail-open
+        }
+    if issup is True:
+        return {
+            "relevance_verdict": True,
+            "isrel_verdict": True,
+            "issup_verdict": True,
+            "retry_count": 0,
+            "final_status": ValidationStatus.VALIDATED,
+        }
+    # issup is False — terminal (spec 029 Q4; no retry on the merged path)
+    return {
+        "relevance_verdict": True,
+        "isrel_verdict": True,
+        "issup_verdict": False,
+        "retry_count": 0,
+        "final_status": ValidationStatus.DISCARDED,
+    }
+
+
 def _branch_c_normal(text: str, evidence: list, cb: dict, ct: Optional[str] = None) -> dict:
     """Branch C: evidence present — run full Relevance → ISREL → ISSUP gate.
-    For a recall-floor clause_type, relevance-True short-circuits to VALIDATED (spec 027)."""
+    For a recall-floor clause_type, relevance-True short-circuits to VALIDATED (spec 027).
+
+    Lever C (feature 029): when SELF_RAG_MERGE_JUDGMENTS is on, delegate to the single
+    combined-call path; otherwise use the sequential three-call path below."""
+    if SELF_RAG_MERGE_JUDGMENTS:
+        return _branch_c_merged(text, evidence, cb, ct)
+
     if cb["open"]:
         return {
             "relevance_verdict": None,

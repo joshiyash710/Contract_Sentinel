@@ -22,6 +22,7 @@ import app.config as _config
 # — feature 028 determinism sampling options; mirrors the 027 alias pattern.
 OLLAMA_TEMPERATURE = _config.OLLAMA_TEMPERATURE
 OLLAMA_SEED = _config.OLLAMA_SEED
+SELF_RAG_MERGED_NUM_PREDICT = _config.SELF_RAG_MERGED_NUM_PREDICT  # feature 029 Lever C
 
 logger = logging.getLogger("contractsentinel.self_rag_validation.reflectors")
 
@@ -103,6 +104,34 @@ Contract clause:
 {clause_text}
 """
 
+_COMBINED_PROMPT = """\
+You are a contract-risk analysis assistant. Judge the following contract clause on THREE \
+independent questions at once, using the clause text and the retrieved evidence:
+
+1. "relevance": is the clause a SUBSTANTIVE, analyzable provision (obligations, rights, \
+liabilities, deadlines, restrictions, IP assignment, termination rights)? true if substantive; \
+false if boilerplate / structural filler (page header, pure definitions list, signature block, \
+numbering-only text).
+2. "isrel": is the retrieved evidence ON-TOPIC and RELEVANT to this clause? true if it directly \
+addresses the legal issue the clause raises; false if off-topic, too generic, or about a different \
+legal domain.
+3. "issup": does the evidence SUPPORT flagging this clause as a concern worth surfacing to a \
+reviewer (a material contractual risk — one-sided obligation, missing protection, unusual liability \
+shift, IP assignment issue, punitive termination right)? true if it represents a meaningful risk; \
+false if standard/balanced or unsupported.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{{"relevance": true, "isrel": true, "issup": true, "reason": "<one short sentence>"}}
+
+Each of the three values must be a JSON boolean (true or false).
+
+Contract clause:
+{clause_text}
+
+Retrieved evidence:
+{evidence_text}
+"""
+
 
 def check_relevance(
     clause_text: str,
@@ -159,6 +188,92 @@ def check_issup(
             clause_text=clause_trunc, evidence_text=evidence_str
         )
     return _run_judgment(prompt, timeout_seconds, model_name)
+
+
+def check_combined(
+    clause_text: str,
+    evidence_snippets: Optional[List[Dict[str, Any]]],
+    timeout_seconds: int,
+    model_name: str,
+    prompt_max_chars: int,
+) -> Optional[dict]:
+    """Lever C (feature 029): one combined judgment call returning all three verdicts
+    (relevance + isrel + issup) for an evidence-present clause, instead of up to three
+    sequential calls. Never raises.
+
+    Contract (crisp AC-6 vs AC-7 boundary):
+      - Returns None on a WHOLE-CALL failure — timeout / exception, non-JSON response,
+        or JSON that is not an object. The caller applies the fail-open default.
+      - Otherwise returns {"relevance": v, "isrel": v, "issup": v} where each v is a
+        genuine bool if that key is present and boolean, else None (per-key missing /
+        non-bool → that verdict is None; the caller applies existing per-verdict fail-open).
+    """
+    clause_trunc = clause_text[:prompt_max_chars]
+    remaining = max(0, prompt_max_chars - len(clause_trunc))
+    evidence_str = format_evidence(evidence_snippets, remaining)
+    prompt = _COMBINED_PROMPT.format(clause_text=clause_trunc, evidence_text=evidence_str)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(_call_combined, prompt, timeout_seconds, model_name)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except (concurrent.futures.TimeoutError, httpx.TimeoutException):
+            logger.warning(
+                "Self-RAG combined judgment timed out after %ds", timeout_seconds
+            )
+            return None
+        except Exception:
+            logger.warning("Self-RAG combined judgment failed", exc_info=True)
+            return None
+
+
+def _call_combined(prompt: str, timeout_seconds: int, model_name: str) -> Optional[dict]:
+    """Perform the combined Ollama chat call and parse the 3-verdict object. Raises on
+    transport error so the caller's except block returns None (whole-call failure)."""
+    client = ollama.Client(timeout=timeout_seconds)
+    response = client.chat(
+        model=model_name,
+        messages=[{"role": "user", "content": prompt}],
+        format="json",
+        think=False,  # same rationale as _call_ollama
+        options={
+            "num_predict": SELF_RAG_MERGED_NUM_PREDICT,
+            "temperature": OLLAMA_TEMPERATURE,
+            **({"seed": OLLAMA_SEED} if OLLAMA_SEED is not None else {}),
+        },
+    )
+    raw = response["message"]["content"]
+    return _parse_combined(raw)
+
+
+def _parse_combined(raw: str) -> Optional[dict]:
+    """Parse the combined JSON object.
+
+    None on whole-call failure (non-JSON, or not a JSON object). Otherwise a dict with
+    each of relevance/isrel/issup a genuine bool or None (reject ints/strings — same
+    discipline as _parse_verdict).
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        logger.warning(
+            "Self-RAG combined: LLM returned non-JSON (first 200 chars): %r", raw[:200]
+        )
+        return None
+    if not isinstance(data, dict):
+        logger.warning(
+            "Self-RAG combined: LLM response is not a JSON object (got %s)",
+            type(data).__name__,
+        )
+        return None
+    result = {}
+    for key in ("relevance", "isrel", "issup"):
+        v = data.get(key)
+        result[key] = v if isinstance(v, bool) else None
+    reason = data.get("reason", "")
+    if reason:
+        logger.debug("Self-RAG combined judgment reason: %s", reason)
+    return result
 
 
 def _run_judgment(prompt: str, timeout_seconds: int, model_name: str) -> Optional[bool]:

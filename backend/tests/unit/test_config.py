@@ -70,6 +70,25 @@ def test_clause_splitter_constants_correct_types():
     assert isinstance(MAX_CLAUSES_LIMIT, int)
 
 
+def test_clause_splitter_lever_f_constants_match_spec():
+    """Feature 029 Lever F (§3): slim-refinement toggle + output-token cap (AC-18)."""
+    from app.config import (
+        CLAUSE_SPLITTER_LLM_EMIT_TEXT,
+        CLAUSE_SPLITTER_LLM_NUM_PREDICT,
+    )
+
+    assert CLAUSE_SPLITTER_LLM_EMIT_TEXT is False  # default: grouping mode, no text re-emit
+    assert CLAUSE_SPLITTER_LLM_NUM_PREDICT == 1024
+
+
+def test_clause_splitter_lever_f_constants_correct_types():
+    """bool toggle, int token cap (AC-18)."""
+    from app import config
+
+    assert isinstance(config.CLAUSE_SPLITTER_LLM_EMIT_TEXT, bool)
+    assert isinstance(config.CLAUSE_SPLITTER_LLM_NUM_PREDICT, int)
+
+
 def test_ollama_sampling_constants_match_spec():
     """Verify determinism constants match specs/028 §2.1 (AC-1)."""
     from app.config import OLLAMA_TEMPERATURE, OLLAMA_SEED
@@ -187,6 +206,25 @@ def test_self_rag_recall_floor_types_are_valid_clause_types():
     # the governing-law false flag at no recall gain). Guards against silent re-widening.
     assert "confidentiality" in SELF_RAG_RECALL_FLOOR_TYPES
     assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
+
+
+def test_self_rag_lever_c_constants_match_spec():
+    """Feature 029 Lever C (§3): merge-judgments toggle + combined-call token cap (AC-18)."""
+    from app.config import (
+        SELF_RAG_MERGE_JUDGMENTS,
+        SELF_RAG_MERGED_NUM_PREDICT,
+    )
+
+    assert SELF_RAG_MERGE_JUDGMENTS is True  # default: one combined judgment call/clause
+    assert SELF_RAG_MERGED_NUM_PREDICT == 384  # sized for a 3-verdict + reason JSON object
+
+
+def test_self_rag_lever_c_constants_correct_types():
+    """bool toggle, int token cap (AC-18)."""
+    from app import config
+
+    assert isinstance(config.SELF_RAG_MERGE_JUDGMENTS, bool)
+    assert isinstance(config.SELF_RAG_MERGED_NUM_PREDICT, int)
 
 
 def test_self_rag_max_retries_renamed():

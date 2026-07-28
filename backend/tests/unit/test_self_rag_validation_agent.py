@@ -51,6 +51,16 @@ def _call_node(clauses, ingest_error=None):
     return node_mod.self_rag_validation_agent(state)
 
 
+@pytest.fixture(autouse=True)
+def _pin_sequential_path(monkeypatch):
+    """Feature 029: the DEFAULT is now SELF_RAG_MERGE_JUDGMENTS=True (Lever C). The
+    tests in this file were written against the sequential three-call path (they mock
+    check_relevance/check_isrel/check_issup), so pin the sequential path here. The new
+    merged-path tests below opt back into True explicitly. This encodes the reversible
+    path, not a weakened assertion (AC-9)."""
+    monkeypatch.setattr(node_mod, "SELF_RAG_MERGE_JUDGMENTS", False)
+
+
 # ── AC-1: per-clause coverage ─────────────────────────────────────────────────
 
 
@@ -926,3 +936,220 @@ def test_recall_floor_empty_set_restores_old_behavior(monkeypatch):
         result = _call_node(clauses)
     assert result["clauses"]["c1"]["final_status"] == ValidationStatus.DISCARDED
     assert result["clauses"]["c1"]["issup_verdict"] is False
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Feature 029 — Lever C: merged Self-RAG judgment (one combined call per clause)
+#   SELF_RAG_MERGE_JUDGMENTS=True → the evidence-present path issues one check_combined
+#   call and applies the SAME decision table as the sequential path.
+# ══════════════════════════════════════════════════════════════════════════════
+
+_VERDICT_FIELDS = (
+    "relevance_verdict",
+    "isrel_verdict",
+    "issup_verdict",
+    "retry_count",
+    "final_status",
+)
+
+
+@pytest.fixture
+def _merge_on(monkeypatch):
+    monkeypatch.setattr(node_mod, "SELF_RAG_MERGE_JUDGMENTS", True)
+
+
+@pytest.mark.parametrize("relevance", [True, False])
+@pytest.mark.parametrize("isrel", [True, False])
+@pytest.mark.parametrize("issup", [True, False])
+def test_merged_matches_sequential_for_all_combos(monkeypatch, relevance, isrel, issup):
+    """AC-3: for every (relevance,isrel,issup) ∈ {T,F}³, a non-floor evidence-present
+    clause produces the SAME verdict fields on the merged path and the sequential path."""
+    clause = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.GENERAL,
+        )
+    }
+
+    # Merged path
+    monkeypatch.setattr(node_mod, "SELF_RAG_MERGE_JUDGMENTS", True)
+    with patch.object(
+        node_mod,
+        "check_combined",
+        return_value={"relevance": relevance, "isrel": isrel, "issup": issup},
+    ):
+        merged = _call_node(clause)["clauses"]["c1"]
+
+    # Sequential path (same bool verdicts)
+    monkeypatch.setattr(node_mod, "SELF_RAG_MERGE_JUDGMENTS", False)
+    with patch.object(node_mod, "check_relevance", return_value=relevance), patch.object(
+        node_mod, "check_isrel", return_value=isrel
+    ), patch.object(node_mod, "check_issup", return_value=issup):
+        sequential = _call_node(clause)["clauses"]["c1"]
+
+    for f in _VERDICT_FIELDS:
+        assert merged[f] == sequential[f], (
+            f"field {f!r} diverged for (rel={relevance},isrel={isrel},issup={issup}): "
+            f"merged={merged[f]!r} sequential={sequential[f]!r}"
+        )
+
+
+def test_merged_one_call_per_clause(_merge_on):
+    """AC-2: evidence-present clauses each make exactly ONE check_combined call and
+    never call the single-verdict reflectors."""
+    clauses = {
+        f"c{i}": clause_record(position=i, evidence_snippets=with_evidence())
+        for i in range(1, 4)
+    }
+    mock_combined = MagicMock(
+        return_value={"relevance": True, "isrel": True, "issup": True}
+    )
+    mock_rel, mock_isrel, mock_issup = MagicMock(), MagicMock(), MagicMock()
+    with patch.object(node_mod, "check_combined", mock_combined), patch.object(
+        node_mod, "check_relevance", mock_rel
+    ), patch.object(node_mod, "check_isrel", mock_isrel), patch.object(
+        node_mod, "check_issup", mock_issup
+    ):
+        result = _call_node(clauses)
+    assert mock_combined.call_count == 3
+    mock_rel.assert_not_called()
+    mock_isrel.assert_not_called()
+    mock_issup.assert_not_called()
+    for cid in clauses:
+        assert result["clauses"][cid]["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_merged_relevance_false_discards(_merge_on):
+    """AC-4: merged relevance False → DISCARDED, isrel/issup verdicts None."""
+    clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
+    with patch.object(
+        node_mod,
+        "check_combined",
+        return_value={"relevance": False, "isrel": True, "issup": True},
+    ):
+        r = _call_node(clauses)["clauses"]["c1"]
+    assert r["relevance_verdict"] is False
+    assert r["isrel_verdict"] is None
+    assert r["issup_verdict"] is None
+    assert r["retry_count"] is None
+    assert r["final_status"] == ValidationStatus.DISCARDED
+
+
+def test_merged_recall_floor_short_circuit(_merge_on):
+    """AC-5: floor type + merged relevance True → VALIDATED even if isrel/issup False."""
+    clauses = {
+        "c1": clause_record(
+            position=1,
+            evidence_snippets=with_evidence(),
+            clause_type=ClauseType.LIABILITY,
+        )
+    }
+    with patch.object(
+        node_mod,
+        "check_combined",
+        return_value={"relevance": True, "isrel": False, "issup": False},
+    ):
+        r = _call_node(clauses)["clauses"]["c1"]
+    assert r["relevance_verdict"] is True
+    assert r["isrel_verdict"] is None
+    assert r["issup_verdict"] is None
+    assert r["retry_count"] is None
+    assert r["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_merged_whole_call_none_fail_open(_merge_on):
+    """AC-6: check_combined returns None → VALIDATED (fail-open), all verdicts None."""
+    clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
+    with patch.object(node_mod, "check_combined", return_value=None):
+        r = _call_node(clauses)["clauses"]["c1"]
+    assert r["relevance_verdict"] is None
+    assert r["isrel_verdict"] is None
+    assert r["issup_verdict"] is None
+    assert r["retry_count"] is None
+    assert r["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_merged_partial_none_issup_fail_open(_merge_on):
+    """AC-7: merged issup=None → VALIDATED (fail-open at ISSUP)."""
+    clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
+    with patch.object(
+        node_mod,
+        "check_combined",
+        return_value={"relevance": True, "isrel": True, "issup": None},
+    ):
+        r = _call_node(clauses)["clauses"]["c1"]
+    assert r["relevance_verdict"] is True
+    assert r["isrel_verdict"] is True
+    assert r["issup_verdict"] is None
+    assert r["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_merged_partial_none_relevance_fail_open(_merge_on):
+    """AC-7: merged relevance=None → VALIDATED (fail-open), all verdicts None."""
+    clauses = {"c1": clause_record(position=1, evidence_snippets=with_evidence())}
+    with patch.object(
+        node_mod,
+        "check_combined",
+        return_value={"relevance": None, "isrel": True, "issup": True},
+    ):
+        r = _call_node(clauses)["clauses"]["c1"]
+    assert r["relevance_verdict"] is None
+    assert r["final_status"] == ValidationStatus.VALIDATED
+
+
+def test_merged_per_call_accounting_opens_breaker(monkeypatch):
+    """AC-8: with merging, each clause is ONE accounting event. THRESHOLD consecutive
+    None merged results opens the breaker; remaining clauses fail-open; error_count=1
+    emitted once; the single-verdict reflectors are never called."""
+    monkeypatch.setattr(node_mod, "SELF_RAG_MERGE_JUDGMENTS", True)
+    monkeypatch.setattr(node_mod, "SELF_RAG_LLM_CIRCUIT_BREAKER_THRESHOLD", 3)
+    clauses = {
+        f"c{i}": clause_record(position=i, evidence_snippets=with_evidence())
+        for i in range(1, 6)
+    }
+    mock_combined = MagicMock(return_value=None)
+    mock_rel, mock_isrel, mock_issup = MagicMock(), MagicMock(), MagicMock()
+    with patch.object(node_mod, "check_combined", mock_combined), patch.object(
+        node_mod, "check_relevance", mock_rel
+    ), patch.object(node_mod, "check_isrel", mock_isrel), patch.object(
+        node_mod, "check_issup", mock_issup
+    ):
+        result = _call_node(clauses)
+    # Breaker opens after 3 consecutive merged-call failures → no further merged calls
+    assert mock_combined.call_count == 3
+    mock_rel.assert_not_called()
+    mock_isrel.assert_not_called()
+    mock_issup.assert_not_called()
+    for cid in clauses:
+        assert result["clauses"][cid]["final_status"] == ValidationStatus.VALIDATED
+    assert result.get("error_count") == 1
+
+
+def test_merged_does_not_touch_empty_evidence_paths(_merge_on):
+    """AC-10: empty-evidence clauses never route through check_combined. A floor type
+    with empty evidence still uses Branch A (check_relevance); a non-floor empty-evidence
+    clause is a zero-LLM discard. Neither calls check_combined."""
+    clauses = {
+        "floor": clause_record(
+            position=1, evidence_snippets=[], clause_type=ClauseType.LIABILITY
+        ),
+        "nonfloor": clause_record(
+            position=2, evidence_snippets=[], clause_type=ClauseType.GENERAL
+        ),
+    }
+    mock_combined = MagicMock()
+    mock_rel = MagicMock(return_value=True)
+    mock_issup = MagicMock()
+    with patch.object(node_mod, "check_combined", mock_combined), patch.object(
+        node_mod, "check_relevance", mock_rel
+    ), patch.object(node_mod, "check_isrel", MagicMock()), patch.object(
+        node_mod, "check_issup", mock_issup
+    ):
+        result = _call_node(clauses)
+    mock_combined.assert_not_called()  # empty evidence never hits Branch C merge
+    # floor empty-evidence → Branch A rescue → VALIDATED via relevance
+    assert result["clauses"]["floor"]["final_status"] == ValidationStatus.VALIDATED
+    mock_rel.assert_called()
+    # non-floor empty-evidence → zero-LLM discard
+    assert result["clauses"]["nonfloor"]["final_status"] == ValidationStatus.DISCARDED

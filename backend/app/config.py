@@ -74,6 +74,20 @@ CLAUSE_SPLITTER_LLM_MAX_CLAUSES: int = 40
 # quality for normal contracts while gating only the large-doc outliers where the refine call is
 # slowest. Tunable against real node_timings.
 
+CLAUSE_SPLITTER_LLM_EMIT_TEXT: bool = False
+# §3 latency lever F (feature 029): when False (default), the ClauseSplitter refinement LLM returns
+# index-grouping + clause_type metadata ONLY (no full clause text), and the refiner reassembles each
+# clause's text locally from the regex segments. This avoids re-generating the entire document as
+# output tokens (the ~60-70s cost of the pre-029 call). When True, the node uses the pre-029
+# text-re-emitting prompt byte-for-byte (fully reversible). Regex boundaries are the finest unit in
+# grouping mode (no intra-segment splitting); any grouping that is not an exact partition of the
+# input segments falls back to regex output.
+
+CLAUSE_SPLITTER_LLM_NUM_PREDICT: int = 1024
+# §3: output-token cap for the refinement call when EMIT_TEXT is False (metadata is small). Replaces
+# the previously hardcoded 4096; the emit-text path reverts to 4096. Tunable — raise if a real doc's
+# grouping JSON truncates (which would trigger the regex fallback).
+
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
 # Source: specs/005-crag-retrieval/spec.md §6
 CRAG_CONFIDENCE_THRESHOLD: float = (
@@ -131,6 +145,21 @@ SELF_RAG_MAX_ATTEMPTS: int = 1
 # near-deterministic local model (think=False), rarely change the answer, so they mostly add
 # latency. Still an upper bound: retry_count = attempts_taken - 1 (0 at this default). Raise toward
 # 3 to restore retries. Renames the old SELF_RAG_MAX_RETRIES placeholder (spec §8b Q2).
+
+SELF_RAG_MERGE_JUDGMENTS: bool = True
+# §3 latency lever C (feature 029): when True (default), the evidence-present Self-RAG path issues ONE
+# combined-judgment LLM call returning all three verdicts (relevance + isrel + issup) instead of up to
+# three sequential calls, cutting up to 3N generative round-trips to N. The node applies the same
+# decision logic (discard-vs-validate, 027 recall-floor short-circuit, fail-open on failure) to the
+# three merged verdicts. When False, the node uses the pre-029 sequential three-call path byte-for-byte
+# (fully reversible). Note: circuit-breaker accounting is per-LLM-call, so with merging on there is one
+# accounting event per clause instead of up to three. Retries (SELF_RAG_MAX_ATTEMPTS > 1) require this
+# to be False — a merged issup=False is terminal.
+
+SELF_RAG_MERGED_NUM_PREDICT: int = 384
+# §3: output-token cap for the combined judgment call. Larger than the single-verdict reflectors' 256
+# so the 3-verdict + short-reason JSON object cannot truncate. Tunable — a truncated object parses to a
+# whole-call failure and fail-opens.
 
 SELF_RAG_TIMEOUT_SECONDS: int = 120
 # Wall-clock timeout for a single Self-RAG LLM call (Relevance / ISREL / one ISSUP

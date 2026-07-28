@@ -269,3 +269,118 @@ def test_chat_options_reversible_to_sampling(monkeypatch):
     assert opts["temperature"] == 0.8
     assert "seed" not in opts
     assert opts["num_predict"] == 256
+
+
+# ── check_combined — Lever C (feature 029, AC-1/2/6/7) ──────────────────────────
+def _import_combined():
+    from app.graph.nodes.validators.reflectors import check_combined
+
+    return check_combined
+
+
+_SNIPPETS = [{"snippet_text": "evidence", "source_reference": "r"}]
+
+
+def test_combined_happy_path_returns_three_bools_one_call():
+    """AC-1/AC-2: a well-formed object → {relevance,isrel,issup} bools, chat called ONCE."""
+    check_combined = _import_combined()
+    mock_cls, mock_inst = _make_client_mock_raw(
+        json.dumps({"relevance": True, "isrel": True, "issup": True, "reason": "x"})
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    assert result == {"relevance": True, "isrel": True, "issup": True}
+    assert mock_inst.chat.call_count == 1
+
+
+def test_combined_mixed_bools_preserved():
+    """Each key carries its own genuine bool."""
+    check_combined = _import_combined()
+    mock_cls, _ = _make_client_mock_raw(
+        json.dumps({"relevance": True, "isrel": False, "issup": True})
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    assert result == {"relevance": True, "isrel": False, "issup": True}
+
+
+def test_combined_non_json_returns_none():
+    """AC-6: non-JSON content → None (whole-call failure → caller fail-opens)."""
+    check_combined = _import_combined()
+    mock_cls, _ = _make_client_mock_raw("not json at all")
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    assert result is None
+
+
+def test_combined_non_object_json_returns_none():
+    """AC-6: JSON that is not an object (array / scalar) → None."""
+    check_combined = _import_combined()
+    for raw in ["[1, 2, 3]", "true", "42", '"a string"']:
+        mock_cls, _ = _make_client_mock_raw(raw)
+        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+            result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+        assert result is None, f"expected None for raw={raw!r}, got {result!r}"
+
+
+def test_combined_exception_and_timeout_return_none():
+    """AC-6: a raised exception / timeout → None; never raises."""
+    check_combined = _import_combined()
+    for exc in [concurrent.futures.TimeoutError(), ConnectionError("refused"), RuntimeError("boom")]:
+        mock_cls = MagicMock()
+        mock_cls.return_value.chat.side_effect = exc
+        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+            result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+        assert result is None
+
+
+def test_combined_missing_key_is_per_key_none():
+    """AC-7: object parses but a key is missing → that verdict is None, others preserved."""
+    check_combined = _import_combined()
+    mock_cls, _ = _make_client_mock_raw(
+        json.dumps({"relevance": True, "isrel": True})  # issup missing
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    assert result == {"relevance": True, "isrel": True, "issup": None}
+
+
+def test_combined_non_bool_key_is_per_key_none():
+    """AC-7: non-bool key value (str / int / None) → that verdict is None (reject ints/strings)."""
+    check_combined = _import_combined()
+    mock_cls, _ = _make_client_mock_raw(
+        json.dumps({"relevance": "yes", "isrel": 1, "issup": False})
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    assert result == {"relevance": None, "isrel": None, "issup": False}
+
+
+def test_combined_num_predict_uses_merged_cap():
+    """suggestion #3: options carry SELF_RAG_MERGED_NUM_PREDICT (sized for 3-verdict object)."""
+    from app.config import SELF_RAG_MERGED_NUM_PREDICT, OLLAMA_TEMPERATURE
+
+    check_combined = _import_combined()
+    mock_cls, mock_inst = _make_client_mock_raw(
+        json.dumps({"relevance": True, "isrel": True, "issup": True})
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
+    opts = mock_inst.chat.call_args.kwargs["options"]
+    assert opts["num_predict"] == SELF_RAG_MERGED_NUM_PREDICT
+    assert opts["temperature"] == OLLAMA_TEMPERATURE
+
+
+def test_combined_uses_generative_model_and_evidence_in_prompt():
+    """The combined prompt includes the evidence text and uses the generative model."""
+    from app.config import OLLAMA_MODEL_NAME
+
+    check_combined = _import_combined()
+    mock_cls, mock_inst = _make_client_mock_raw(
+        json.dumps({"relevance": True, "isrel": True, "issup": True})
+    )
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        check_combined("A clause.", _SNIPPETS, 10, OLLAMA_MODEL_NAME, 6000)
+    kwargs = mock_inst.chat.call_args.kwargs
+    assert kwargs["model"] == OLLAMA_MODEL_NAME
+    assert "evidence" in kwargs["messages"][0]["content"]

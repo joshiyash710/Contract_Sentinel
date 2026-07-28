@@ -50,6 +50,33 @@ def _mock_client(response_body: dict) -> MagicMock:
     return client
 
 
+@pytest.fixture(autouse=True)
+def _pin_emit_text(monkeypatch):
+    """Feature 029: the DEFAULT is now CLAUSE_SPLITTER_LLM_EMIT_TEXT=False (Lever F,
+    grouping mode). The tests in this file were written against the text-re-emitting
+    path, so pin it here (AC-16 reversibility). The grouping-mode tests below opt into
+    False explicitly."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
+
+
+@pytest.fixture
+def _grouping_mode(monkeypatch):
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", False)
+
+
+@pytest.fixture
+def three_clauses():
+    return [
+        make_boundary("clause_001", "First clause about definitions.", 1, "1"),
+        make_boundary("clause_002", "Second clause about payment terms.", 2, "2"),
+        make_boundary("clause_003", "Third clause about termination.", 3, "3"),
+    ]
+
+
 # ── Tests ──────────────────────────────────────────────────────────────────────
 
 
@@ -388,3 +415,116 @@ def test_chat_options_reversible_to_sampling(two_clauses, monkeypatch):
     assert opts["temperature"] == 0.8
     assert "seed" not in opts
     assert opts["num_predict"] == 4096
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Feature 029 — Lever F: slim refinement (index-grouping, text reassembled locally)
+#   CLAUSE_SPLITTER_LLM_EMIT_TEXT=False → the LLM returns {"clauses":[{"indices":[..],
+#   "section_number":.., "clause_type":..}]} with NO text; the refiner reassembles.
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+def test_grouping_reassembles_text_locally(_grouping_mode, three_clauses):
+    """AC-11/AC-12: grouping response carries no text; the refiner reassembles from the
+    regex segments and preserves the concatenation exactly; ids/positions renumbered."""
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "section_number": "1", "clause_type": "payment"},
+            {"indices": [3], "section_number": None, "clause_type": None},
+        ]
+    }
+    with patch("ollama.Client", return_value=_mock_client(response)):
+        result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert len(result) == 2
+    # exact reassembly against the same "\n" join the parser uses
+    assert "\n".join(c.text for c in result) == "\n".join(c.text for c in three_clauses)
+    assert result[0].text == three_clauses[0].text + "\n" + three_clauses[1].text
+    assert result[1].text == three_clauses[2].text
+    assert result[0].clause_id == "clause_001" and result[0].position == 1
+    assert result[1].clause_id == "clause_002" and result[1].position == 2
+    assert result[0].clause_type == "payment"
+    assert result[1].clause_type is None
+
+
+def test_grouping_invalid_clause_type_becomes_none(_grouping_mode, three_clauses):
+    """AC-13: unrecognised clause_type string → None; valid value preserved."""
+    response = {
+        "clauses": [
+            {"indices": [1], "section_number": None, "clause_type": "banana"},
+            {"indices": [2], "section_number": None, "clause_type": "termination"},
+            {"indices": [3], "section_number": None, "clause_type": None},
+        ]
+    }
+    with patch("ollama.Client", return_value=_mock_client(response)):
+        result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert result[0].clause_type is None
+    assert result[1].clause_type == "termination"
+    assert result[2].clause_type is None
+
+
+def test_grouping_section_number_falls_back_to_first_segment(_grouping_mode, three_clauses):
+    """A null section_number falls back to the first grouped segment's section_number."""
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "section_number": None, "clause_type": None},
+            {"indices": [3], "section_number": "X", "clause_type": None},
+        ]
+    }
+    with patch("ollama.Client", return_value=_mock_client(response)):
+        result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert result[0].section_number == "1"  # first grouped segment's section_number
+    assert result[1].section_number == "X"  # explicit LLM value kept
+
+
+@pytest.mark.parametrize(
+    "bad_indices_response",
+    [
+        {"clauses": [{"indices": [1, 1, 3]}]},          # duplicate index
+        {"clauses": [{"indices": [1, 2]}]},             # missing index 3
+        {"clauses": [{"indices": [1, 2, 4]}]},          # out-of-range index
+        {"clauses": [{"indices": [1, 3, 2]}]},          # not ascending / reordered
+        {"clauses": []},                                 # empty clauses list
+        {"clauses": [{"section_number": None}]},         # missing indices key
+    ],
+)
+def test_grouping_bad_partition_falls_back_to_regex(
+    _grouping_mode, three_clauses, bad_indices_response
+):
+    """AC-15: any grouping that is not an exact ordered partition of [1..N] → regex
+    fallback (returns the original list); never raises."""
+    with patch("ollama.Client", return_value=_mock_client(bad_indices_response)):
+        result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert result is three_clauses
+
+
+def test_grouping_num_predict_uses_config(_grouping_mode, three_clauses):
+    """AC-14: grouping mode uses CLAUSE_SPLITTER_LLM_NUM_PREDICT."""
+    from app.config import CLAUSE_SPLITTER_LLM_NUM_PREDICT
+
+    response = {"clauses": [{"indices": [1, 2, 3], "section_number": None, "clause_type": None}]}
+    client = _mock_client(response)
+    with patch("ollama.Client", return_value=client):
+        refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert client.chat.call_args.kwargs["options"]["num_predict"] == CLAUSE_SPLITTER_LLM_NUM_PREDICT
+
+
+def test_emit_text_mode_num_predict_is_4096(three_clauses):
+    """AC-14/AC-16: with EMIT_TEXT=True (autouse pin), the call uses num_predict=4096."""
+    response = {
+        "clauses": [
+            {"text": "All three merged.", "section_number": None, "clause_type": None}
+        ]
+    }
+    client = _mock_client(response)
+    with patch("ollama.Client", return_value=client):
+        refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert client.chat.call_args.kwargs["options"]["num_predict"] == 4096
+
+
+def test_grouping_never_raises_on_bad_json(_grouping_mode, three_clauses):
+    """AC-15: non-JSON in grouping mode → regex fallback, no raise."""
+    mock_client = MagicMock()
+    mock_client.chat.return_value = {"message": {"content": "NOT JSON"}}
+    with patch("ollama.Client", return_value=mock_client):
+        result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
+    assert result is three_clauses
