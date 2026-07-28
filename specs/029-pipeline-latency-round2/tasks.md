@@ -246,3 +246,37 @@ Real Ollama (qwen3:8b), delivery off. From `backend/`:
   Task 3 · AC-8 → Task 3 · AC-9 → Task 3 · AC-10 → Task 3 · AC-11,12 → Task 4 · AC-13 → Task 4 · AC-14
   → Task 4 · AC-15 → Task 4 · AC-16 → Task 4 · AC-17 → Task 5 · AC-18 → Task 1 · AC-19 → Task 6 · AC-20
   → Task 7 · AC-21 → Task 6.
+
+---
+
+## Measurement note (Task 7 — 2026-07-28, qwen3:8b, delivery off)
+
+### Latency (node_timings, seconds) — levers ON (defaults) vs 2026-07-28 baseline
+| doc | metric | baseline (pre-029) | 029 ON | Δ |
+|---|---|---:|---:|---:|
+| sample_balanced (6cl) | **WALL** | 177.4 | **135.4** | **-24%** |
+| | clause_splitter | 70.1 | 14.4 | **-79%** (Lever F) |
+| | self_rag_validation | 41.7 | 37.6 | -10% (Lever C) |
+| heavy_contract (8cl) | **WALL** | 213.7 | **166.2** | **-22%** |
+| | clause_splitter | 58.9 | 19.2 | **-67%** (Lever F) |
+| | self_rag_validation | 47.4 | 39.3 | -17% (Lever C) |
+
+Lever F is the dominant, consistent win (clause_splitter −67…−79%). Lever C's self_rag
+reduction is modest (−10…−17%) because floor-type clauses already cost one call (027) and
+empty-evidence clauses (Branch A/B) are untouched by the merge. redline/risk_score/crag
+fluctuations between runs are n=1 variance (028), not a 029 effect.
+
+### Accuracy A/B on the same gold corpus (2 docs / 14 clauses — INDICATIVE, tiny corpus)
+| path | precision | recall | F1 | miss | false-flag | seen-but-discarded |
+|---|---:|---:|---:|---:|---:|---:|
+| OFF (SELF_RAG_MERGE_JUDGMENTS=False, EMIT_TEXT=True) | 90.9% | 90.9% | 90.9% | 9.1% | 33.3% | 1 |
+| ON (029 defaults) | 78.6% | **100%** | 88.0% | **0%** | 100%* | 0 |
+
+*false-flag rate is degenerate here (tn small). Substantively: tp=11 fp=3 (ON) vs tp=10 fp=1 (OFF).
+
+Lever C's merged prompt is slightly more lenient: it RECOVERED the 1 seen-but-discarded miss
+(recall 90.9%→100%) at the cost of 2 more false flags (precision 90.9%→78.6%). F1 ≈ flat
+(90.9→88.0, within noise on a 14-clause corpus). The direction (recall↑, precision↓) ALIGNS with
+the product's stated risk preference (027: a missed risk is costlier than a false flag). n=1 per
+config; a rigorous conclusion needs a larger expert-labeled corpus. Fully reversible via config if
+the precision cost is judged too high — MERGE DECISION deferred to the user.
