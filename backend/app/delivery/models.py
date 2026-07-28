@@ -22,6 +22,7 @@ class GmailSendRequest(BaseModel):
     to: str
     subject: str
     body: str
+    html_body: Optional[str] = None  # feature 030: HTML alternative body (plain `body` is the fallback)
     attachment_path: Optional[str] = None
     attachment_name: Optional[str] = None
 

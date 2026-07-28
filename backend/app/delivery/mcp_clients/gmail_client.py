@@ -21,12 +21,14 @@ async def send_report_via_gmail(
     *,
     timeout_seconds: int,
     max_retries: int,
+    html_body: Optional[str] = None,
 ) -> DeliveryResult:
     try:
         req = GmailSendRequest(
             to=to,
             subject=subject,
             body=body,
+            html_body=html_body,
             attachment_path=attachment_path,
             attachment_name=attachment_name,
         )

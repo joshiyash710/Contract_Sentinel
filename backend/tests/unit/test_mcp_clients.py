@@ -180,3 +180,28 @@ async def test_worst_case_attempts_bounded():
         )
 
     assert call_count == 1 + max_retries
+
+
+async def test_gmail_client_threads_html_body():
+    """Feature 030: html_body is passed through into the GmailSendRequest args (trailing keyword;
+    positional to/subject/body unchanged)."""
+    from app.delivery.mcp_clients.gmail_client import send_report_via_gmail
+    from app.delivery.models import ToolOutcome
+
+    captured = {}
+
+    async def _capture(module, tool, args, **kw):
+        captured.update(args)
+        return ToolOutcome(ok=True, resource_ref="msg_h")
+
+    with patch(
+        "app.delivery.mcp_clients.gmail_client.call_tool_with_retry", new=_capture
+    ):
+        result = await send_report_via_gmail(
+            "a@b.com", "Subj", "Plain body", "/tmp/r.pdf", "r.pdf",
+            timeout_seconds=60, max_retries=2, html_body="<b>hi</b>",
+        )
+    assert result.ok is True
+    assert captured["to"] == "a@b.com"
+    assert captured["body"] == "Plain body"        # positional body unchanged
+    assert captured["html_body"] == "<b>hi</b>"    # threaded through

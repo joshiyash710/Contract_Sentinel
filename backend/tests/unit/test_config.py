@@ -417,7 +417,7 @@ def test_mcp_delivery_constants_match_spec():
     assert config.MCP_GMAIL_ENABLED is True
     assert isinstance(config.MCP_DELIVERY_RECIPIENT, str)
     assert config.MCP_DRIVE_FOLDER_ID is None
-    assert config.MCP_DRIVE_UPLOAD_FORMATS == ("md", "json")
+    assert config.MCP_DRIVE_UPLOAD_FORMATS == ("pdf", "json")  # feature 030: PDF supersedes md for humans
     assert config.MCP_GMAIL_ATTACH_REPORT is True
     assert config.MCP_DELIVERY_TIMEOUT_SECONDS == 60
     assert config.MCP_DELIVERY_MAX_RETRIES == 2
@@ -436,10 +436,39 @@ def test_mcp_delivery_no_llm_constant():
 
 
 def test_mcp_upload_formats_are_report_extensions():
-    """Uploaded formats must be a subset of Node-7's output extensions {md, json}."""
+    """Uploaded formats must be a subset of the renderable delivery formats. Feature 030
+    adds `pdf` (a delivery-time artifact) alongside the Node-7 outputs {md, json}; the
+    invariant still guards against typos / arbitrary extensions."""
     from app import config
 
-    assert set(config.MCP_DRIVE_UPLOAD_FORMATS) <= {"md", "json"}
+    assert set(config.MCP_DRIVE_UPLOAD_FORMATS) <= {"md", "json", "pdf"}
+
+
+def test_report_delivery_030_constants_match_spec():
+    """Feature 030 Phase 1 constants (§3): PDF renderer + branded email (AC-17)."""
+    from app import config
+
+    assert config.MCP_GMAIL_ATTACH_FORMAT == "pdf"
+    assert config.MCP_REPORT_PDF_ENABLED is True
+    assert config.REPORT_PDF_CLAUSE_MAX_CHARS == 2000
+    assert config.REPORT_PDF_RATIONALE_MAX_CHARS == 1500
+    assert config.REPORT_PDF_REWRITE_MAX_CHARS == 4000
+    assert config.REPORT_BRAND_NAME == "ContractSentinel"
+    assert config.REPORT_BRAND_ACCENT_HEX == "#1e293b"
+    assert isinstance(config.REPORT_BRAND_FOOTER, str) and config.REPORT_BRAND_FOOTER
+
+
+def test_report_delivery_030_constants_correct_types():
+    """str/bool/int types for the feature-030 constants (AC-17)."""
+    from app import config
+
+    assert isinstance(config.MCP_GMAIL_ATTACH_FORMAT, str)
+    assert isinstance(config.MCP_REPORT_PDF_ENABLED, bool)
+    assert isinstance(config.REPORT_PDF_CLAUSE_MAX_CHARS, int)
+    assert isinstance(config.REPORT_PDF_RATIONALE_MAX_CHARS, int)
+    assert isinstance(config.REPORT_PDF_REWRITE_MAX_CHARS, int)
+    assert isinstance(config.REPORT_BRAND_NAME, str)
+    assert isinstance(config.REPORT_BRAND_ACCENT_HEX, str)
 
 
 def test_runner_api_constants_match_spec():

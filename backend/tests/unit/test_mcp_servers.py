@@ -481,3 +481,74 @@ async def test_gmail_server_round_trip():
     outcome = received[0]
     assert outcome.ok is True
     assert outcome.resource_ref == "rt_gmail_001"
+
+
+# ─── Feature 030: HTML alternative body + PDF attachment ──────────────────────
+def _parse_mime(raw_b64: str):
+    import base64
+    import email as _email
+
+    return _email.message_from_bytes(base64.urlsafe_b64decode(raw_b64))
+
+
+def test_gmail_build_mime_html_alternative_and_pdf():
+    """AC-8/AC-11/AC-12: html_body + PDF → multipart/mixed[alternative(plain,html) + application/pdf]."""
+    import tempfile
+    from pathlib import Path
+    from app.delivery.mcp_servers.gmail_server import _build_mime
+    from app.delivery.models import GmailSendRequest
+
+    tmp = Path(tempfile.mkdtemp()) / "report.pdf"
+    tmp.write_bytes(b"%PDF-1.4 fake")
+
+    req = GmailSendRequest(
+        to="user@example.com",
+        subject="ContractSentinel report",
+        body="Plain summary.",
+        html_body="<html><body><b>Summary</b></body></html>",
+        attachment_path=str(tmp),
+        attachment_name="report.pdf",
+    )
+    msg = _parse_mime(_build_mime(req))
+
+    assert msg.get_content_type() == "multipart/mixed"
+    subtypes = [p.get_content_type() for p in msg.walk()]
+    assert "multipart/alternative" in subtypes
+    assert "text/plain" in subtypes
+    assert "text/html" in subtypes
+    assert "application/pdf" in subtypes
+    # the PDF part is an attachment with a .pdf filename
+    pdf_parts = [p for p in msg.walk() if p.get_content_type() == "application/pdf"]
+    assert pdf_parts and pdf_parts[0].get_filename() == "report.pdf"
+    assert "attachment" in pdf_parts[0].get("Content-Disposition", "")
+
+
+def test_gmail_build_mime_plain_only_when_no_html():
+    """Parity: html_body None → plain body present, no text/html part (pre-030 shape)."""
+    from app.delivery.mcp_servers.gmail_server import _build_mime
+    from app.delivery.models import GmailSendRequest
+
+    req = GmailSendRequest(to="u@e.com", subject="s", body="plain only")
+    msg = _parse_mime(_build_mime(req))
+    subtypes = [p.get_content_type() for p in msg.walk()]
+    assert "text/plain" in subtypes
+    assert "text/html" not in subtypes
+
+
+def test_gmail_build_mime_md_fallback_attachment_type():
+    """AC-13/AC-15: a .md fallback attachment keeps a sensible (non-pdf) content type."""
+    import tempfile
+    from pathlib import Path
+    from app.delivery.mcp_servers.gmail_server import _build_mime
+    from app.delivery.models import GmailSendRequest
+
+    tmp = Path(tempfile.mkdtemp()) / "report.md"
+    tmp.write_text("# Report")
+    req = GmailSendRequest(
+        to="u@e.com", subject="s", body="p",
+        attachment_path=str(tmp), attachment_name="report.md",
+    )
+    msg = _parse_mime(_build_mime(req))
+    md_parts = [p for p in msg.walk() if (p.get_filename() or "").endswith(".md")]
+    assert md_parts
+    assert md_parts[0].get_content_type() != "application/pdf"

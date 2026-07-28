@@ -102,9 +102,14 @@ async def test_deliver_after_report_terminal_state(terminal_state):
     assert status["drive"]["status"] == MCPDeliveryStatus.SUCCESS
     assert status["gmail"]["status"] == MCPDeliveryStatus.SUCCESS
 
-    # Stubs received the real file path in one of the Drive upload calls
+    # Feature 030: Drive now uploads the branded PDF (+ json), not the raw md.
     uploaded_paths = [c[0][0] for c in drive_stub.call_args_list]
-    assert md_path in uploaded_paths
+    pdf_path = str(Path(md_path).with_suffix(".pdf"))
+    json_path = str(Path(md_path).with_suffix(".json"))
+    assert pdf_path in uploaded_paths
+    assert json_path in uploaded_paths
+    # and the Gmail attachment is the PDF
+    assert gmail_stub.call_args[0][4].endswith(".pdf")
 
 
 async def test_deliver_reads_real_report_json_summary(terminal_state):

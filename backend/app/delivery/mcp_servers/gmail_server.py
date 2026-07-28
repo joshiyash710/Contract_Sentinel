@@ -34,17 +34,28 @@ def _is_retryable(status: int) -> bool:
     return status in _RETRYABLE_STATUSES
 
 
+_EXT_SUBTYPE = {"pdf": "pdf", "json": "json", "md": "markdown", "txt": "plain"}
+
+
 def _build_mime(req: GmailSendRequest) -> str:
-    msg = MIMEMultipart()
+    msg = MIMEMultipart("mixed")
     msg["to"] = req.to
     msg["subject"] = req.subject
-    msg.attach(MIMEText(req.body, "plain"))
+
+    # Body: a multipart/alternative with the plain-text fallback and (feature 030) an HTML part.
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(req.body, "plain"))
+    if req.html_body:
+        alt.attach(MIMEText(req.html_body, "html"))
+    msg.attach(alt)
 
     if req.attachment_path and Path(req.attachment_path).exists():
         with open(req.attachment_path, "rb") as f:
             data = f.read()
         name = req.attachment_name or Path(req.attachment_path).name
-        part = MIMEApplication(data, Name=name)
+        ext = Path(name).suffix.lower().lstrip(".")
+        subtype = _EXT_SUBTYPE.get(ext, "octet-stream")  # pdf → application/pdf; md keeps a sensible type
+        part = MIMEApplication(data, _subtype=subtype, Name=name)
         part["Content-Disposition"] = f'attachment; filename="{name}"'
         msg.attach(part)
 
@@ -95,13 +106,14 @@ def _build_server():
         return [
             types.Tool(
                 name="send_message",
-                description="Send a Gmail message, optionally with a Markdown attachment.",
+                description="Send a Gmail message with an optional HTML body and file attachment.",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "to": {"type": "string"},
                         "subject": {"type": "string"},
                         "body": {"type": "string"},
+                        "html_body": {"type": ["string", "null"]},
                         "attachment_path": {"type": ["string", "null"]},
                         "attachment_name": {"type": ["string", "null"]},
                     },

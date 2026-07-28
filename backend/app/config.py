@@ -343,11 +343,37 @@ MCP_DELIVERY_RECIPIENT: str = os.getenv("CONTRACTSENTINEL_DELIVERY_RECIPIENT", "
 MCP_DRIVE_FOLDER_ID: Optional[str] = None
 # Target Drive folder id. None → account's Drive root.
 
-MCP_DRIVE_UPLOAD_FORMATS: tuple = ("md", "json")
-# Which of Node 7's report files to upload. Both by default (AC-2).
+MCP_DRIVE_UPLOAD_FORMATS: tuple = ("pdf", "json")
+# Which report files to upload to Drive. Feature 030: the branded PDF supersedes the raw md for
+# humans; json stays as the machine-readable record. (Was ("md","json") pre-030.)
 
 MCP_GMAIL_ATTACH_REPORT: bool = True
-# Attach the Markdown report for resilience even if the Drive link is unavailable.
+# Attach the report file for resilience even if the Drive link is unavailable.
+
+# ── Feature 030 — professional report delivery (Phase 1: PDF + SaaS HTML email) ──
+# All delivery-layer, reversible: MCP_REPORT_PDF_ENABLED=False + MCP_GMAIL_ATTACH_FORMAT="md"
+# restores the pre-030 plain-text email + Markdown attachment. §3 named constants.
+
+MCP_GMAIL_ATTACH_FORMAT: str = "pdf"
+# Which file to attach to the delivery email. "pdf" = the branded report (default); "md" reverts to
+# the pre-030 Markdown attachment.
+
+MCP_REPORT_PDF_ENABLED: bool = True
+# Master toggle for rendering the branded PDF at delivery time (reportlab). False → no PDF; delivery
+# falls back to the pre-030 .md attachment + plain-text email.
+
+REPORT_PDF_CLAUSE_MAX_CHARS: int = 2000
+REPORT_PDF_RATIONALE_MAX_CHARS: int = 1500
+REPORT_PDF_REWRITE_MAX_CHARS: int = 4000
+# Per-field truncation caps for the PDF renderer, bounding document size (mirrors the report's own
+# char-cap discipline). Tunable §3.
+
+REPORT_BRAND_NAME: str = "ContractSentinel"
+REPORT_BRAND_ACCENT_HEX: str = "#1e293b"  # professional navy (slate-800)
+REPORT_BRAND_FOOTER: str = (
+    "Automated contract-risk analysis — review with qualified counsel."
+)
+# Text/CSS wordmark branding for the PDF + HTML email (no binary logo asset in Phase 1).
 
 MCP_DELIVERY_TIMEOUT_SECONDS: int = 60
 # Per-attempt wall-clock timeout for one MCP tool call (AC-16).

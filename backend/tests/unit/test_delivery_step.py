@@ -517,9 +517,11 @@ async def test_drive_uploads_configured_formats(tmp_path):
     ):
         await deliver_report(state, recipient="a@b.com")
 
+    # Feature 030: default now uploads the branded PDF + json (md dropped).
     uploaded_names = [c[0][1] for c in drive_stub.call_args_list]
-    assert any(n.endswith(".md") for n in uploaded_names)
+    assert any(n.endswith(".pdf") for n in uploaded_names)
     assert any(n.endswith(".json") for n in uploaded_names)
+    assert not any(n.endswith(".md") for n in uploaded_names)
 
     # md-only config
     drive_stub.reset_mock()
@@ -552,7 +554,8 @@ async def test_drive_filename_matches_report_basename(tmp_path):
 
     md_path = Path(state["report_path"])
     uploaded_names = [c[0][1] for c in drive_stub.call_args_list]
-    assert md_path.name in uploaded_names
+    # Feature 030: Drive gets the PDF + json (both keyed on the report basename), not md.
+    assert md_path.with_suffix(".pdf").name in uploaded_names
     assert md_path.with_suffix(".json").name in uploaded_names
 
 
@@ -631,3 +634,93 @@ async def test_redelivery_idempotent_state_shape(tmp_path):
     # Feeding through merge_dicts reducer replaces entries (second wins), no duplicates
     merged = merge_dicts(first["mcp_delivery_status"], second["mcp_delivery_status"])
     assert set(merged.keys()) == {"drive", "gmail"}
+
+
+# ── Feature 030: PDF/HTML wiring ──────────────────────────────────────────────
+async def test_pdf_render_failure_falls_back_to_md(tmp_path):
+    """AC-13: a render exception → email still sent with the .md attached; never raises."""
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    drive_stub = AsyncMock(return_value=_ok_drive())
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+
+    with (
+        patch.object(ds, "render_report_pdf", side_effect=RuntimeError("boom")),
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        result = await deliver_report(state, recipient="a@b.com")
+
+    # no raise; gmail attachment fell back to the .md
+    attach_name = gmail_stub.call_args[0][4]
+    assert attach_name.endswith(".md")
+    # drive fell back to uploading the .md (+ json), not a (failed) pdf
+    uploaded = [c[0][1] for c in drive_stub.call_args_list]
+    assert any(n.endswith(".md") for n in uploaded)
+    assert not any(n.endswith(".pdf") for n in uploaded)
+    assert result["mcp_delivery_status"]["gmail"]["status"] == MCPDeliveryStatus.SUCCESS
+
+
+async def test_cta_link_sourced_from_pdf_upload(tmp_path):
+    """AC-10a: the email CTA/drive_ref comes from the PDF upload, not md."""
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+    from app.delivery.models import DeliveryResult
+
+    state = _make_state(tmp_path)
+
+    async def drive_by_name(path, name, mime, folder, **kw):
+        return DeliveryResult(service="drive", ok=True, resource_ref=f"ref://{name}")
+
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_by_name),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    plain = gmail_stub.call_args[0][2]
+    html = gmail_stub.call_args.kwargs["html_body"]
+    assert "ref://doc123.pdf" in plain          # CTA points at the PDF
+    assert "ref://doc123.pdf" in html
+    assert "ref://doc123.md" not in plain
+
+
+async def test_pdf_disabled_reverts_to_plain_md(tmp_path):
+    """AC-15: MCP_REPORT_PDF_ENABLED=False → plain-text email (html_body None) + .md attachment."""
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    drive_stub = AsyncMock(return_value=_ok_drive())
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+
+    with (
+        patch.object(ds, "MCP_REPORT_PDF_ENABLED", False),
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    assert gmail_stub.call_args.kwargs["html_body"] is None      # plain-only
+    assert gmail_stub.call_args[0][4].endswith(".md")            # md attachment
+    uploaded = [c[0][1] for c in drive_stub.call_args_list]
+    assert not any(n.endswith(".pdf") for n in uploaded)         # no pdf uploaded
+
+
+async def test_html_body_passed_when_pdf_enabled(tmp_path):
+    """AC-8 wiring: default path passes a non-empty HTML body to the gmail client."""
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=AsyncMock(return_value=_ok_drive())),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+    html = gmail_stub.call_args.kwargs["html_body"]
+    assert html and "<html" in html.lower()
+    assert gmail_stub.call_args[0][4].endswith(".pdf")  # pdf attached by default
