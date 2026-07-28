@@ -215,7 +215,7 @@ def test_self_rag_lever_c_constants_match_spec():
         SELF_RAG_MERGED_NUM_PREDICT,
     )
 
-    assert SELF_RAG_MERGE_JUDGMENTS is True  # default: one combined judgment call/clause
+    assert SELF_RAG_MERGE_JUDGMENTS is False  # 029 merge decision: Lever C ships dormant (default off)
     assert SELF_RAG_MERGED_NUM_PREDICT == 384  # sized for a 3-verdict + reason JSON object
 
 

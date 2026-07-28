@@ -146,15 +146,22 @@ SELF_RAG_MAX_ATTEMPTS: int = 1
 # latency. Still an upper bound: retry_count = attempts_taken - 1 (0 at this default). Raise toward
 # 3 to restore retries. Renames the old SELF_RAG_MAX_RETRIES placeholder (spec §8b Q2).
 
-SELF_RAG_MERGE_JUDGMENTS: bool = True
-# §3 latency lever C (feature 029): when True (default), the evidence-present Self-RAG path issues ONE
+SELF_RAG_MERGE_JUDGMENTS: bool = False
+# §3 latency lever C (feature 029): when True, the evidence-present Self-RAG path issues ONE
 # combined-judgment LLM call returning all three verdicts (relevance + isrel + issup) instead of up to
 # three sequential calls, cutting up to 3N generative round-trips to N. The node applies the same
 # decision logic (discard-vs-validate, 027 recall-floor short-circuit, fail-open on failure) to the
-# three merged verdicts. When False, the node uses the pre-029 sequential three-call path byte-for-byte
-# (fully reversible). Note: circuit-breaker accounting is per-LLM-call, so with merging on there is one
-# accounting event per clause instead of up to three. Retries (SELF_RAG_MAX_ATTEMPTS > 1) require this
-# to be False — a merged issup=False is terminal.
+# three merged verdicts. When False, the node uses the sequential three-call path byte-for-byte.
+# Note: circuit-breaker accounting is per-LLM-call, so with merging on there is one accounting event
+# per clause instead of up to three. Retries (SELF_RAG_MAX_ATTEMPTS > 1) require this to be False — a
+# merged issup=False is terminal.
+#
+# DEFAULT False (feature 029 merge decision, 2026-07-28): the code ships but is dormant. The measured
+# self_rag latency gain was modest (−10..−17%) and the merged prompt is slightly more lenient — on the
+# seed corpus it recovered a missed clause (recall 90.9→100%) but added false flags (precision
+# 90.9→78.6%), F1 ~flat. Since that changes analysis OUTPUT on thin (n=1, 14-clause) evidence, it is
+# held off until a larger expert-labeled corpus confirms the trade. Flip to True to enable. Lever F
+# (clause_splitter) ships ON — it is accuracy-neutral and carries the bulk of the latency win.
 
 SELF_RAG_MERGED_NUM_PREDICT: int = 384
 # §3: output-token cap for the combined judgment call. Larger than the single-verdict reflectors' 256
