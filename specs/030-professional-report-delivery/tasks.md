@@ -196,3 +196,13 @@ Record the result (append a short note to this tasks.md). A failure here blocks 
 ## Acceptance-criteria coverage map
 AC-1..7 → Task 2 · AC-8 → Task 3 & Task 4 · AC-9,10 → Task 3 · AC-10a → Task 5 · AC-11,12 → Task 4 ·
 AC-13,14,15 → Task 5 · AC-16 → Task 6 · AC-17 → Task 1 · AC-18 → Task 3. Live verification → Task 7.
+
+---
+
+## Measurement note (Task 7 — live smoke, 2026-07-28)
+
+`scripts/delivery_smoke.py joshiyash710@gmail.com` → **SMOKE: PASS** (drive + gmail both success),
+formats `('pdf','json')`. The branded PDF rendered from report.json (`%PDF-1.4`, ~3 pages, 5.5 KB),
+uploaded to Drive, and attached to the SaaS-style HTML email delivered to the recipient's inbox.
+743 backend unit+integration tests green. Awaiting owner visual confirmation of the email + PDF before
+merge.
