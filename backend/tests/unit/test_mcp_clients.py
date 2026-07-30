@@ -205,3 +205,23 @@ async def test_gmail_client_threads_html_body():
     assert captured["to"] == "a@b.com"
     assert captured["body"] == "Plain body"        # positional body unchanged
     assert captured["html_body"] == "<b>hi</b>"    # threaded through
+
+
+async def test_drive_client_threads_token_path():
+    from app.delivery.mcp_clients.drive_client import upload_report_to_drive
+    from app.delivery.models import ToolOutcome
+
+    captured = {}
+
+    async def _capture(module, tool, args, **kw):
+        captured.update(args)
+        return ToolOutcome(ok=True, resource_ref="L")
+
+    with patch("app.delivery.mcp_clients.drive_client.call_tool_with_retry", new=_capture):
+        r = await upload_report_to_drive(
+            "/tmp/r.pdf", "r.pdf", "application/pdf", None,
+            timeout_seconds=60, max_retries=2, token_path="data/secrets/u.json",
+        )
+    assert r.ok is True
+    assert captured["file_path"] == "/tmp/r.pdf"       # positional unchanged
+    assert captured["token_path"] == "data/secrets/u.json"

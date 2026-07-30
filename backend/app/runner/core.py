@@ -58,6 +58,7 @@ def run_pipeline(
     thread_id: Optional[str] = None,
     resume: bool = False,
     already_completed: Optional[List[str]] = None,
+    drive_token_json: Optional[str] = None,
 ) -> RunResult:
     """Run the full pipeline graph for a contract document.
 
@@ -107,7 +108,9 @@ def run_pipeline(
         else:
             last_node = node
 
-    delivery_result = deliver_report_sync(final_state, recipient=recipient)
+    delivery_result = deliver_report_sync(
+        final_state, recipient=recipient, drive_token_json=drive_token_json
+    )
     mcp_delivery_status = delivery_result.get("mcp_delivery_status", {})
 
     final_state["processing_completed_at"] = _now_iso()

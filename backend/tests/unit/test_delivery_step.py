@@ -92,6 +92,19 @@ def _patch_clients(drive_result=None, gmail_result=None):
 
 # ── tests ─────────────────────────────────────────────────────────────────────
 
+import pytest as _pytest
+
+
+@_pytest.fixture(autouse=True)
+def _pin_central_drive(monkeypatch):
+    """Feature 031: the DEFAULT is now PER_USER_DRIVE_ENABLED=True (per-user Drive; a
+    not-connected user's Drive step is skipped). The pre-031 tests here exercise the Drive
+    UPLOAD mechanics (formats, CTA, PDF, fallback) and assume Drive uploads — pin them to the
+    central path. The feature-031 per-user tests below opt into True explicitly."""
+    import app.delivery.delivery_step as ds
+
+    monkeypatch.setattr(ds, "PER_USER_DRIVE_ENABLED", False)
+
 
 async def test_happy_path_both_channels(tmp_path):
     from app.delivery.delivery_step import deliver_report
@@ -724,3 +737,147 @@ async def test_html_body_passed_when_pdf_enabled(tmp_path):
     html = gmail_stub.call_args.kwargs["html_body"]
     assert html and "<html" in html.lower()
     assert gmail_stub.call_args[0][4].endswith(".pdf")  # pdf attached by default
+
+
+# ── Feature 031: per-user Drive routing ──────────────────────────────────────
+async def test_connected_user_uploads_with_per_user_token(tmp_path, monkeypatch):
+    import app.delivery.delivery_step as _ds031
+    monkeypatch.setattr(_ds031, "PER_USER_DRIVE_ENABLED", True)
+
+    """AC-10: drive_token_json set → upload uses a token_path whose contents == the token;
+    the temp file is cleaned up after deliver_report returns."""
+    import os as _os
+    from app.delivery.delivery_step import deliver_report
+    from app.delivery.models import DeliveryResult
+
+    state = _make_state(tmp_path)
+    seen = {}
+
+    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+        seen["token_path"] = token_path
+        seen["contents"] = open(token_path, encoding="utf-8").read() if token_path else None
+        return DeliveryResult(service="drive", ok=True, resource_ref=f"ref://{name}")
+
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_capture),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        result = await deliver_report(state, recipient="a@b.com", drive_token_json='{"refresh_token":"USERTOK"}')
+
+    assert seen["token_path"] is not None
+    assert seen["contents"] == '{"refresh_token":"USERTOK"}'
+    assert not _os.path.exists(seen["token_path"])  # cleaned up
+    assert result["mcp_delivery_status"]["drive"]["status"] == MCPDeliveryStatus.SUCCESS
+
+
+async def test_not_connected_user_skips_drive_but_emails(tmp_path, monkeypatch):
+    import app.delivery.delivery_step as _ds031
+    monkeypatch.setattr(_ds031, "PER_USER_DRIVE_ENABLED", True)
+
+    """AC-11: drive_token_json None → drive client NOT called; drive FAILED with the
+    not-connected message; gmail still sent."""
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    drive_stub = AsyncMock(return_value=_ok_drive())
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        result = await deliver_report(state, recipient="a@b.com", drive_token_json=None)
+
+    drive_stub.assert_not_called()
+    d = result["mcp_delivery_status"]["drive"]
+    assert d["status"] == MCPDeliveryStatus.FAILED
+    assert d["error_message"] == "user has not connected Google Drive"
+    gmail_stub.assert_called_once()  # email still sent
+
+
+async def test_per_user_invalid_grant_drive_fails_email_sent(tmp_path, monkeypatch):
+    import app.delivery.delivery_step as _ds031
+    monkeypatch.setattr(_ds031, "PER_USER_DRIVE_ENABLED", True)
+
+    """AC-12: per-user upload returns invalid_grant → drive FAILED, email still sent, no raise."""
+    from app.delivery.delivery_step import deliver_report
+    from app.delivery.models import DeliveryResult
+
+    state = _make_state(tmp_path)
+    drive_stub = AsyncMock(return_value=DeliveryResult(
+        service="drive", ok=False, error_message="auth: token refresh failed: invalid_grant"))
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        result = await deliver_report(state, recipient="a@b.com", drive_token_json='{"refresh_token":"x"}')
+    assert result["mcp_delivery_status"]["drive"]["status"] == MCPDeliveryStatus.FAILED
+    assert "invalid_grant" in result["mcp_delivery_status"]["drive"]["error_message"]
+    gmail_stub.assert_called_once()
+
+
+async def test_gmail_unchanged_by_connection_state(tmp_path, monkeypatch):
+    import app.delivery.delivery_step as _ds031
+    monkeypatch.setattr(_ds031, "PER_USER_DRIVE_ENABLED", True)
+
+    """AC-13: gmail called identically whether connected or not (central path)."""
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    for token in ('{"refresh_token":"x"}', None):
+        gmail_stub = AsyncMock(return_value=_ok_gmail())
+        with (
+            patch("app.delivery.delivery_step.upload_report_to_drive",
+                  new=AsyncMock(return_value=_ok_drive())),
+            patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+        ):
+            await deliver_report(state, recipient="a@b.com", drive_token_json=token)
+        assert gmail_stub.call_args[0][0] == "a@b.com"  # same recipient regardless
+
+
+async def test_two_users_route_own_tokens(tmp_path, monkeypatch):
+    import app.delivery.delivery_step as _ds031
+    monkeypatch.setattr(_ds031, "PER_USER_DRIVE_ENABLED", True)
+
+    """AC-14: distinct users' tokens produce distinct token_path contents (no cross-use)."""
+    from app.delivery.delivery_step import deliver_report
+    from app.delivery.models import DeliveryResult
+
+    state = _make_state(tmp_path)
+    contents = []
+
+    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+        if token_path:
+            contents.append(open(token_path, encoding="utf-8").read())
+        return DeliveryResult(service="drive", ok=True, resource_ref="r")
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=cap),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com", drive_token_json='{"u":"A"}')
+        await deliver_report(state, recipient="a@b.com", drive_token_json='{"u":"B"}')
+    assert '{"u":"A"}' in contents and '{"u":"B"}' in contents
+
+
+async def test_per_user_disabled_uses_central(tmp_path):
+    """AC-15 support: PER_USER_DRIVE_ENABLED=False → central token (token_path None), Drive uploaded."""
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    state = _make_state(tmp_path)
+    seen = {}
+
+    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+        seen["token_path"] = token_path
+        from app.delivery.models import DeliveryResult
+        return DeliveryResult(service="drive", ok=True, resource_ref="r")
+
+    with (
+        patch.object(ds, "PER_USER_DRIVE_ENABLED", False),
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=cap),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com", drive_token_json='{"u":"ignored"}')
+    assert seen["token_path"] is None  # central token used, per-user ignored

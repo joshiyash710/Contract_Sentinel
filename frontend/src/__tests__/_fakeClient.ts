@@ -130,6 +130,15 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
         if (opts.changePasswordError) throw opts.changePasswordError;
       },
     ),
+    // Feature 031: per-user Google Drive connect
+    getGoogleDriveStatus: vi.fn(
+      async (): Promise<{ connected: boolean; googleEmail?: string | null }> => ({
+        connected: false,
+        googleEmail: null,
+      }),
+    ),
+    googleDriveAuthorizeUrl: vi.fn(() => "/api/integrations/google/authorize"),
+    disconnectGoogleDrive: vi.fn(async (): Promise<void> => {}),
   };
 }
 

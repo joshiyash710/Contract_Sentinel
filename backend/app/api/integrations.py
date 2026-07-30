@@ -1,0 +1,168 @@
+"""
+Per-user Google Drive OAuth connect endpoints (feature 031).
+
+/api/integrations/google/{status,authorize,callback,disconnect} — all require a valid
+session (require_auth) and are scoped to current_user. Each user connects their own Google
+account so their reports save to their own Drive (drive.file). Gmail stays central.
+
+CSRF: a single-use, per-user `state` is stored server-side (in-memory, one uvicorn worker)
+and popped on callback — a missing/mismatched/replayed state is rejected.
+"""
+
+from __future__ import annotations
+
+import logging
+import secrets
+import threading
+import time
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+
+import app.config as _config
+from app.api.auth import AuthUser, require_auth
+from app.delivery.oauth_credentials import revoke_token
+
+logger = logging.getLogger("contractsentinel.integrations")
+
+integrations_router = APIRouter(prefix="/api/integrations")
+
+# ── single-use CSRF state store (per user; in-memory, TTL-bounded) ──────────────
+_STATE_TTL_SECONDS = 600
+_pending_lock = threading.Lock()
+_pending_state: dict[str, tuple[str, float]] = {}  # user_id -> (state, created_at)
+
+
+def _store_state(user_id: str, state: str) -> None:
+    with _pending_lock:
+        _pending_state[user_id] = (state, time.time())
+
+
+def _pop_state(user_id: str) -> Optional[str]:
+    """Return and REMOVE the pending state for the user (single-use). None if absent/expired."""
+    with _pending_lock:
+        entry = _pending_state.pop(user_id, None)
+    if entry is None:
+        return None
+    state, created = entry
+    if time.time() - created > _STATE_TTL_SECONDS:
+        return None
+    return state
+
+
+class GoogleStatus(BaseModel):
+    connected: bool
+    google_email: Optional[str] = None
+
+
+def _build_flow():
+    """Build a google-auth-oauthlib web Flow from the Web client secrets + config."""
+    from google_auth_oauthlib.flow import Flow
+
+    return Flow.from_client_secrets_file(
+        _config.GOOGLE_OAUTH_WEB_CREDENTIALS_PATH,
+        scopes=list(_config.GOOGLE_DRIVE_OAUTH_SCOPES),
+        redirect_uri=_config.GOOGLE_OAUTH_REDIRECT_URI,
+    )
+
+
+def _email_of(creds) -> Optional[str]:
+    """Best-effort connected-Google-account email for display. Never raises/blocks.
+
+    Prefers the id_token email claim; else a bounded Drive about.get. None on any failure
+    (drive.file alone may not expose the email — display falls back to 'Connected')."""
+    try:
+        idt = getattr(creds, "id_token", None)
+        if idt:
+            import jwt
+
+            claim = jwt.decode(idt, options={"verify_signature": False}).get("email")
+            if claim:
+                return claim
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from googleapiclient.discovery import build
+
+        svc = build("drive", "v3", credentials=creds, cache_discovery=False)
+        about = svc.about().get(fields="user(emailAddress)").execute()
+        return (about.get("user") or {}).get("emailAddress")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@integrations_router.get("/google/status", response_model=GoogleStatus)
+def google_status(
+    request: Request, current_user: AuthUser = Depends(require_auth)
+) -> GoogleStatus:
+    store = request.app.state.user_store
+    connected = store.get_google_credentials(current_user.id) is not None
+    return GoogleStatus(
+        connected=connected,
+        google_email=store.get_google_email(current_user.id) if connected else None,
+    )
+
+
+@integrations_router.get("/google/authorize")
+def google_authorize(request: Request, current_user: AuthUser = Depends(require_auth)):
+    try:
+        flow = _build_flow()
+    except Exception as exc:  # noqa: BLE001 — missing/invalid web client secrets
+        logger.warning("Google authorize failed to build flow: %s", exc)
+        raise HTTPException(status_code=500, detail="Google connect is not configured")
+    state = secrets.token_urlsafe(24)
+    auth_url, _ = flow.authorization_url(
+        access_type="offline", prompt="consent", include_granted_scopes="true", state=state
+    )
+    _store_state(current_user.id, state)
+    return RedirectResponse(auth_url, status_code=302)
+
+
+@integrations_router.get("/google/callback")
+def google_callback(
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+):
+    front = _config.FRONTEND_INTEGRATIONS_URL
+    if error:  # user declined at Google
+        return RedirectResponse(f"{front}?google=denied", status_code=302)
+
+    expected = _pop_state(current_user.id)  # single-use
+    if not state or not expected or state != expected:
+        raise HTTPException(status_code=400, detail="Invalid or expired OAuth state")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing authorization code")
+
+    try:
+        flow = _build_flow()
+        flow.fetch_token(code=code)
+        creds = flow.credentials
+        store = request.app.state.user_store
+        store.set_google_credentials(current_user.id, creds.to_json(), _email_of(creds))
+    except HTTPException:
+        raise
+    except Exception:  # noqa: BLE001 — never 500 the browser on a token exchange error
+        logger.warning("Google callback token exchange failed", exc_info=True)
+        return RedirectResponse(f"{front}?google=error", status_code=302)
+
+    return RedirectResponse(f"{front}?google=connected", status_code=302)
+
+
+@integrations_router.post("/google/disconnect", response_model=GoogleStatus)
+def google_disconnect(
+    request: Request, current_user: AuthUser = Depends(require_auth)
+) -> GoogleStatus:
+    store = request.app.state.user_store
+    token = store.get_google_credentials(current_user.id)
+    if token:
+        try:
+            revoke_token(token)  # best-effort; a revoke failure must never block disconnect
+        except Exception:  # noqa: BLE001
+            logger.warning("disconnect: revoke_token raised; disconnecting locally anyway")
+    store.clear_google_credentials(current_user.id)
+    return GoogleStatus(connected=False, google_email=None)

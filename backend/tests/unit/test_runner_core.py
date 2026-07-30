@@ -99,7 +99,7 @@ _INGEST_ERROR_STATES = [
 ]
 
 
-def _stub_delivery(state, *, recipient=None):
+def _stub_delivery(state, *, recipient=None, drive_token_json=None):
     return {"mcp_delivery_status": {"drive": "SUCCESS", "gmail": "SUCCESS"}}
 
 
@@ -208,7 +208,7 @@ def test_delivery_called_with_recipient():
 
     delivery_calls = []
 
-    def capture_delivery(state, *, recipient=None):
+    def capture_delivery(state, *, recipient=None, drive_token_json=None):
         delivery_calls.append(recipient)
         return {"mcp_delivery_status": {}}
 
@@ -256,7 +256,7 @@ def test_ingest_error_surfaced_not_raised():
     """Scripted ingest_error in terminal state → RunResult.ingest_error set, NO exception."""
     import app.runner.core as core
 
-    def delivery_no_report(state, *, recipient=None):
+    def delivery_no_report(state, *, recipient=None, drive_token_json=None):
         return {"mcp_delivery_status": {}}
 
     with patch.object(

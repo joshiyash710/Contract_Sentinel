@@ -552,3 +552,68 @@ def test_gmail_build_mime_md_fallback_attachment_type():
     md_parts = [p for p in msg.walk() if (p.get_filename() or "").endswith(".md")]
     assert md_parts
     assert md_parts[0].get_content_type() != "application/pdf"
+
+
+# ─── Feature 031: Drive per-user token_path ──────────────────────────────────
+def test_drive_upload_tool_schema_has_token_path():
+    """The upload_file tool inputSchema must declare token_path so it survives MCP arg
+    validation across the stdio boundary (feature 031)."""
+    import inspect
+    from app.delivery.mcp_servers import drive_server as ds
+
+    assert '"token_path"' in inspect.getsource(ds._build_server)
+
+
+async def test_drive_handle_upload_uses_per_user_token_path(tmp_path):
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"; f.write_bytes(b"%PDF-1.4 x")
+    seen = {}
+
+    def fake_load(creds_path, token_path):
+        seen["token_path"] = token_path
+        return MagicMock()
+
+    svc = MagicMock()
+    svc.files.return_value.list.return_value.execute.return_value = {"files": []}
+    svc.files.return_value.create.return_value.execute.return_value = {"id": "1", "webViewLink": "L"}
+
+    with (
+        patch("app.delivery.mcp_servers.drive_server.load_credentials", side_effect=fake_load),
+        patch("app.delivery.mcp_servers.drive_server.build_drive_service", return_value=svc),
+        patch("app.delivery.mcp_servers.drive_server.MediaFileUpload", MagicMock()),
+    ):
+        req = DriveUploadRequest(
+            file_path=str(f), file_name="r.pdf", mime_type="application/pdf",
+            token_path="data/secrets/user_ABC.json",
+        )
+        out = await _handle_upload(req)
+    assert out.ok is True
+    assert seen["token_path"] == "data/secrets/user_ABC.json"  # per-user, not central
+
+
+async def test_drive_handle_upload_defaults_to_central_token(tmp_path):
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+    from app import config as _config
+
+    f = tmp_path / "r.pdf"; f.write_bytes(b"%PDF-1.4 x")
+    seen = {}
+
+    def fake_load(creds_path, token_path):
+        seen["token_path"] = token_path
+        return MagicMock()
+
+    svc = MagicMock()
+    svc.files.return_value.list.return_value.execute.return_value = {"files": []}
+    svc.files.return_value.create.return_value.execute.return_value = {"id": "1", "webViewLink": "L"}
+
+    with (
+        patch("app.delivery.mcp_servers.drive_server.load_credentials", side_effect=fake_load),
+        patch("app.delivery.mcp_servers.drive_server.build_drive_service", return_value=svc),
+        patch("app.delivery.mcp_servers.drive_server.MediaFileUpload", MagicMock()),
+    ):
+        req = DriveUploadRequest(file_path=str(f), file_name="r.pdf", mime_type="application/pdf")
+        await _handle_upload(req)
+    assert seen["token_path"] == _config.GOOGLE_OAUTH_TOKEN_PATH  # central default

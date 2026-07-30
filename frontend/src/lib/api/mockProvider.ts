@@ -106,4 +106,14 @@ export const mockClient: ApiClient = {
   }): Promise<void> {
     return;
   },
+  // ── Feature 031: per-user Google Drive connect (mock: not connected) ──────
+  async getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }> {
+    return { connected: false, googleEmail: null };
+  },
+  googleDriveAuthorizeUrl(): string {
+    return "/api/integrations/google/authorize";
+  },
+  async disconnectGoogleDrive(): Promise<void> {
+    return;
+  },
 };

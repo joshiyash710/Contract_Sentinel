@@ -101,3 +101,40 @@ def test_migration_creates_users_table(tmp_path):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     conn.close()
     assert "users" in tables
+
+
+# ── Feature 031: per-user Google Drive credentials ───────────────────────────
+def test_google_credentials_default_none(user_db):
+    row = user_db.create("g0@example.com", "h")
+    assert user_db.get_google_credentials(row.id) is None
+    assert user_db.get_google_email(row.id) is None
+    # loaded row also reflects not-connected
+    assert user_db.get_by_id(row.id).google_oauth_token is None
+
+
+def test_set_and_get_google_credentials(user_db):
+    row = user_db.create("g1@example.com", "h")
+    user_db.set_google_credentials(row.id, '{"refresh_token":"abc"}', "g1@gmail.com")
+    assert user_db.get_google_credentials(row.id) == '{"refresh_token":"abc"}'
+    assert user_db.get_google_email(row.id) == "g1@gmail.com"
+    assert user_db.get_by_id(row.id).google_email == "g1@gmail.com"
+
+
+def test_clear_google_credentials(user_db):
+    row = user_db.create("g2@example.com", "h")
+    user_db.set_google_credentials(row.id, '{"refresh_token":"x"}', "g2@gmail.com")
+    user_db.clear_google_credentials(row.id)
+    assert user_db.get_google_credentials(row.id) is None
+    assert user_db.get_google_email(row.id) is None
+
+
+def test_google_credentials_scoped_per_user(user_db):
+    a = user_db.create("ga@example.com", "h")
+    b = user_db.create("gb@example.com", "h")
+    user_db.set_google_credentials(a.id, '{"refresh_token":"A"}', "a@gmail.com")
+    # B is untouched; clearing A does not touch B
+    assert user_db.get_google_credentials(b.id) is None
+    user_db.set_google_credentials(b.id, '{"refresh_token":"B"}', "b@gmail.com")
+    user_db.clear_google_credentials(a.id)
+    assert user_db.get_google_credentials(a.id) is None
+    assert user_db.get_google_credentials(b.id) == '{"refresh_token":"B"}'

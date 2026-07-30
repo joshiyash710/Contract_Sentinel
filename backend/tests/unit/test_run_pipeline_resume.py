@@ -28,7 +28,7 @@ def _make_fake_graph(scripted_states):
 def _patch_delivery(monkeypatch):
     monkeypatch.setattr(
         "app.runner.core.deliver_report_sync",
-        lambda state, *, recipient=None: {"mcp_delivery_status": {}},
+        lambda state, *, recipient=None, drive_token_json=None: {"mcp_delivery_status": {}},
     )
 
 

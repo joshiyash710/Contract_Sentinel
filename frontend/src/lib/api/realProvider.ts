@@ -240,4 +240,37 @@ export const realClient: ApiClient = {
       throw new ApiError(`Network error on changePassword: ${String(err)}`);
     }
   },
+
+  // ── Feature 031: per-user Google Drive connect ───────────────────────────
+  async getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }> {
+    try {
+      const res = await fetch(`${base()}/api/integrations/google/status`, {
+        credentials: "include",
+      });
+      const body = await asJson<{ connected: boolean; google_email?: string | null }>(res);
+      return { connected: body.connected, googleEmail: body.google_email ?? null };
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error fetching Drive status: ${String(err)}`);
+    }
+  },
+
+  googleDriveAuthorizeUrl(): string {
+    // Absolute URL so the top-level browser navigation lands on the backend (:8000)
+    // and carries the session cookie (feature 031 plan §4).
+    return `${base()}/api/integrations/google/authorize`;
+  },
+
+  async disconnectGoogleDrive(): Promise<void> {
+    try {
+      const res = await fetch(`${base()}/api/integrations/google/disconnect`, {
+        method: "POST",
+        credentials: "include",
+      });
+      await asJson<unknown>(res);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error disconnecting Drive: ${String(err)}`);
+    }
+  },
 };

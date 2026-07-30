@@ -46,6 +46,13 @@ export interface ApiClient {
   /** Change the caller's own password (verify current, set new). Rejects with ApiError
    * (message = the backend detail, e.g. "Current password is incorrect") on failure. */
   changePassword(body: { current_password: string; new_password: string }): Promise<void>;
+  // ── Feature 031: per-user Google Drive connect ───────────────────────────
+  /** Whether the current user has connected their Google Drive (+ the connected email). */
+  getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }>;
+  /** Absolute URL to begin the OAuth connect flow (a full browser navigation to :8000). */
+  googleDriveAuthorizeUrl(): string;
+  /** Disconnect the current user's Google Drive. */
+  disconnectGoogleDrive(): Promise<void>;
 }
 
 /** Typed error surfaced by the real provider on network/HTTP failure (spec EC-1). */

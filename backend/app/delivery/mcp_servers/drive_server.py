@@ -33,10 +33,12 @@ def _is_retryable(status: int) -> bool:
 async def _handle_upload(req: DriveUploadRequest) -> ToolOutcome:
     """Drive upload handler — testable without the MCP stdio layer."""
     try:
+        # Feature 031: authenticate as the per-user token when provided, else the central token.
+        token_path = req.token_path or _config.GOOGLE_OAUTH_TOKEN_PATH
         creds = await asyncio.to_thread(
             load_credentials,
             _config.GOOGLE_OAUTH_CREDENTIALS_PATH,
-            _config.GOOGLE_OAUTH_TOKEN_PATH,
+            token_path,
         )
         svc = await asyncio.to_thread(build_drive_service, creds)
 
@@ -103,6 +105,7 @@ def _build_server():
                         "file_name": {"type": "string"},
                         "mime_type": {"type": "string"},
                         "folder_id": {"type": ["string", "null"]},
+                        "token_path": {"type": ["string", "null"]},
                     },
                     "required": ["file_path", "file_name", "mime_type"],
                 },

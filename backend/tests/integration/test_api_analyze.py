@@ -113,7 +113,7 @@ def test_recipient_forwarded(client, monkeypatch):
 
     recipients_seen = []
 
-    def capture_delivery(state, *, recipient=None):
+    def capture_delivery(state, *, recipient=None, drive_token_json=None):
         recipients_seen.append(recipient)
         return {"mcp_delivery_status": {}}
 

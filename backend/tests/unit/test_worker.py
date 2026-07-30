@@ -327,3 +327,81 @@ def test_evicted_job_skipped():
     assert "a.pdf" not in called_with
 
     loop.close()
+
+
+# ── Feature 031: per-user Drive token resolution + auto-clear ─────────────────
+class _FakeUserStore:
+    def __init__(self, token=None):
+        self._token = token
+        self.cleared = []
+
+    def get_google_credentials(self, user_id):
+        return self._token
+
+    def clear_google_credentials(self, user_id):
+        self.cleared.append(user_id)
+
+
+def _record_with_user(reg_rec, user_id):
+    _, rec, _ = reg_rec
+    rec.user_id = user_id
+    return rec
+
+
+def test_worker_passes_connected_user_token():
+    """AC-14: a connected user's token is resolved and passed to run_pipeline."""
+    import app.runner.worker as worker_mod
+    from app.runner.worker import PipelineWorker
+
+    reg, rec, loop = _make_registry_and_record(job_id="jT")
+    rec.user_id = "user-A"
+    store = _FakeUserStore(token='{"refresh_token":"A"}')
+    captured = {}
+
+    def capture_run(*a, **kw):
+        captured["drive_token_json"] = kw.get("drive_token_json")
+        return _happy_run_result()
+
+    with patch.object(worker_mod, "run_pipeline", side_effect=capture_run):
+        worker = PipelineWorker(reg, concurrency=1, user_store=store)
+        worker._run_one(("jT", False))
+    assert captured["drive_token_json"] == '{"refresh_token":"A"}'
+
+
+def test_worker_passes_none_when_not_connected():
+    """AC-11 support: no token / no user_id → drive_token_json None."""
+    import app.runner.worker as worker_mod
+    from app.runner.worker import PipelineWorker
+
+    reg, rec, loop = _make_registry_and_record(job_id="jN")
+    rec.user_id = "user-B"
+    store = _FakeUserStore(token=None)
+    captured = {}
+
+    def capture_run(*a, **kw):
+        captured["drive_token_json"] = kw.get("drive_token_json")
+        return _happy_run_result()
+
+    with patch.object(worker_mod, "run_pipeline", side_effect=capture_run):
+        PipelineWorker(reg, concurrency=1, user_store=store)._run_one(("jN", False))
+    assert captured["drive_token_json"] is None
+
+
+def test_worker_autoclears_token_on_invalid_grant():
+    """AC-12: a per-user token that fails with invalid_grant → user is auto-disconnected."""
+    import app.runner.worker as worker_mod
+    from app.runner.worker import PipelineWorker
+
+    reg, rec, loop = _make_registry_and_record(job_id="jI")
+    rec.user_id = "user-C"
+    store = _FakeUserStore(token='{"refresh_token":"C"}')
+
+    bad = FakeRunResult(
+        final_state={"report_path": "r.md"},
+        report_path="r.md",
+        mcp_delivery_status={"drive": {"status": "failed", "error_message": "auth: token refresh failed: invalid_grant"}},
+        ingest_error=None,
+    )
+    with patch.object(worker_mod, "run_pipeline", return_value=bad):
+        PipelineWorker(reg, concurrency=1, user_store=store)._run_one(("jI", False))
+    assert store.cleared == ["user-C"]

@@ -29,6 +29,9 @@ class UserRow:
     # store so legacy 014/019 rows load; title is always optional.
     name: Optional[str] = None
     title: Optional[str] = None
+    # Per-user Google Drive connection (feature 031). NULL = not connected.
+    google_oauth_token: Optional[str] = None  # Credentials.to_json() (refresh token); unencrypted interim
+    google_email: Optional[str] = None  # connected Google account email, for display
 
 
 class UserStore:
@@ -84,12 +87,16 @@ class UserStore:
             created_at=row["created_at"],
             name=row["name"] if "name" in row.keys() else None,
             title=row["title"] if "title" in row.keys() else None,
+            google_oauth_token=(
+                row["google_oauth_token"] if "google_oauth_token" in row.keys() else None
+            ),
+            google_email=row["google_email"] if "google_email" in row.keys() else None,
         )
 
     def get_by_email(self, email: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at, name, title FROM users WHERE email = ?",
+                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email FROM users WHERE email = ?",
                 (email,),
             ).fetchone()
         return self._row_to_user(row) if row is not None else None
@@ -97,7 +104,7 @@ class UserStore:
     def get_by_id(self, user_id: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at, name, title FROM users WHERE id = ?",
+                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
         return self._row_to_user(row) if row is not None else None
@@ -129,5 +136,42 @@ class UserStore:
             self._conn.execute(
                 "UPDATE users SET password_hash = ? WHERE id = ?",
                 (new_hash, user_id),
+            )
+            self._conn.commit()
+
+    # ── Feature 031: per-user Google Drive credentials (all user_id-scoped) ──────
+    def set_google_credentials(
+        self, user_id: str, token_json: str, google_email: Optional[str]
+    ) -> None:
+        """Store (or replace) the connecting account's Google credentials + email."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET google_oauth_token = ?, google_email = ? WHERE id = ?",
+                (token_json, google_email, user_id),
+            )
+            self._conn.commit()
+
+    def get_google_credentials(self, user_id: str) -> Optional[str]:
+        """Return the user's stored Google credentials JSON, or None if not connected."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT google_oauth_token FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+        return row["google_oauth_token"] if row is not None else None
+
+    def get_google_email(self, user_id: str) -> Optional[str]:
+        """Return the connected Google account email, or None if not connected."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT google_email FROM users WHERE id = ?", (user_id,)
+            ).fetchone()
+        return row["google_email"] if row is not None else None
+
+    def clear_google_credentials(self, user_id: str) -> None:
+        """Disconnect: null out the user's Google credentials + email."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET google_oauth_token = NULL, google_email = NULL WHERE id = ?",
+                (user_id,),
             )
             self._conn.commit()

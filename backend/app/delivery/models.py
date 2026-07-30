@@ -16,6 +16,7 @@ class DriveUploadRequest(BaseModel):
     file_name: str
     mime_type: str
     folder_id: Optional[str] = None
+    token_path: Optional[str] = None  # feature 031: per-user Drive token; None → central token
 
 
 class GmailSendRequest(BaseModel):

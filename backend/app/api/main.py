@@ -29,6 +29,7 @@ from app.runner.models import JobState
 from app.runner.user_store import UserStore
 from app.api.security import bootstrap_secret
 from app.api.auth import auth_router, require_auth
+from app.api.integrations import integrations_router
 from app.api.routes import RunnerContext, router, public_router
 
 
@@ -64,7 +65,12 @@ async def lifespan(application: FastAPI):
     user_store = UserStore(_cfg.JOB_STORE_DB_PATH)
     saver = build_saver(_cfg.CHECKPOINTER_DB_PATH) if _cfg.CHECKPOINTER_ENABLED else None
     registry = JobRegistry(store, saver, loop, max_jobs=_cfg.JOB_STORE_RETENTION_MAX)
-    worker = PipelineWorker(registry, saver=saver, concurrency=_cfg.RUNNER_WORKER_CONCURRENCY)
+    worker = PipelineWorker(
+        registry,
+        saver=saver,
+        concurrency=_cfg.RUNNER_WORKER_CONCURRENCY,
+        user_store=user_store,  # feature 031: per-user Drive token resolution
+    )
     worker.start()
     if _cfg.STARTUP_RECOVERY_ENABLED:
         _recover(registry, store, saver, worker)
@@ -109,6 +115,7 @@ def create_app() -> FastAPI:
     application.include_router(public_router)
     application.include_router(auth_router)
     application.include_router(router, dependencies=[Depends(require_auth)])
+    application.include_router(integrations_router, dependencies=[Depends(require_auth)])
     return application
 
 

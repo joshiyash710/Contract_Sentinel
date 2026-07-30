@@ -137,7 +137,7 @@ def _isolate_report_output(tmp_path, monkeypatch):
 # ── Feature-011 runner/API helpers ───────────────────────────────────────────
 
 
-def _stub_delivery(state, *, recipient=None):
+def _stub_delivery(state, *, recipient=None, drive_token_json=None):
     """Default delivery stub: both channels succeed."""
     return {
         "mcp_delivery_status": {

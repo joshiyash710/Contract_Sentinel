@@ -95,7 +95,7 @@ def test_ingest_error_completes_with_error(client, monkeypatch):
 
         return _FG()
 
-    def delivery_no_report(state, *, recipient=None):
+    def delivery_no_report(state, *, recipient=None, drive_token_json=None):
         return {"mcp_delivery_status": {}}
 
     monkeypatch.setattr(core_mod, "build_graph", ingest_error_graph)
@@ -151,7 +151,7 @@ def test_delivery_status_surfaced(client, monkeypatch):
     import app.runner.core as core_mod
 
     # Branch 1: FAILED channel
-    def failed_delivery(state, *, recipient=None):
+    def failed_delivery(state, *, recipient=None, drive_token_json=None):
         return {
             "mcp_delivery_status": {
                 "drive": {
@@ -170,7 +170,7 @@ def test_delivery_status_surfaced(client, monkeypatch):
     assert s1["mcp_delivery_status"]["drive"]["status"] == "FAILED"
 
     # Branch 2: empty delivery
-    def empty_delivery(state, *, recipient=None):
+    def empty_delivery(state, *, recipient=None, drive_token_json=None):
         return {"mcp_delivery_status": {}}
 
     monkeypatch.setattr(core_mod, "deliver_report_sync", empty_delivery)
@@ -209,7 +209,7 @@ def test_eviction_returns_404(monkeypatch, tmp_path):
 
         return _FG()
 
-    def _delivery(state, *, recipient=None):
+    def _delivery(state, *, recipient=None, drive_token_json=None):
         return {"mcp_delivery_status": {}}
 
     monkeypatch.setattr("app.runner.core.build_graph", _small_fake)

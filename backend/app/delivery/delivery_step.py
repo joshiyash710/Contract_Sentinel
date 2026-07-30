@@ -11,6 +11,7 @@ Never raises; never writes current_node / node_timings / error_count.
 
 import asyncio
 import logging
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -20,6 +21,7 @@ from pydantic import ValidationError
 import app.config as _config
 from app.delivery.mcp_clients import send_report_via_gmail, upload_report_to_drive
 from app.delivery.models import DeliveryResult
+from app.delivery.oauth_credentials import write_token_tempfile
 from app.delivery.report_pdf import render_report_pdf
 from app.delivery.email_html import build_email_bodies
 from app.graph.state import MCPDeliveryStatus
@@ -39,6 +41,7 @@ MCP_DRIVE_UPLOAD_FORMATS = _config.MCP_DRIVE_UPLOAD_FORMATS
 MCP_GMAIL_ATTACH_REPORT = _config.MCP_GMAIL_ATTACH_REPORT
 MCP_GMAIL_ATTACH_FORMAT = _config.MCP_GMAIL_ATTACH_FORMAT  # feature 030
 MCP_REPORT_PDF_ENABLED = _config.MCP_REPORT_PDF_ENABLED  # feature 030
+PER_USER_DRIVE_ENABLED = _config.PER_USER_DRIVE_ENABLED  # feature 031
 MCP_DELIVERY_TIMEOUT_SECONDS = _config.MCP_DELIVERY_TIMEOUT_SECONDS
 MCP_DELIVERY_MAX_RETRIES = _config.MCP_DELIVERY_MAX_RETRIES
 
@@ -100,7 +103,11 @@ def _load_report(json_path: Optional[Path]) -> Optional[ContractReport]:
 
 
 async def _deliver_drive(
-    md_path: Path, json_path: Path, pdf_path: Optional[Path], pdf_ok: bool
+    md_path: Path,
+    json_path: Path,
+    pdf_path: Optional[Path],
+    pdf_ok: bool,
+    token_path: Optional[str] = None,
 ) -> DeliveryResult:
     """Upload each configured format; aggregate into one DeliveryResult. Feature 030: the
     CTA resource_ref is sourced from the PDF upload (falling back to md when the PDF render
@@ -131,6 +138,7 @@ async def _deliver_drive(
             MCP_DRIVE_FOLDER_ID,
             timeout_seconds=MCP_DELIVERY_TIMEOUT_SECONDS,
             max_retries=MCP_DELIVERY_MAX_RETRIES,
+            token_path=token_path,
         )
         results.append(r)
         if r.ok and ext == "pdf":
@@ -159,8 +167,15 @@ async def _deliver_drive(
 # ── main orchestrator ─────────────────────────────────────────────────────────
 
 
-async def deliver_report(state: dict, *, recipient: Optional[str] = None) -> dict:
-    """Deliver the Node-7 report via Drive + Gmail. Returns only mcp_delivery_status."""
+async def deliver_report(
+    state: dict, *, recipient: Optional[str] = None, drive_token_json: Optional[str] = None
+) -> dict:
+    """Deliver the Node-7 report via Drive + Gmail. Returns only mcp_delivery_status.
+
+    Feature 031: when PER_USER_DRIVE_ENABLED and drive_token_json is provided (the uploading
+    user has connected Google), the Drive upload authenticates as that user (their Drive).
+    When not connected, the Drive step is SKIPPED (email still sent). When PER_USER_DRIVE_ENABLED
+    is False, the central token is used (pre-031 behavior)."""
     if not MCP_DELIVERY_ENABLED or (not MCP_DRIVE_ENABLED and not MCP_GMAIL_ENABLED):
         logger.info("MCP delivery disabled — skipping")
         return {"mcp_delivery_status": {}}
@@ -196,12 +211,32 @@ async def deliver_report(state: dict, *, recipient: Optional[str] = None) -> dic
         except Exception:  # noqa: BLE001 — a bad render must never break delivery (AC-13)
             logger.warning("PDF render failed; falling back to Markdown", exc_info=True)
 
-    # ── Drive ─────────────────────────────────────────────────────────────────
+    # ── Drive (feature 031: per-user routing) ─────────────────────────────────
     if MCP_DRIVE_ENABLED:
-        drive_result = await _deliver_drive(md_path, json_path, pdf_path, pdf_ok)
-        status["drive"] = _to_info(drive_result)
-        if drive_result.ok:
-            drive_ref = drive_result.resource_ref
+        if not PER_USER_DRIVE_ENABLED:
+            # pre-031: central token
+            drive_result = await _deliver_drive(md_path, json_path, pdf_path, pdf_ok, token_path=None)
+            status["drive"] = _to_info(drive_result)
+            if drive_result.ok:
+                drive_ref = drive_result.resource_ref
+        elif drive_token_json:
+            # connected → upload to the user's own Drive with their token
+            user_token_path = write_token_tempfile(drive_token_json)
+            try:
+                drive_result = await _deliver_drive(
+                    md_path, json_path, pdf_path, pdf_ok, token_path=user_token_path
+                )
+            finally:
+                try:
+                    os.unlink(user_token_path)
+                except OSError:
+                    pass
+            status["drive"] = _to_info(drive_result)
+            if drive_result.ok:
+                drive_ref = drive_result.resource_ref
+        else:
+            # not connected → skip Drive (email still sent) — resolved Q5
+            status["drive"] = _failed_info("user has not connected Google Drive")
 
     # ── Gmail ─────────────────────────────────────────────────────────────────
     if MCP_GMAIL_ENABLED:
@@ -241,7 +276,9 @@ async def deliver_report(state: dict, *, recipient: Optional[str] = None) -> dic
     return {"mcp_delivery_status": status}
 
 
-def deliver_report_sync(state: dict, *, recipient: Optional[str] = None) -> dict:
+def deliver_report_sync(
+    state: dict, *, recipient: Optional[str] = None, drive_token_json: Optional[str] = None
+) -> dict:
     """Synchronous wrapper around deliver_report for non-async callers.
 
     Runs asyncio.run in a dedicated thread so this can be called safely even
@@ -251,5 +288,6 @@ def deliver_report_sync(state: dict, *, recipient: Optional[str] = None) -> dict
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
         return pool.submit(
-            asyncio.run, deliver_report(state, recipient=recipient)
+            asyncio.run,
+            deliver_report(state, recipient=recipient, drive_token_json=drive_token_json),
         ).result()

@@ -385,6 +385,30 @@ GOOGLE_OAUTH_CREDENTIALS_PATH: str = "data/secrets/google_credentials.json"
 GOOGLE_OAUTH_TOKEN_PATH: str = "data/secrets/google_token.json"
 # OAuth client-secrets + cached-token paths (backend/-relative).
 # Consumed by the MCP server layer, NOT the client step (D10). git-ignored.
+# NOTE (feature 031): these remain the CENTRAL desktop client + token, used for the
+# central Gmail send. Per-user Drive uses the separate web client below.
+
+# ── Feature 031 — per-user Google Drive (per-user OAuth) ─────────────────────────
+# §3 named constants; reversible via PER_USER_DRIVE_ENABLED. Authorized by the §2
+# amendment (2026-07-28, feature 031): per-user Drive only; Gmail stays central.
+
+PER_USER_DRIVE_ENABLED: bool = True
+# Master toggle. False → delivery ignores per-user tokens and uses the central token
+# (pre-031 behavior); fully reversible.
+
+GOOGLE_OAUTH_REDIRECT_URI: str = "http://localhost:8000/api/integrations/google/callback"
+# The web OAuth callback (backend, spec §6 Q1/Q2). Must match the authorized redirect URI
+# registered on the Web OAuth client in GCP Console. Prod needs its own registered URI.
+
+GOOGLE_DRIVE_OAUTH_SCOPES: tuple = ("https://www.googleapis.com/auth/drive.file",)
+# Per-user connect scope: create/manage only app-created files in the user's own Drive.
+
+GOOGLE_OAUTH_WEB_CREDENTIALS_PATH: str = "data/secrets/google_web_credentials.json"
+# Web-application OAuth client secrets (distinct from the central desktop client above).
+# git-ignored; the owner registers the client + redirect URI in GCP Console.
+
+FRONTEND_INTEGRATIONS_URL: str = "http://localhost:3000/integrations"
+# Where the OAuth callback 302-redirects the browser after connect/disconnect.
 
 # ── Runner / API layer ─────────────────────────────────────────────────────────
 # Source: specs/011-pipeline-runner-api/spec.md §6.1

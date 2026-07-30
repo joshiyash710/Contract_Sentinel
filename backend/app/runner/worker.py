@@ -37,10 +37,13 @@ def _now_iso() -> str:
 
 
 class PipelineWorker:
-    def __init__(self, registry: JobRegistry, saver=None, concurrency: int = 1) -> None:
+    def __init__(
+        self, registry: JobRegistry, saver=None, concurrency: int = 1, user_store=None
+    ) -> None:
         self._registry = registry
         self._saver = saver
         self._concurrency = concurrency
+        self._user_store = user_store  # feature 031: resolve per-user Drive tokens
         self._queue: queue.Queue = queue.Queue()
         self._stop_event = threading.Event()
         self._threads: list = []
@@ -94,6 +97,11 @@ class PipelineWorker:
                 )
             )
 
+        # Feature 031: resolve the uploading user's Google Drive token (if connected).
+        drive_token = None
+        if self._user_store is not None and rec.user_id:
+            drive_token = self._user_store.get_google_credentials(rec.user_id)
+
         try:
             result = run_pipeline(
                 rec.document_path,
@@ -104,7 +112,15 @@ class PipelineWorker:
                 thread_id=job_id,
                 resume=resume,
                 already_completed=already,
+                drive_token_json=drive_token,
             )
+
+            # Feature 031: a per-user token that fails with invalid_grant → auto-disconnect the
+            # user so /status shows reconnect-needed (Drive failed, email still sent).
+            if drive_token and self._user_store is not None and rec.user_id:
+                drive_info = (result.mcp_delivery_status or {}).get("drive") or {}
+                if "invalid_grant" in str(drive_info.get("error_message") or ""):
+                    self._user_store.clear_google_credentials(rec.user_id)
 
             error: Optional[ErrorInfo] = None
             if result.ingest_error:

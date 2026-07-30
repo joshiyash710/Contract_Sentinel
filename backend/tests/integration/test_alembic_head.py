@@ -64,3 +64,27 @@ def test_upgrade_is_idempotent(tmp_path):
     cols = {r[1] for r in conn.execute("PRAGMA table_info(jobs)").fetchall()}
     assert "job_id" in cols
     conn.close()
+
+
+def test_migration_0006_adds_and_drops_google_columns(tmp_path):
+    """Feature 031: 0006 adds users.google_oauth_token + google_email; downgrade drops them;
+    an existing user row survives with the new columns NULL (not connected)."""
+    import sqlite3
+    from alembic.config import Config
+    from alembic import command
+    from app.runner.migrations import upgrade_to_head
+
+    db_path = str(tmp_path / "mig0006.db")
+    upgrade_to_head(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.execute(
+        "INSERT INTO users (id, email, password_hash, created_at) VALUES (?,?,?,?)",
+        ("u1", "x@e.com", "h", "2026-07-28T00:00:00+00:00"),
+    )
+    conn.commit()
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(users)").fetchall()}
+    assert {"google_oauth_token", "google_email"} <= cols
+    # existing row survives with NULLs
+    row = conn.execute("SELECT google_oauth_token, google_email FROM users WHERE id='u1'").fetchone()
+    assert row == (None, None)
+    conn.close()

@@ -14,6 +14,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+
+@pytest.fixture(autouse=True)
+def _pin_central_drive_031(monkeypatch):
+    """Feature 031: default is per-user Drive (skips when not connected). These tests exercise
+    the real central Drive upload path — pin PER_USER_DRIVE_ENABLED=False."""
+    import app.delivery.delivery_step as _ds
+    monkeypatch.setattr(_ds, "PER_USER_DRIVE_ENABLED", False)
+
 import app.graph.nodes.report_agent as report_mod
 from app.graph.builder import build_graph
 from app.graph.state import RiskLevel, ValidationStatus

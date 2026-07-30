@@ -53,7 +53,7 @@ def _make_recovery_client(monkeypatch, tmp_path, job_store_path, checkpoints_pat
     monkeypatch.setattr("app.runner.core.build_graph", _fake_build_graph)
     monkeypatch.setattr(
         "app.runner.core.deliver_report_sync",
-        lambda state, *, recipient=None: {"mcp_delivery_status": {}},
+        lambda state, *, recipient=None, drive_token_json=None: {"mcp_delivery_status": {}},
     )
     monkeypatch.setattr(_cfg, "UPLOAD_DIR", str(tmp_path / "uploads"))
     monkeypatch.setattr(_cfg, "JOB_STORE_DB_PATH", job_store_path)

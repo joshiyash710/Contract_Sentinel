@@ -540,3 +540,22 @@ def test_job_registry_max_alias():
     from app import config
 
     assert config.JOB_REGISTRY_MAX == config.JOB_STORE_RETENTION_MAX
+
+
+def test_per_user_drive_031_constants_match_spec():
+    """Feature 031 per-user Drive constants (§3, AC-16)."""
+    from app import config as c
+    assert c.PER_USER_DRIVE_ENABLED is True
+    assert c.GOOGLE_OAUTH_REDIRECT_URI == "http://localhost:8000/api/integrations/google/callback"
+    assert c.GOOGLE_DRIVE_OAUTH_SCOPES == ("https://www.googleapis.com/auth/drive.file",)
+    assert c.GOOGLE_OAUTH_WEB_CREDENTIALS_PATH == "data/secrets/google_web_credentials.json"
+    assert c.FRONTEND_INTEGRATIONS_URL == "http://localhost:3000/integrations"
+
+
+def test_per_user_drive_031_constants_types():
+    from app import config as c
+    assert isinstance(c.PER_USER_DRIVE_ENABLED, bool)
+    assert isinstance(c.GOOGLE_OAUTH_REDIRECT_URI, str)
+    assert isinstance(c.GOOGLE_DRIVE_OAUTH_SCOPES, tuple)
+    assert isinstance(c.GOOGLE_OAUTH_WEB_CREDENTIALS_PATH, str)
+    assert isinstance(c.FRONTEND_INTEGRATIONS_URL, str)
