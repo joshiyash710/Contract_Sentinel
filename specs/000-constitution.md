@@ -76,11 +76,41 @@ no LangGraph node/edge and no `ContractState` field. Legacy rows created before 
 (`AUTH_SIGNUP_OPEN=True`) because isolation removes the shared-data exposure that justified
 closing it.
 
+**AMENDMENT (2026-07-28, feature 031) — per-user Google Drive delivery (per-user OAuth) is now IN scope.**
+Each authenticated account may **connect its own Google account** so that the reports it generates are
+saved to **that user's own Google Drive** (`drive.file` scope). This narrows the single-account,
+server-managed Drive model of feature 010 (and the "server-managed integrations" stance of 024): Drive
+*storage* becomes per-user.
+
+**IN scope:**
+- A per-user Google **Drive connection** — a web OAuth flow (authorize redirect + callback endpoint)
+  surfaced on the existing `/integrations` page — storing a **per-user refresh token** owned by, and
+  private to, the connecting account.
+- Delivery uploads the report to the **uploading user's own Drive** when that user is connected.
+
+**Stays CENTRAL / unchanged:**
+- **Gmail is unchanged** — the notification email is still sent FROM the single app Google account TO
+  the user. This is **NOT** per-user Gmail; `gmail.send` stays central.
+- **Login is unchanged** — this is a Drive *integration* connection, **NOT** Google SSO login;
+  authentication stays email + password (014's SSO-login deferral is untouched).
+- **Not-connected users:** analysis still runs and the report is still emailed; the Drive step is
+  simply skipped. A report is **never** written to a shared, app-owned, or another user's Drive.
+
+**Stays PERMANENTLY CUT:** RBAC, roles, teams/orgs, cross-account sharing or collaboration, and any
+tenant-admin surface. A user's Google connection is private to them and is never shared; every account
+remains a flat, single-owner, private workspace. Per-user **Gmail** sending remains out of scope.
+Encryption-at-rest of stored OAuth tokens remains a **Phase-2-DEFERRED** concern — tokens are stored
+like today's single `google_token.json` until that item lands (a noted, accepted interim posture).
+
+**Mechanics:** adds a DB migration (per-user token storage) + OAuth callback endpoint(s) +
+delivery-layer credential selection. **No LangGraph node/edge change; no `ContractState` field.**
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.
 
 ## 4. State Typing Convention
+
 
 The LangGraph internal state schema uses TypedDict (lightweight, standard LangGraph convention, no runtime validation overhead). All API request/response models and any data crossing a system boundary (HTTP, MCP, file I/O, database) use Pydantic for runtime validation. These two are never mixed within the internal graph state.
 
