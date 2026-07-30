@@ -26,6 +26,7 @@ def _fake_flow():
         )
 
     flow.authorization_url.side_effect = _auth_url
+    flow.code_verifier = "test-code-verifier-123"  # PKCE verifier carried authorize→callback
     creds = MagicMock()
     creds.to_json.return_value = '{"refresh_token":"USERTOK","scopes":["drive.file"]}'
     flow.credentials = creds
@@ -143,6 +144,34 @@ def test_disconnect_clears(client):
     assert d.status_code == 200
     assert d.json()["connected"] is False
     assert client.get("/api/integrations/google/status").json()["connected"] is False
+
+
+# ── PKCE: code_verifier carried authorize → callback ─────────────────────────
+def test_pkce_code_verifier_threaded_to_callback(client):
+    """Regression: the PKCE code_verifier from authorize must be restored on the callback
+    Flow before fetch_token (else Google rejects with 'Missing code verifier')."""
+    authenticate(client)
+
+    authorize_flow = _fake_flow()
+    authorize_flow.code_verifier = "AUTH_VERIFIER"
+    callback_flow = _fake_flow()
+    callback_flow.code_verifier = None  # a fresh Flow has no verifier until we restore it
+
+    with patch("app.api.integrations._build_flow", return_value=authorize_flow):
+        r = client.get("/api/integrations/google/authorize", follow_redirects=False)
+    state = parse_qs(urlparse(r.headers["location"]).query)["state"][0]
+
+    with (
+        patch("app.api.integrations._build_flow", return_value=callback_flow),
+        patch("app.api.integrations._email_of", return_value="me@gmail.com"),
+    ):
+        client.get(
+            f"/api/integrations/google/callback?code=abc&state={state}",
+            follow_redirects=False,
+        )
+    # the callback Flow had the authorize step's verifier restored onto it
+    assert callback_flow.code_verifier == "AUTH_VERIFIER"
+    callback_flow.fetch_token.assert_called_once()
 
 
 # ── AC-17: per-user isolation ────────────────────────────────────────────────
