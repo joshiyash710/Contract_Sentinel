@@ -18,6 +18,9 @@ export interface JobEventsState {
 }
 
 export const POLL_INTERVAL_MS = 2500;
+// During the CPU/GPU-heavy local-LLM run the API can blip; tolerate a few consecutive
+// failures before surfacing an error so a single hiccup doesn't kill the progress screen.
+export const MAX_CONSECUTIVE_POLL_FAILURES = 5;
 
 function mapStatus(js: JobStatus): JobEventsState {
   const phase: JobPhase =
@@ -56,23 +59,35 @@ export function useJobStatus(jobId: string): { state: JobEventsState; reconnect:
     const client = getApiClient();
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
 
     const tick = async () => {
       try {
         const js = await client.getJob(jobId);
         if (stopped) return;
+        failures = 0; // a successful poll clears the transient-failure streak
         const next = mapStatus(js);
         setState(next);
         if (next.phase === "completed" || next.phase === "failed") return; // stop polling
       } catch {
         if (stopped) return;
-        // Unknown/evicted job (404, EC-6) or a network blip (EC-5) — show a recoverable state.
-        setState((s) =>
-          s.phase === "completed" || s.phase === "failed"
-            ? s
-            : { ...s, phase: "error", errorMessage: "Couldn't reach the analysis. Try refreshing." },
-        );
-        return; // stop; the user can Refresh
+        failures += 1;
+        // Only surface an error after SUSTAINED failures — a single blip during the heavy
+        // local-LLM run must NOT drop the progress screen (EC-5). Below the threshold we keep
+        // polling silently (the last known progress stays on screen).
+        if (failures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+          setState((s) =>
+            s.phase === "completed" || s.phase === "failed"
+              ? s
+              : {
+                  ...s,
+                  phase: "error",
+                  errorMessage: "Couldn't reach the analysis. Try refreshing.",
+                },
+          );
+          return; // give up after sustained failures; the user can Refresh
+        }
+        // else: transient — fall through and schedule the next poll
       }
       timer = setTimeout(tick, POLL_INTERVAL_MS);
     };

@@ -83,12 +83,20 @@ describe("ProcessingView (polling — spec AC-9..AC-15, EC-1/2/6/8)", () => {
   });
 
   test("error_phase_refresh_reconnects", async () => {
-    const fake = makeFakeClient({ getJobError: new Error("404") });
-    vi.mocked(getApiClient).mockReturnValue(fake);
-    render(<ProcessingView jobId="job-1" />);
-    const refresh = await screen.findByRole("button", { name: /refresh/i });
-    const before = vi.mocked(fake.getJob).mock.calls.length;
-    fireEvent.click(refresh);
-    await waitFor(() => expect(vi.mocked(fake.getJob).mock.calls.length).toBeGreaterThan(before));
+    vi.useFakeTimers();
+    try {
+      const fake = makeFakeClient({ getJobError: new Error("404") });
+      vi.mocked(getApiClient).mockReturnValue(fake);
+      render(<ProcessingView jobId="job-1" />);
+      // sustained failures (> threshold) drive the error phase (resilient polling, feature fix)
+      for (let i = 0; i < 7; i++) await vi.advanceTimersByTimeAsync(2600);
+      const refresh = screen.getByRole("button", { name: /refresh/i });
+      const before = vi.mocked(fake.getJob).mock.calls.length;
+      fireEvent.click(refresh);
+      await vi.advanceTimersByTimeAsync(50); // let the reconnect tick fire
+      expect(vi.mocked(fake.getJob).mock.calls.length).toBeGreaterThan(before);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -44,6 +44,22 @@ describe("useCurrentUser", () => {
     expect(result.current.user).toBeNull();
     expect(result.current.displayName).toBe("there");
   });
+
+  it("does not cache a transient me() failure — the next read recovers the real name", async () => {
+    // First mount: me() blips (fails) → falls back to "there" but must NOT poison the cache.
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ authError: new Error("blip") }));
+    const first = renderHook(() => useCurrentUser());
+    await waitFor(() => expect(first.result.current.loading).toBe(false));
+    expect(first.result.current.displayName).toBe("there");
+    first.unmount();
+
+    // Second mount (API recovered): should RE-FETCH and show the real name (not stay "there").
+    vi.mocked(getApiClient).mockReturnValue(
+      makeFakeClient({ authUser: { id: "u", email: "b@b.com", name: "Bansi Kanani", title: null } }),
+    );
+    const second = renderHook(() => useCurrentUser());
+    await waitFor(() => expect(second.result.current.displayName).toBe("Bansi Kanani"));
+  });
 });
 
 describe("displayNameFor (pure)", () => {

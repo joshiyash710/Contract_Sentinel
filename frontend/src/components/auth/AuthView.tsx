@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { getApiClient } from "@/lib/api/provider";
+import { clearCurrentUser } from "@/lib/useCurrentUser";
 import { ApiError } from "@/lib/api/client";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { TextInput } from "@/components/ui/TextInput";
@@ -48,6 +49,9 @@ export function AuthView({ defaultTab = "login" }: Props) {
       } else {
         await client.signup(email, password, name, title.trim() || undefined);
       }
+      // Drop any previously-cached user so the shell fetches THIS account (fixes a stale
+      // name when switching accounts within one browser session).
+      clearCurrentUser();
       router.replace("/dashboard");
     } catch (err) {
       setError(mapError(err, tab));

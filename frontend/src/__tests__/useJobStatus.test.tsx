@@ -43,10 +43,27 @@ describe("useJobStatus (polling — spec D7)", () => {
     expect(result.current.state.final?.status).toBe("completed");
   });
 
-  test("getJob_error_sets_recoverable_state", async () => {
-    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ getJobError: new Error("404") }));
+  test("transient_failure_keeps_polling_not_error", async () => {
+    // A single failed poll must NOT drop the screen — it stays polling silently.
+    const fake = makeFakeClient({ getJobError: new Error("blip") });
+    vi.mocked(getApiClient).mockReturnValue(fake);
     const { result } = renderHook(() => useJobStatus("job-1"));
-    await waitFor(() => expect(result.current.state.phase).toBe("error"));
-    expect(result.current.state.errorMessage).toBeTruthy();
+    await waitFor(() => expect(vi.mocked(fake.getJob).mock.calls.length).toBeGreaterThan(0));
+    // after the first failure the phase is still the initial (non-error) state
+    expect(result.current.state.phase).not.toBe("error");
+  });
+
+  test("sustained_failures_set_recoverable_error", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ getJobError: new Error("404") }));
+      const { result } = renderHook(() => useJobStatus("job-1"));
+      // drive past MAX_CONSECUTIVE_POLL_FAILURES (5) polls deterministically
+      for (let i = 0; i < 7; i++) await vi.advanceTimersByTimeAsync(2600);
+      expect(result.current.state.phase).toBe("error");
+      expect(result.current.state.errorMessage).toBeTruthy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

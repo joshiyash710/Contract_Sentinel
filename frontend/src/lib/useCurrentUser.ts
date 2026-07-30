@@ -19,11 +19,18 @@ const _subscribers = new Set<() => void>();
 
 function fetchCurrentUser(): Promise<AuthUser | null> {
   if (_cached) return _cached;
-  _cached = getApiClient()
+  const p = getApiClient()
     .me()
     .then((u) => u)
-    .catch(() => null);
-  return _cached;
+    .catch(() => {
+      // A transient /me failure (e.g. an API blip during a heavy analysis run) must NOT be
+      // cached — otherwise the shell falls back to "there" and never recovers until reload.
+      // Drop the cache so the next read re-fetches the real user (fixes the wrong-name bug).
+      if (_cached === p) _cached = null;
+      return null;
+    });
+  _cached = p;
+  return p;
 }
 
 export function clearCurrentUser(): void {
