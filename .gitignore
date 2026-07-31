@@ -56,3 +56,8 @@ frontend/out/
 frontend/next-env.d.ts
 frontend/.env.local
 frontend/*.tsbuildinfo
+# local dev server logs (not source)
+backend/.uvicorn.out.log
+backend/.uvicorn.err.log
+frontend/.next-dev.out.log
+frontend/.next-dev.err.log

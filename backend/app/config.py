@@ -26,6 +26,12 @@ INGEST_TIMEOUT_SECONDS: int = 60  # wall-clock seconds for parse_pdf / parse_doc
 # Source: specs/004-clause-splitter-agent/spec.md §6
 
 OLLAMA_MODEL_NAME: str = "qwen3:8b"
+# Generative model. qwen3:8b (~6GB) does NOT fit fully in the 6GB laptop GPU (RTX 4050) — Windows
+# reserves ~1GB for display so only ~5GB VRAM is free — so Ollama loads it as a ~70% GPU / 30% CPU
+# split (verified 2026-07-31: 4.1GB on GPU, resident, produces genuine judgments). The split is
+# slower than full-GPU but stable; it avoids the all-GPU PTX/CUDA crash that happens when the model
+# is forced entirely onto the GPU. qwen3:4b is the lighter fallback if RAM/VRAM is too tight to hold
+# the split. §3-tunable. Requires ~1.6GB free RAM to load the host buffer.
 # The Ollama model identifier for LLM calls in the pipeline.
 # Qwen3 8B runs locally via Ollama — no cloud API cost.
 # PERF TUNE (constitution §3): switched from qwen3:14b (9.3GB) to qwen3:8b (5.2GB)
