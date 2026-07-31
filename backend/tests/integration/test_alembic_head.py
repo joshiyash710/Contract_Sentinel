@@ -66,6 +66,18 @@ def test_upgrade_is_idempotent(tmp_path):
     conn.close()
 
 
+def test_current_head_is_0007(tmp_path):
+    """Feature 032: migration 0007 (security Tier 1) is the current Alembic head."""
+    from pathlib import Path
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    alembic_dir = Path(__file__).resolve().parents[2] / "alembic"
+    cfg = Config()
+    cfg.set_main_option("script_location", str(alembic_dir))
+    assert ScriptDirectory.from_config(cfg).get_current_head() == "0007"
+
+
 def test_migration_0006_adds_and_drops_google_columns(tmp_path):
     """Feature 031: 0006 adds users.google_oauth_token + google_email; downgrade drops them;
     an existing user row survives with the new columns NULL (not connected)."""
