@@ -30,11 +30,6 @@ def _isolate_encryption_key_suite_wide(tmp_path_factory, monkeypatch):
     monkeypatch.setattr(crypto, "_KEY", None, raising=False)
     monkeypatch.delenv(_cfg.ENCRYPTION_KEY_ENV, raising=False)
     monkeypatch.setattr(_cfg, "ENCRYPTION_KEY_FILE", str(key_path))
-    # Feature 032 (W1): point the central token at an ABSENT temp path by default so
-    # materialize_central_token_tempfile() is deterministic (returns None) regardless of whether a
-    # real data/secrets/google_token.json exists on the dev box. Tests that exercise a central token
-    # set GOOGLE_OAUTH_TOKEN_PATH explicitly.
-    monkeypatch.setattr(_cfg, "GOOGLE_OAUTH_TOKEN_PATH", str(enc_dir / "central_token_absent.json"))
     # Feature 032 (W2): AUTH_COOKIE_SECURE now defaults to True (needs TLS). The TestClient talks
     # plain http, so — like local dev over http — force it False for the suite. Tests that assert the
     # Secure flag (AC-7) monkeypatch it back to True explicitly.

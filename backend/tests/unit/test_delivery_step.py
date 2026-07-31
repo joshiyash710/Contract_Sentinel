@@ -13,8 +13,21 @@ Expected after Task 13:  PASS
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from app.graph.state import MCPDeliveryStatus
 from app.models.report import ContractReport, ReportSummary
+
+
+@pytest.fixture(autouse=True)
+def _absent_central_token(tmp_path_factory, monkeypatch):
+    """Feature 032: default the central token to an ABSENT path so materialize_central_token_tempfile()
+    is deterministic (→ None) regardless of a real data/secrets/google_token.json on the dev box.
+    Central-token tests set GOOGLE_OAUTH_TOKEN_PATH explicitly, overriding this."""
+    import app.config as _c
+
+    absent = tmp_path_factory.mktemp("central") / "google_token_absent.json"
+    monkeypatch.setattr(_c, "GOOGLE_OAUTH_TOKEN_PATH", str(absent))
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
