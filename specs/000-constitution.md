@@ -105,6 +105,35 @@ like today's single `google_token.json` until that item lands (a noted, accepted
 **Mechanics:** adds a DB migration (per-user token storage) + OAuth callback endpoint(s) +
 delivery-layer credential selection. **No LangGraph node/edge change; no `ContractState` field.**
 
+**AMENDMENT (2026-07-31, feature 032) — encryption at rest for OAuth tokens is now IN scope.**
+This narrows the "Encryption at rest — AES-256 via Python's `cryptography` (Fernet)" item in the
+PHASE 2 DEFERRED list. **Only Google OAuth tokens** are brought into scope for encryption at rest:
+the per-user `users.google_oauth_token` column (feature 031) and the central
+`data/secrets/google_token.json` (feature 010) are stored today as **plaintext**, which is the single
+highest at-rest exposure. These are now encrypted with **Fernet (AES-128-CBC + HMAC-SHA256)** from
+Python's `cryptography` library, with the key sourced from an environment variable / key file (never
+hardcoded, never logged), mirroring the `AUTH_SECRET` bootstrap pattern (§security.py `load_secret`).
+
+**IN scope:**
+- Symmetric encryption of stored Google OAuth tokens (per-user DB column + central token file) at
+  rest, with transparent decrypt-on-read at the point of use.
+- A single key-management seam: key from env (`CONTRACTSENTINEL_ENCRYPTION_KEY`) or a persisted key
+  file, bootstrapped like `AUTH_SECRET`.
+- A one-way migration path for existing plaintext tokens (encrypt-on-next-write and/or a backfill).
+
+**Stays DEFERRED (NOT this amendment):** encryption at rest for stored **contracts, parsed text, and
+reports** (Tier 3 — still Phase-2-DEFERRED); Zero Storage mode; PrivacyAgent; audit log; retention
+policy.
+
+**Stays PERMANENTLY CUT:** dedicated KMS/Vault key management (the single env/file key seam is
+explicitly **NOT** a KMS), and all other PERMANENTLY-CUT items.
+
+**Mechanics:** adds an encryption utility module + key bootstrap; wraps the existing token read/write
+points in `user_store` and the central-token loader. **No LangGraph node/edge change; no
+`ContractState` field; the DB schema column is unchanged (same column, now ciphertext).** Session/
+cookie hardening and login rate-limiting shipped alongside in feature 032 harden already-in-scope
+authentication (§014 amendment) and require **no** constitutional change.
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.
