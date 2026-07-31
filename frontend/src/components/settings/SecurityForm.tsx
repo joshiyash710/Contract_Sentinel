@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { getApiClient } from "@/lib/api/provider";
+import { clearCurrentUser } from "@/lib/useCurrentUser";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { Button } from "@/components/ui/Button";
 
@@ -32,6 +33,20 @@ export function SecurityForm() {
         err instanceof Error && err.message ? err.message : "Couldn't change your password.";
       setStatus({ kind: "error", message });
     }
+  }
+
+  const [signingOutAll, setSigningOutAll] = useState(false);
+
+  async function onSignOutAll() {
+    setSigningOutAll(true);
+    try {
+      await getApiClient().logoutAll();
+    } catch {
+      /* even if the call fails, drop the local session below */
+    }
+    clearCurrentUser();
+    // Hard nav (not router.replace) so no cached authed page is served — mirrors logout (32cbd03).
+    window.location.assign("/login");
   }
 
   return (
@@ -73,6 +88,23 @@ export function SecurityForm() {
             {status.message}
           </span>
         )}
+      </div>
+
+      {/* Feature 032 (W2): sign out of all devices — invalidates every session for this account. */}
+      <div className="mt-8 border-t border-border pt-6">
+        <h3 className="text-body font-semibold text-text-primary">Sign out everywhere</h3>
+        <p className="mt-1 text-caption text-text-tertiary">
+          End every active session for your account on all devices. You&apos;ll need to sign in again.
+        </p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="mt-3"
+          onClick={onSignOutAll}
+          disabled={signingOutAll}
+        >
+          {signingOutAll ? "Signing out…" : "Sign out of all devices"}
+        </Button>
       </div>
     </form>
   );

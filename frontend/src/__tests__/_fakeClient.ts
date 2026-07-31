@@ -115,6 +115,9 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
     logout: vi.fn(async (): Promise<void> => {
       if (opts.authError) throw opts.authError;
     }),
+    logoutAll: vi.fn(async (): Promise<void> => {
+      if (opts.authError) throw opts.authError;
+    }),
     me: vi.fn(async (): Promise<AuthUser> => {
       if (opts.authError) throw opts.authError;
       return opts.authUser ?? authUserFixture;

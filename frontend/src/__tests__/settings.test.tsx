@@ -6,7 +6,14 @@ import { AccountSettingsView } from "@/components/settings/AccountSettingsView";
 import { makeFakeClient } from "./_fakeClient";
 
 // refreshCurrentUser is spied so AC-11 can assert it fires after a successful save.
-const { refreshSpy } = vi.hoisted(() => ({ refreshSpy: vi.fn() }));
+const { refreshSpy, clearSpy } = vi.hoisted(() => ({ refreshSpy: vi.fn(), clearSpy: vi.fn() }));
+
+// Feature 032: the "sign out everywhere" button hard-navigates.
+const assignMock = vi.fn();
+Object.defineProperty(window, "location", {
+  configurable: true,
+  value: { assign: assignMock, href: "http://localhost/settings" },
+});
 
 vi.mock("@/lib/api/provider", () => ({ getApiClient: vi.fn() }));
 vi.mock("@/lib/useCurrentUser", () => ({
@@ -18,12 +25,15 @@ vi.mock("@/lib/useCurrentUser", () => ({
     loading: false,
   }),
   refreshCurrentUser: refreshSpy,
+  clearCurrentUser: clearSpy,
   displayNameFor: (u: { name?: string | null } | null) => u?.name ?? "there",
 }));
 
 beforeEach(() => {
   vi.mocked(getApiClient).mockReset();
   refreshSpy.mockReset();
+  clearSpy.mockReset();
+  assignMock.mockReset();
 });
 
 describe("AccountSettingsView (spec 023 AC-9..12)", () => {
@@ -120,5 +130,19 @@ describe("AccountSettingsView (spec 023 AC-9..12)", () => {
     fireEvent.click(screen.getByRole("button", { name: /update password/i }));
 
     await screen.findByText(/current password is incorrect/i); // AC-12
+  });
+
+  test("sign_out_everywhere_calls_logout_all_and_hard_navs", async () => {
+    // Feature 032 (W2, AC-12/AC-19): the Security tab exposes "Sign out of all devices".
+    const client = makeFakeClient({});
+    vi.mocked(getApiClient).mockReturnValue(client);
+    render(<AccountSettingsView />);
+
+    fireEvent.click(screen.getByRole("tab", { name: "Security" }));
+    fireEvent.click(screen.getByRole("button", { name: /sign out of all devices/i }));
+
+    await waitFor(() => expect(client.logoutAll).toHaveBeenCalled());
+    expect(clearSpy).toHaveBeenCalled();
+    expect(assignMock).toHaveBeenCalledWith("/login");
   });
 });

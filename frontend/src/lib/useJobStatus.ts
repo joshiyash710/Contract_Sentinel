@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getApiClient } from "@/lib/api/provider";
+import { ApiError } from "@/lib/api/client";
 import type { JobStatus } from "@/lib/api/types";
 import { nodeIndex, TOTAL_STEPS } from "@/lib/jobProgress";
 
@@ -69,8 +70,11 @@ export function useJobStatus(jobId: string): { state: JobEventsState; reconnect:
         const next = mapStatus(js);
         setState(next);
         if (next.phase === "completed" || next.phase === "failed") return; // stop polling
-      } catch {
+      } catch (err) {
         if (stopped) return;
+        // A 401 is terminal for the session (feature 032): the provider already kicked off the
+        // redirect to /login — stop polling instead of counting it as a transient blip.
+        if (err instanceof ApiError && err.status === 401) return;
         failures += 1;
         // Only surface an error after SUSTAINED failures — a single blip during the heavy
         // local-LLM run must NOT drop the progress screen (EC-5). Below the threshold we keep

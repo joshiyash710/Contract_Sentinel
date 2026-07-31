@@ -94,6 +94,9 @@ export const mockClient: ApiClient = {
   async logout(): Promise<void> {
     return;
   },
+  async logoutAll(): Promise<void> {
+    return;
+  },
   async me(): Promise<AuthUser> {
     return { ...authUserFixture };
   },

@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import { SSE_EVENT_NAMES } from "./types";
 import { getConfig } from "@/lib/config";
+import { clearCurrentUser } from "@/lib/useCurrentUser";
 
 /**
  * Real ApiClient (spec AC-14): fetch/EventSource against the configured base URL.
@@ -22,8 +23,43 @@ function base(): string {
   return getConfig().apiBaseUrl;
 }
 
+// ── Feature 032 (W2, AC-19): session-expiry handling ──────────────────────────
+// Once the user has been authenticated (login / a successful /me), a later 401 means the session
+// expired (idle timeout, absolute cap, or a logout-everywhere epoch bump) — clear the cached user
+// and hard-navigate to /login. A 401 BEFORE any auth is just the unauthenticated bootstrap probe
+// and must NOT redirect (no loop). `redirecting` guards against firing twice.
+let sessionActive = false;
+let redirecting = false;
+
+function markAuthenticated(): void {
+  sessionActive = true;
+}
+
+function handleSessionExpired(): void {
+  if (redirecting || !sessionActive) return;
+  redirecting = true;
+  try {
+    clearCurrentUser();
+  } catch {
+    /* best effort */
+  }
+  if (typeof window !== "undefined") {
+    // Hard navigation (not router.replace) so the Next Router Cache can't serve a prior user's
+    // authed pages — mirrors the account-switch fix (commit 32cbd03).
+    window.location.assign("/login");
+  }
+}
+
+/** Fire the session-expiry flow when a response is a 401 on a previously-authenticated session. */
+function checkAuth(res: Response): void {
+  if (res.status === 401) handleSessionExpired();
+}
+
 async function asJson<T>(res: Response): Promise<T> {
-  if (!res.ok) throw new ApiError(`HTTP ${res.status} for ${res.url}`, res.status);
+  if (!res.ok) {
+    checkAuth(res);
+    throw new ApiError(`HTTP ${res.status} for ${res.url}`, res.status);
+  }
   return (await res.json()) as T;
 }
 
@@ -152,7 +188,10 @@ export const realClient: ApiClient = {
         body: JSON.stringify({ email, password, name, title }),
         credentials: "include",
       });
-      return await asJson<AuthResponse>(res);
+      const body = await asJson<AuthResponse>(res);
+      markAuthenticated();
+      redirecting = false;
+      return body;
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(`Network error on signup: ${String(err)}`);
@@ -167,7 +206,10 @@ export const realClient: ApiClient = {
         body: JSON.stringify({ email, password }),
         credentials: "include",
       });
-      return await asJson<AuthResponse>(res);
+      const body = await asJson<AuthResponse>(res);
+      markAuthenticated(); // now a later 401 means the session expired (AC-19)
+      redirecting = false; // allow a fresh expiry cycle after a new login
+      return body;
     } catch (err) {
       if (err instanceof ApiError) throw err;
       throw new ApiError(`Network error on login: ${String(err)}`);
@@ -187,10 +229,27 @@ export const realClient: ApiClient = {
     }
   },
 
+  async logoutAll(): Promise<void> {
+    try {
+      const res = await fetch(`${base()}/api/auth/logout-all`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) {
+        checkAuth(res);
+        throw new ApiError(`HTTP ${res.status}`, res.status);
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error on logout-all: ${String(err)}`);
+    }
+  },
+
   async me(): Promise<AuthUser> {
     try {
       const res = await fetch(`${base()}/api/auth/me`, { credentials: "include" });
       const body = await asJson<AuthResponse>(res);
+      markAuthenticated(); // a confirmed session — subsequent 401s trigger the expiry flow
       return body.user;
     } catch (err) {
       if (err instanceof ApiError) throw err;
@@ -225,6 +284,7 @@ export const realClient: ApiClient = {
         credentials: "include",
       });
       if (!res.ok) {
+        checkAuth(res); // a 401 here means the session lapsed mid-edit → redirect
         // Surface the backend detail (e.g. "Current password is incorrect") for the form.
         let detail = `HTTP ${res.status}`;
         try {

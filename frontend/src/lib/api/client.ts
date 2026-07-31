@@ -39,6 +39,8 @@ export interface ApiClient {
   signup(email: string, password: string, name: string, title?: string): Promise<AuthResponse>;
   login(email: string, password: string): Promise<AuthResponse>;
   logout(): Promise<void>;
+  /** Feature 032 — "sign out of all devices": invalidates every session for this account. */
+  logoutAll(): Promise<void>;
   me(): Promise<AuthUser>;
   // ── Feature 023 account settings ────────────────────────────────────────
   /** Update the caller's own profile (name/title). Returns the refreshed user. */
