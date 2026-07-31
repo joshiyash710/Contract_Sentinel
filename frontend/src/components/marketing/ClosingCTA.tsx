@@ -4,6 +4,7 @@
  */
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { LogoMark } from "@/components/ui/LogoMark";
 
 export function ClosingCTA() {
   return (
@@ -29,9 +30,7 @@ export function ClosingCTA() {
       <footer className="border-t border-subtle px-6 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
           <div className="flex items-center gap-2.5">
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-gradient text-accent-fg text-small font-bold">
-              C
-            </span>
+            <LogoMark size={28} />
             <span className="text-body font-semibold text-text-primary">ContractSentinel</span>
           </div>
           <div className="flex items-center gap-6 text-small text-text-tertiary">

@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { getApiClient } from "@/lib/api/provider";
-import { clearCurrentUser } from "@/lib/useCurrentUser";
 import { ApiError } from "@/lib/api/client";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { TextInput } from "@/components/ui/TextInput";
 import { AuthBrandPanel } from "./AuthBrandPanel";
@@ -29,7 +28,6 @@ function mapError(err: unknown, tab: Tab): string {
 /** Feature 019 — split-layout auth (brand panel + form card), underline tabs. All 014
  *  behavior preserved (SSO disabled, forgot inert, error mapping, → /dashboard on success). */
 export function AuthView({ defaultTab = "login" }: Props) {
-  const router = useRouter();
   const [tab, setTab] = useState<Tab>(defaultTab);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,10 +47,13 @@ export function AuthView({ defaultTab = "login" }: Props) {
       } else {
         await client.signup(email, password, name, title.trim() || undefined);
       }
-      // Drop any previously-cached user so the shell fetches THIS account (fixes a stale
-      // name when switching accounts within one browser session).
-      clearCurrentUser();
-      router.replace("/dashboard");
+      // Auth boundary: use a HARD navigation (full document load), not router.replace.
+      // A soft navigation keeps Next's client-side Router Cache and mounted client
+      // components alive, so switching accounts within one browser session would show
+      // the previous user's cached /dashboard data (their jobs/name never refetch).
+      // A full load tears down all in-memory + Router Cache state so the new session's
+      // data is fetched fresh with the new cookie.
+      window.location.assign("/dashboard");
     } catch (err) {
       setError(mapError(err, tab));
     } finally {
@@ -74,9 +75,7 @@ export function AuthView({ defaultTab = "login" }: Props) {
         <div className="w-full max-w-md">
           {/* Logo (visible on mobile where the brand panel is hidden) */}
           <div className="mb-8 flex items-center justify-center gap-2.5 md:hidden">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent-gradient text-accent-fg font-bold shadow-glow">
-              C
-            </span>
+            <LogoMark size={32} />
             <span className="text-h3 font-semibold tracking-tight text-text-primary">
               ContractSentinel
             </span>

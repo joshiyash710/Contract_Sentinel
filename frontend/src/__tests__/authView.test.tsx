@@ -8,10 +8,18 @@ import { ApiError } from "@/lib/api/client";
 import { makeFakeClient } from "./_fakeClient";
 import { authUserFixture } from "@/lib/api/fixtures";
 
-// ── Router mock ───────────────────────────────────────────────────────────────
-const mockReplace = vi.fn();
+// ── Hard-navigation spy ───────────────────────────────────────────────────────
+// AuthView uses a full-page navigation (window.location.assign) on success so the
+// account boundary tears down Next's Router Cache — assert on that, not on the router.
+const assignMock = vi.fn();
+Object.defineProperty(window, "location", {
+  configurable: true,
+  value: { assign: assignMock, href: "http://localhost/login" },
+});
+
+// Stub next/navigation so any child that reads the router/pathname stays inert.
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: mockReplace }),
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
   usePathname: () => "/login",
 }));
 
@@ -29,7 +37,7 @@ function renderAuth(tab: "login" | "signup" = "login") {
 
 beforeEach(() => {
   fakeClient = makeFakeClient();
-  mockReplace.mockClear();
+  assignMock.mockClear();
 });
 
 // ── AC-12: Google/Microsoft disabled; Forgot-Password inert ──────────────────
@@ -50,9 +58,9 @@ describe("AC-12: SSO buttons disabled and Forgot-Password inert", () => {
   it("Forgot Password link does not navigate", async () => {
     renderAuth("login");
     const fp = screen.getByText(/forgot password/i);
-    // inert — no href that causes navigation; clicking does not call router
+    // inert — no href that causes navigation; clicking does not navigate
     fireEvent.click(fp);
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
   });
 });
 
@@ -94,7 +102,7 @@ describe("AC-13: Login tab", () => {
     });
 
     await waitFor(() => expect(fakeClient.login).toHaveBeenCalledWith("a@b.com", "password123"));
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/dashboard"));
   });
 
   it("401 → shows inline error, no navigation", async () => {
@@ -108,7 +116,7 @@ describe("AC-13: Login tab", () => {
     });
 
     await waitFor(() => expect(screen.getByText(/invalid email or password/i)).toBeTruthy());
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
   });
 });
 
@@ -134,7 +142,7 @@ describe("AC-14: Sign-Up tab", () => {
     await waitFor(() =>
       expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123", "Grace Hopper", "Admiral"),
     );
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/dashboard"));
   });
 
   it("Login tab has no name/title fields", () => {
@@ -155,7 +163,7 @@ describe("AC-14: Sign-Up tab", () => {
     });
 
     await waitFor(() => expect(screen.getByText(/already exists/i)).toBeTruthy());
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
   });
 
   it("422 → shows password policy error", async () => {
@@ -170,6 +178,6 @@ describe("AC-14: Sign-Up tab", () => {
     });
 
     await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(assignMock).not.toHaveBeenCalled();
   });
 });

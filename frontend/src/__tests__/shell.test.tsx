@@ -79,9 +79,11 @@ describe("app shell", () => {
   test("topbar_slots", () => {
     const { rerender } = render(<TopBar title="AI Command Center" />);
     expect(screen.getByText("AI Command Center")).toBeInTheDocument();
-    expect(screen.getByLabelText("Settings")).toBeInTheDocument();
-    expect(screen.getByLabelText("Notifications")).toBeInTheDocument();
-    expect(screen.getByTestId("notif-dot")).toBeInTheDocument();
+    // The right-hand cluster (settings / notifications / profile avatar) was removed at
+    // owner request — those placeholders no longer render.
+    expect(screen.queryByLabelText("Settings")).toBeNull();
+    expect(screen.queryByLabelText("Notifications")).toBeNull();
+    expect(screen.queryByTestId("notif-dot")).toBeNull();
     // search absent by default
     expect(screen.queryByRole("searchbox")).toBeNull();
     // present when supplied

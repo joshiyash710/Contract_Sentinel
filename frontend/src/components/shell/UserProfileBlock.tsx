@@ -1,15 +1,14 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { getApiClient } from "@/lib/api/provider";
-import { useCurrentUser, clearCurrentUser } from "@/lib/useCurrentUser";
+import { useCurrentUser } from "@/lib/useCurrentUser";
 
 /**
  * Sidebar-bottom profile block (avatar + name + title + logout). The name/title come from the
  * logged-in user via useCurrentUser (feature 020); optional props still override for tests.
- * Logout clears the cached user then redirects to /login (014 AC-15).
+ * Logout ends the server session then hard-redirects to /login (014 AC-15).
  */
 export function UserProfileBlock({
   name,
@@ -20,7 +19,6 @@ export function UserProfileBlock({
   role?: string;
   avatarSrc?: string;
 }) {
-  const router = useRouter();
   const { displayName, title } = useCurrentUser();
   const shownName = name ?? displayName;
   const shownRole = role ?? title ?? undefined;
@@ -31,8 +29,12 @@ export function UserProfileBlock({
     } catch {
       // Always redirect even on error — the cookie is cleared server-side
     }
-    clearCurrentUser();
-    router.replace("/login");
+    // Auth boundary: HARD navigation (full document load), not router.replace, so
+    // Next's Router Cache and every mounted client component are destroyed. This
+    // prevents the next account's session from ever reusing this user's cached
+    // /dashboard render (their data/name). Full reload also clears the in-memory
+    // current-user cache, so no explicit clearCurrentUser() is needed.
+    window.location.assign("/login");
   }
 
   return (

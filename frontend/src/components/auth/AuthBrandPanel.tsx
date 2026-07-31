@@ -3,14 +3,13 @@
  * backdrop, logo, one-line value prop, and a subtle proof point. Purely decorative.
  */
 import { ShieldCheck, Sparkles, FileCheck2 } from "lucide-react";
+import { LogoMark } from "@/components/ui/LogoMark";
 
 export function AuthBrandPanel() {
   return (
     <div className="bg-aurora relative hidden flex-col justify-between border-r border-subtle p-12 md:flex">
       <div className="flex items-center gap-2.5">
-        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-gradient text-accent-fg font-bold shadow-glow">
-          C
-        </span>
+        <LogoMark size={36} />
         <span className="text-h3 font-semibold tracking-tight text-text-primary">
           ContractSentinel
         </span>
