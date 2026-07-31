@@ -881,3 +881,106 @@ async def test_per_user_disabled_uses_central(tmp_path):
     ):
         await deliver_report(state, recipient="a@b.com", drive_token_json='{"u":"ignored"}')
     assert seen["token_path"] is None  # central token used, per-user ignored
+
+
+# ── Feature 032 (W1): central-token decrypt-to-tempfile in delivery ──────────────
+
+
+def _write_encrypted_central(tmp_path, monkeypatch, plaintext):
+    """Set GOOGLE_OAUTH_TOKEN_PATH to an ENCRYPTED central token file; return the file path."""
+    import app.config as _c
+    from app.security import crypto
+
+    central = tmp_path / "central_token.json"
+    central.write_text(crypto.encrypt(plaintext), encoding="utf-8")
+    monkeypatch.setattr(_c, "GOOGLE_OAUTH_TOKEN_PATH", str(central))
+    return central
+
+
+async def test_central_drive_uses_decrypted_central_tempfile(tmp_path, monkeypatch):
+    # AC-3 + AC-21: central Drive path decrypts the at-rest token to a tempfile, hands the subprocess
+    # PLAINTEXT, and cleans the tempfile up afterward. On-disk central stays ciphertext.
+    import os as _os
+    import app.delivery.delivery_step as _ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(_ds, "PER_USER_DRIVE_ENABLED", False)
+    central = _write_encrypted_central(tmp_path, monkeypatch, '{"refresh_token": "CENTRAL"}')
+    state = _make_state(tmp_path)
+    seen = {}
+
+    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+        seen["token_path"] = token_path
+        seen["contents"] = open(token_path, encoding="utf-8").read() if token_path else None
+        return _ok_drive(name)
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_capture),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    assert seen["contents"] == '{"refresh_token": "CENTRAL"}'  # subprocess gets plaintext
+    assert seen["token_path"] != str(central)                   # a tempfile, not the ciphertext file
+    assert not _os.path.exists(seen["token_path"])              # cleaned up (AC-21)
+    assert "refresh_token" not in central.read_text(encoding="utf-8")  # on-disk stays ciphertext (AC-3)
+
+
+async def test_central_gmail_uses_decrypted_central_tempfile(tmp_path, monkeypatch):
+    # AC-3: Gmail (always central) also receives the decrypted central token via token_path, cleaned up.
+    import os as _os
+    from app.delivery.delivery_step import deliver_report
+
+    _write_encrypted_central(tmp_path, monkeypatch, '{"refresh_token": "CENTRAL"}')
+    state = _make_state(tmp_path)
+    seen = {}
+
+    async def gmail_capture(to, subject, body, ap, an, *, timeout_seconds, max_retries,
+                            html_body=None, token_path=None):
+        seen["token_path"] = token_path
+        seen["contents"] = open(token_path, encoding="utf-8").read() if token_path else None
+        return _ok_gmail()
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=AsyncMock(return_value=_ok_drive())),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_capture),
+    ):
+        await deliver_report(state, recipient="a@b.com", drive_token_json='{"refresh_token":"U"}')
+
+    assert seen["contents"] == '{"refresh_token": "CENTRAL"}'
+    assert not _os.path.exists(seen["token_path"])  # cleaned up
+
+
+async def test_central_token_tempfile_cleaned_on_exception(tmp_path, monkeypatch):
+    # AC-21: the central tempfile is removed even when the delivery call raises.
+    import os as _os
+    import app.delivery.delivery_step as _ds
+    import app.delivery.oauth_credentials as _oc
+    from app.delivery.delivery_step import deliver_report
+    import pytest
+
+    monkeypatch.setattr(_ds, "PER_USER_DRIVE_ENABLED", False)
+    _write_encrypted_central(tmp_path, monkeypatch, '{"refresh_token": "CENTRAL"}')
+    state = _make_state(tmp_path)
+
+    created = {}
+    real = _oc.materialize_central_token_tempfile
+
+    def _wrap():
+        p = real()
+        created["path"] = p
+        return p
+
+    monkeypatch.setattr(_ds, "materialize_central_token_tempfile", _wrap)
+
+    async def drive_boom(*a, **k):
+        raise RuntimeError("boom")
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_boom),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        with pytest.raises(RuntimeError):
+            await deliver_report(state, recipient="a@b.com")
+
+    assert created.get("path") and not _os.path.exists(created["path"])  # tempfile cleaned despite raise

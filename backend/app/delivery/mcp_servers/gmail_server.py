@@ -66,10 +66,13 @@ def _build_mime(req: GmailSendRequest) -> str:
 async def _handle_send(req: GmailSendRequest) -> ToolOutcome:
     """Gmail send handler — testable without the MCP stdio layer."""
     try:
+        # feature 032: a decrypted-central-token temp path may be supplied by the parent; else the
+        # central config default (mirrors drive_server.py). load_credentials only ever sees plaintext.
+        token_path = req.token_path or _config.GOOGLE_OAUTH_TOKEN_PATH
         creds = await asyncio.to_thread(
             load_credentials,
             _config.GOOGLE_OAUTH_CREDENTIALS_PATH,
-            _config.GOOGLE_OAUTH_TOKEN_PATH,
+            token_path,
         )
         svc = await asyncio.to_thread(build_gmail_service, creds)
 
@@ -116,6 +119,7 @@ def _build_server():
                         "html_body": {"type": ["string", "null"]},
                         "attachment_path": {"type": ["string", "null"]},
                         "attachment_name": {"type": ["string", "null"]},
+                        "token_path": {"type": ["string", "null"]},
                     },
                     "required": ["to", "subject", "body"],
                 },

@@ -31,6 +31,17 @@ from google_auth_oauthlib.flow import InstalledAppFlow  # noqa: E402
 
 from app import config as _config  # noqa: E402
 from app.delivery.mcp_servers.google_auth import SCOPES  # noqa: E402
+from app.security import crypto  # noqa: E402
+
+
+def _write_token_encrypted(token_path: Path, token_json: str) -> None:
+    """Persist the central Google token ENCRYPTED at rest (feature 032, W1).
+
+    The delivery layer decrypts it to a short-lived temp file for the MCP subprocess
+    (app.delivery.oauth_credentials.materialize_central_token_tempfile).
+    """
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    token_path.write_text(crypto.encrypt(token_json), encoding="utf-8")
 
 
 def main() -> int:
@@ -58,10 +69,9 @@ def main() -> int:
     flow = InstalledAppFlow.from_client_secrets_file(str(credentials_path), SCOPES)
     creds = flow.run_local_server(port=0)
 
-    token_path.parent.mkdir(parents=True, exist_ok=True)
-    token_path.write_text(creds.to_json(), encoding="utf-8")
+    _write_token_encrypted(token_path, creds.to_json())
 
-    print(f"\nSuccess. Token written to {token_path}")
+    print(f"\nSuccess. Encrypted token written to {token_path}")
     print("The delivery layer can now authenticate (refresh happens automatically).")
     return 0
 

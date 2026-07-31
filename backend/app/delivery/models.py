@@ -26,6 +26,7 @@ class GmailSendRequest(BaseModel):
     html_body: Optional[str] = None  # feature 030: HTML alternative body (plain `body` is the fallback)
     attachment_path: Optional[str] = None
     attachment_name: Optional[str] = None
+    token_path: Optional[str] = None  # feature 032: decrypted central token path; None → central default
 
 
 class ToolOutcome(BaseModel):

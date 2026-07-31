@@ -22,6 +22,7 @@ async def send_report_via_gmail(
     timeout_seconds: int,
     max_retries: int,
     html_body: Optional[str] = None,
+    token_path: Optional[str] = None,
 ) -> DeliveryResult:
     try:
         req = GmailSendRequest(
@@ -31,6 +32,7 @@ async def send_report_via_gmail(
             html_body=html_body,
             attachment_path=attachment_path,
             attachment_name=attachment_name,
+            token_path=token_path,
         )
         outcome = await call_tool_with_retry(
             "app.delivery.mcp_servers.gmail_server",

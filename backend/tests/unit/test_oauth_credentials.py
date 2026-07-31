@@ -1,9 +1,14 @@
-"""Unit tests for app.delivery.oauth_credentials (feature 031)."""
+"""Unit tests for app.delivery.oauth_credentials (feature 031 + 032)."""
 
 import os
 from unittest.mock import patch, MagicMock
 
-from app.delivery.oauth_credentials import write_token_tempfile, revoke_token
+import app.config as _cfg
+from app.delivery.oauth_credentials import (
+    materialize_central_token_tempfile,
+    write_token_tempfile,
+    revoke_token,
+)
 
 
 def test_write_token_tempfile_roundtrip():
@@ -31,3 +36,37 @@ def test_revoke_token_never_raises_on_network_error():
 
 def test_revoke_token_handles_bad_json():
     assert revoke_token("not json") is False  # no raise
+
+
+# ── Feature 032 (W1): central-token decrypt-to-tempfile ──────────────────────────
+
+
+def test_materialize_central_token_absent_returns_none(monkeypatch, tmp_path):
+    monkeypatch.setattr(_cfg, "GOOGLE_OAUTH_TOKEN_PATH", str(tmp_path / "nope.json"))
+    assert materialize_central_token_tempfile() is None
+
+
+def test_materialize_central_token_encrypted_decrypts_to_tempfile(monkeypatch, tmp_path):
+    from app.security import crypto
+
+    plaintext = '{"refresh_token": "central-secret"}'
+    central = tmp_path / "google_token.json"
+    central.write_text(crypto.encrypt(plaintext), encoding="utf-8")
+    monkeypatch.setattr(_cfg, "GOOGLE_OAUTH_TOKEN_PATH", str(central))
+
+    path = materialize_central_token_tempfile()
+    try:
+        assert path is not None and path != str(central)  # a fresh tempfile, not the ciphertext file
+        assert open(path, encoding="utf-8").read() == plaintext  # decrypted plaintext
+    finally:
+        os.unlink(path)
+
+
+def test_materialize_central_token_legacy_plaintext_returns_original(monkeypatch, tmp_path):
+    plaintext = '{"refresh_token": "legacy-central"}'
+    central = tmp_path / "google_token.json"
+    central.write_text(plaintext, encoding="utf-8")
+    monkeypatch.setattr(_cfg, "GOOGLE_OAUTH_TOKEN_PATH", str(central))
+
+    # Legacy plaintext file → returned unchanged (no tempfile).
+    assert materialize_central_token_tempfile() == str(central)

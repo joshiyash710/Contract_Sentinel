@@ -21,7 +21,10 @@ from pydantic import ValidationError
 import app.config as _config
 from app.delivery.mcp_clients import send_report_via_gmail, upload_report_to_drive
 from app.delivery.models import DeliveryResult
-from app.delivery.oauth_credentials import write_token_tempfile
+from app.delivery.oauth_credentials import (
+    materialize_central_token_tempfile,
+    write_token_tempfile,
+)
 from app.delivery.report_pdf import render_report_pdf
 from app.delivery.email_html import build_email_bodies
 from app.graph.state import MCPDeliveryStatus
@@ -211,62 +214,80 @@ async def deliver_report(
         except Exception:  # noqa: BLE001 — a bad render must never break delivery (AC-13)
             logger.warning("PDF render failed; falling back to Markdown", exc_info=True)
 
-    # ── Drive (feature 031: per-user routing) ─────────────────────────────────
-    if MCP_DRIVE_ENABLED:
-        if not PER_USER_DRIVE_ENABLED:
-            # pre-031: central token
-            drive_result = await _deliver_drive(md_path, json_path, pdf_path, pdf_ok, token_path=None)
-            status["drive"] = _to_info(drive_result)
-            if drive_result.ok:
-                drive_ref = drive_result.resource_ref
-        elif drive_token_json:
-            # connected → upload to the user's own Drive with their token
-            user_token_path = write_token_tempfile(drive_token_json)
-            try:
-                drive_result = await _deliver_drive(
-                    md_path, json_path, pdf_path, pdf_ok, token_path=user_token_path
-                )
-            finally:
-                try:
-                    os.unlink(user_token_path)
-                except OSError:
-                    pass
-            status["drive"] = _to_info(drive_result)
-            if drive_result.ok:
-                drive_ref = drive_result.resource_ref
-        else:
-            # not connected → skip Drive (email still sent) — resolved Q5
-            status["drive"] = _failed_info("user has not connected Google Drive")
+    # ── Central token (feature 032, W1): decrypt at-rest token to a short-lived plaintext temp file
+    # for the MCP subprocess(es). None if no central token on disk. Cleaned up in the finally below;
+    # the master key never leaves this parent process. `_central_is_temp` distinguishes a real temp
+    # file (created by us → unlink) from the legacy-plaintext original path (leave alone).
+    central_token_path = materialize_central_token_tempfile()
+    _central_is_temp = bool(central_token_path) and central_token_path != _config.GOOGLE_OAUTH_TOKEN_PATH
 
-    # ── Gmail ─────────────────────────────────────────────────────────────────
-    if MCP_GMAIL_ENABLED:
-        to = recipient or MCP_DELIVERY_RECIPIENT
-        if not to:
-            status["gmail"] = _failed_info("no recipient configured")
-        else:
-            subject, plain, html = build_email_bodies(
-                document_id, summary, original_filename, drive_ref
-            )
-            # Attachment: PDF when available + selected, else the .md fallback (AC-13/AC-15).
-            attach_path = None
-            if MCP_GMAIL_ATTACH_REPORT:
-                if pdf_ok and MCP_GMAIL_ATTACH_FORMAT == "pdf":
-                    attach_path = pdf_path
-                elif md_path.exists():
-                    attach_path = md_path
-            # AC-15: PDF disabled → full pre-030 revert (plain-text email, no HTML part).
-            html_body = html if MCP_REPORT_PDF_ENABLED else None
-            gmail_result = await send_report_via_gmail(
-                to,
-                subject,
-                plain,
-                str(attach_path) if attach_path else None,
-                attach_path.name if attach_path else None,
-                timeout_seconds=MCP_DELIVERY_TIMEOUT_SECONDS,
-                max_retries=MCP_DELIVERY_MAX_RETRIES,
-                html_body=html_body,
-            )
-            status["gmail"] = _to_info(gmail_result)
+    try:
+        # ── Drive (feature 031: per-user routing) ─────────────────────────────────
+        if MCP_DRIVE_ENABLED:
+            if not PER_USER_DRIVE_ENABLED:
+                # pre-031: central token (feature 032: decrypted temp path, not the ciphertext file)
+                drive_result = await _deliver_drive(
+                    md_path, json_path, pdf_path, pdf_ok, token_path=central_token_path
+                )
+                status["drive"] = _to_info(drive_result)
+                if drive_result.ok:
+                    drive_ref = drive_result.resource_ref
+            elif drive_token_json:
+                # connected → upload to the user's own Drive with their token
+                user_token_path = write_token_tempfile(drive_token_json)
+                try:
+                    drive_result = await _deliver_drive(
+                        md_path, json_path, pdf_path, pdf_ok, token_path=user_token_path
+                    )
+                finally:
+                    try:
+                        os.unlink(user_token_path)
+                    except OSError:
+                        pass
+                status["drive"] = _to_info(drive_result)
+                if drive_result.ok:
+                    drive_ref = drive_result.resource_ref
+            else:
+                # not connected → skip Drive (email still sent) — resolved Q5
+                status["drive"] = _failed_info("user has not connected Google Drive")
+
+        # ── Gmail (always central; feature 032: decrypted central token via token_path) ───────────
+        if MCP_GMAIL_ENABLED:
+            to = recipient or MCP_DELIVERY_RECIPIENT
+            if not to:
+                status["gmail"] = _failed_info("no recipient configured")
+            else:
+                subject, plain, html = build_email_bodies(
+                    document_id, summary, original_filename, drive_ref
+                )
+                # Attachment: PDF when available + selected, else the .md fallback (AC-13/AC-15).
+                attach_path = None
+                if MCP_GMAIL_ATTACH_REPORT:
+                    if pdf_ok and MCP_GMAIL_ATTACH_FORMAT == "pdf":
+                        attach_path = pdf_path
+                    elif md_path.exists():
+                        attach_path = md_path
+                # AC-15: PDF disabled → full pre-030 revert (plain-text email, no HTML part).
+                html_body = html if MCP_REPORT_PDF_ENABLED else None
+                gmail_result = await send_report_via_gmail(
+                    to,
+                    subject,
+                    plain,
+                    str(attach_path) if attach_path else None,
+                    attach_path.name if attach_path else None,
+                    timeout_seconds=MCP_DELIVERY_TIMEOUT_SECONDS,
+                    max_retries=MCP_DELIVERY_MAX_RETRIES,
+                    html_body=html_body,
+                    token_path=central_token_path,
+                )
+                status["gmail"] = _to_info(gmail_result)
+    finally:
+        # feature 032: remove the decrypted central-token temp file even if delivery raised (AC-21).
+        if _central_is_temp:
+            try:
+                os.unlink(central_token_path)
+            except OSError:
+                pass
 
     logger.info(
         "MCP delivery completed for %s — %s",
