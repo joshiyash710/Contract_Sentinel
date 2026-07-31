@@ -14,6 +14,29 @@ from unittest.mock import patch
 FIXTURES_DIR = os.path.join(os.path.dirname(__file__), "fixtures")
 
 
+@pytest.fixture(autouse=True)
+def _isolate_encryption_key_suite_wide(tmp_path_factory, monkeypatch):
+    """Feature 032: keep the at-rest Fernet key out of the repo's data/ dir for EVERY test.
+
+    Without this, the first test that touches OAuth-token storage would generate/read the real
+    data/encryption_key. Points the key file at a per-session temp path and resets the module cache
+    so no test writes into the working tree.
+    """
+    import app.config as _cfg
+    from app.security import crypto
+
+    key_path = tmp_path_factory.mktemp("enc") / "encryption_key"
+    monkeypatch.setattr(crypto, "_KEY", None, raising=False)
+    monkeypatch.delenv(_cfg.ENCRYPTION_KEY_ENV, raising=False)
+    monkeypatch.setattr(_cfg, "ENCRYPTION_KEY_FILE", str(key_path))
+    # Feature 032 (W2): AUTH_COOKIE_SECURE now defaults to True (needs TLS). The TestClient talks
+    # plain http, so — like local dev over http — force it False for the suite. Tests that assert the
+    # Secure flag (AC-7) monkeypatch it back to True explicitly.
+    monkeypatch.setattr(_cfg, "AUTH_COOKIE_SECURE", False)
+    yield
+    monkeypatch.setattr(crypto, "_KEY", None, raising=False)
+
+
 @pytest.fixture
 def sample_pdf_path():
     """Path to a valid PDF with extractable text (>200 chars)."""

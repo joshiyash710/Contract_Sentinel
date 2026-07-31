@@ -106,6 +106,18 @@ python -m pip install --upgrade pip
 
 **Rationale**: These libraries provide the necessary tools for organizing evaluation results and computing precision/recall-style metrics from logged eval data as required by future evaluation specifications.
 
+### i2) Security / encryption at rest (serves feature 032, W1)
+
+- `cryptography` - Provides **Fernet** (AES-128-CBC + HMAC-SHA256) symmetric encryption, used to encrypt
+  Google OAuth tokens at rest (per-user `users.google_oauth_token` column + central `google_token.json`),
+  authorized by the constitution §2 amendment (2026-07-31, feature 032).
+
+**Rationale**: Fernet is a well-reviewed, misuse-resistant symmetric primitive in the standard
+`cryptography` library (previously only a transitive dependency; feature 032 promotes it to a declared
+one). It is explicitly a **symmetric-crypto primitive with a single local key (env var or key file),
+NOT** the "dedicated KMS/Vault key management" excluded by §5.5 below — no external key-management
+service is introduced.
+
 ### j) Dev Tooling
 
 - `black` - Code formatter
@@ -150,6 +162,7 @@ dependencies = [
     "pydantic>=2.7.0",
     "python-dotenv>=1.0.0",
     "python-multipart>=0.0.9",
+    "cryptography>=42.0.0",
 ]
 
 [project.optional-dependencies]

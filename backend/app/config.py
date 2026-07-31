@@ -13,6 +13,25 @@ from typing import Optional
 
 from app.graph.state import RiskLevel
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    """Read a boolean env override (feature 032). '1/true/yes/on' → True, '0/false/no/off' → False."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _env_int(name: str, default: int) -> int:
+    """Read an integer env override (feature 032); falls back to default on unset/unparseable."""
+    raw = os.getenv(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        return int(raw.strip())
+    except ValueError:
+        return default
+
 # ── IngestAgent thresholds ─────────────────────────────────────────────────────
 # Source: specs/003-ingest-agent/spec.md §6
 MIN_TEXT_LENGTH_THRESHOLD: int = 50  # chars; below → force OCR
@@ -498,8 +517,6 @@ JOBS_LIST_MAX_LIMIT: int = 100
 # Source: specs/014-auth-landing/spec.md §2.3 (D1–D2/D12–D13)
 
 AUTH_COOKIE_NAME: str = "cs_session"
-AUTH_SESSION_TTL_SECONDS: int = 7 * 24 * 3600  # D12 — 7 days
-AUTH_COOKIE_SECURE: bool = False  # D1 — must be True behind TLS
 AUTH_BCRYPT_ROUNDS: int = 12  # D2
 AUTH_PASSWORD_MIN: int = 8
 AUTH_PASSWORD_MAX: int = (
@@ -513,3 +530,35 @@ AUTH_SIGNUP_OPEN: bool = (
 AUTH_SECRET_FILE: str = (
     "data/auth_secret"  # D1 — persisted random secret if AUTH_SECRET unset
 )
+
+# ── Session/cookie hardening (feature 032, W2) — SUPERSEDES 014's TTL/Secure ─────
+# Source: specs/032-security-hardening-tier1/{spec,plan}.md §2.3/§3. Env-overridable (§3).
+AUTH_COOKIE_SECURE: bool = _env_bool("AUTH_COOKIE_SECURE", True)
+# 032: default True (was False). A Secure cookie is dropped by browsers over plain HTTP, so this
+# REQUIRES TLS in front of the app. For local plaintext-HTTP dev set AUTH_COOKIE_SECURE=False (EC-10).
+AUTH_SESSION_TTL_SECONDS: int = _env_int("AUTH_SESSION_TTL_SECONDS", 8 * 3600)
+# 032: absolute session lifetime cap = 8h (was 7 days). Max a session can live regardless of activity.
+AUTH_IDLE_TIMEOUT_SECONDS: int = _env_int("AUTH_IDLE_TIMEOUT_SECONDS", 30 * 60)
+# 032: sliding idle window = 30 min. No authenticated request within this window → session rejected.
+# Refreshed on each authenticated request, never exceeding the absolute cap above.
+AUTH_CLOCK_SKEW_SECONDS: int = 60
+# 032: tolerance applied to exp/aexp checks so small clock skew doesn't mis-expire (EC-5).
+
+# ── Encryption at rest for OAuth tokens (feature 032, W1) ────────────────────────
+# Authorized by the §2 amendment (2026-07-31, feature 032). Fernet symmetric key; NEVER logged.
+ENCRYPTION_KEY_ENV: str = "CONTRACTSENTINEL_ENCRYPTION_KEY"
+# Name of the env var holding a base64 Fernet key. Takes precedence over the key file.
+ENCRYPTION_KEY_FILE: str = "data/encryption_key"
+# Persisted Fernet key if the env var is unset; generated + written 0600 on first run
+# (mirrors AUTH_SECRET_FILE bootstrap). Losing this orphans stored tokens → users re-connect.
+
+# ── Login/signup rate-limiting & account lockout (feature 032, W3) ───────────────
+# Source: specs/032-security-hardening-tier1/{spec,plan}.md §2.4/§4. All env-overridable (§3).
+AUTH_RATE_LIMIT_MAX: int = _env_int("AUTH_RATE_LIMIT_MAX", 10)
+AUTH_RATE_LIMIT_WINDOW_SECONDS: int = _env_int("AUTH_RATE_LIMIT_WINDOW_SECONDS", 60)
+# Per-IP: at most MAX login/signup/password attempts per WINDOW seconds → else 429 + Retry-After.
+AUTH_LOCKOUT_MAX_FAILURES: int = _env_int("AUTH_LOCKOUT_MAX_FAILURES", 5)
+AUTH_LOCKOUT_WINDOW_SECONDS: int = _env_int("AUTH_LOCKOUT_WINDOW_SECONDS", 15 * 60)
+AUTH_LOCKOUT_DURATION_SECONDS: int = _env_int("AUTH_LOCKOUT_DURATION_SECONDS", 15 * 60)
+# Per-account: MAX_FAILURES consecutive failed logins within WINDOW → account locked (429) for
+# DURATION seconds, even if the next password is correct (AC-13). A success resets the counter.

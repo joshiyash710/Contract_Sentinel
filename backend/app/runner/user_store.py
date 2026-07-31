@@ -14,6 +14,10 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
+from cryptography.fernet import InvalidToken
+
+from app.security import crypto
+
 
 class EmailExists(Exception):
     """Raised by UserStore.create() when the email is already registered."""
@@ -30,7 +34,9 @@ class UserRow:
     name: Optional[str] = None
     title: Optional[str] = None
     # Per-user Google Drive connection (feature 031). NULL = not connected.
-    google_oauth_token: Optional[str] = None  # Credentials.to_json() (refresh token); unencrypted interim
+    # Stored ENCRYPTED at rest (feature 032, W1 — Fernet); decrypted transparently on read so this
+    # field always holds plaintext Credentials.to_json() (or None).
+    google_oauth_token: Optional[str] = None
     google_email: Optional[str] = None  # connected Google account email, for display
 
 
@@ -79,7 +85,25 @@ class UserStore:
             name=name, title=title,
         )
 
+    @staticmethod
+    def _decrypt_token(raw: Optional[str]) -> Optional[str]:
+        """Decrypt a stored google_oauth_token → plaintext (feature 032, W1).
+
+        None → None. A legacy plaintext value (pre-032) is tolerated and returned as-is (AC-5).
+        A corrupt / foreign-key value (fails decryption AND isn't a plaintext token) → None, so it is
+        treated as "not connected" rather than crashing or leaking garbage (EC-1/EC-2).
+        """
+        if not raw:
+            return None
+        try:
+            return crypto.decrypt(raw)
+        except InvalidToken:
+            return raw if crypto.looks_like_plaintext_token(raw) else None
+
     def _row_to_user(self, row: sqlite3.Row) -> UserRow:
+        raw_token = (
+            row["google_oauth_token"] if "google_oauth_token" in row.keys() else None
+        )
         return UserRow(
             id=row["id"],
             email=row["email"],
@@ -87,9 +111,7 @@ class UserStore:
             created_at=row["created_at"],
             name=row["name"] if "name" in row.keys() else None,
             title=row["title"] if "title" in row.keys() else None,
-            google_oauth_token=(
-                row["google_oauth_token"] if "google_oauth_token" in row.keys() else None
-            ),
+            google_oauth_token=self._decrypt_token(raw_token),
             google_email=row["google_email"] if "google_email" in row.keys() else None,
         )
 
@@ -143,21 +165,26 @@ class UserStore:
     def set_google_credentials(
         self, user_id: str, token_json: str, google_email: Optional[str]
     ) -> None:
-        """Store (or replace) the connecting account's Google credentials + email."""
+        """Store (or replace) the connecting account's Google credentials + email.
+
+        The token is ENCRYPTED at rest (feature 032, W1). Empty/None token → SQL NULL (never
+        encrypt(""); EC-11).
+        """
+        encrypted = crypto.encrypt(token_json) if token_json else None
         with self._lock:
             self._conn.execute(
                 "UPDATE users SET google_oauth_token = ?, google_email = ? WHERE id = ?",
-                (token_json, google_email, user_id),
+                (encrypted, google_email, user_id),
             )
             self._conn.commit()
 
     def get_google_credentials(self, user_id: str) -> Optional[str]:
-        """Return the user's stored Google credentials JSON, or None if not connected."""
+        """Return the user's DECRYPTED Google credentials JSON, or None if not connected/undecryptable."""
         with self._lock:
             row = self._conn.execute(
                 "SELECT google_oauth_token FROM users WHERE id = ?", (user_id,)
             ).fetchone()
-        return row["google_oauth_token"] if row is not None else None
+        return self._decrypt_token(row["google_oauth_token"]) if row is not None else None
 
     def get_google_email(self, user_id: str) -> Optional[str]:
         """Return the connected Google account email, or None if not connected."""

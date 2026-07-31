@@ -28,6 +28,7 @@ from app.runner.worker import PipelineWorker
 from app.runner.models import JobState
 from app.runner.user_store import UserStore
 from app.api.security import bootstrap_secret
+from app.security.crypto import bootstrap_encryption_key
 from app.api.auth import auth_router, require_auth
 from app.api.integrations import integrations_router
 from app.api.routes import RunnerContext, router, public_router
@@ -60,6 +61,7 @@ async def lifespan(application: FastAPI):
     """
     loop = asyncio.get_running_loop()
     bootstrap_secret()
+    bootstrap_encryption_key()  # feature 032 (W1): fail-fast / pre-generate the at-rest key
     upgrade_to_head(_cfg.JOB_STORE_DB_PATH)
     store = JobStore(_cfg.JOB_STORE_DB_PATH)
     user_store = UserStore(_cfg.JOB_STORE_DB_PATH)

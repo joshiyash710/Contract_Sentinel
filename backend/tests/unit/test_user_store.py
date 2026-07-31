@@ -20,6 +20,14 @@ def user_db(tmp_path):
     store.close()
 
 
+def _raw_token(store, user_id):
+    """Read the raw (possibly-ciphertext) google_oauth_token straight from the DB, bypassing decrypt."""
+    row = store._conn.execute(
+        "SELECT google_oauth_token FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+    return row[0] if row is not None else None
+
+
 def test_create_and_get_by_email(user_db):
     row = user_db.create("alice@example.com", "hashed_pw_value")
     assert row.id
@@ -138,3 +146,65 @@ def test_google_credentials_scoped_per_user(user_db):
     user_db.clear_google_credentials(a.id)
     assert user_db.get_google_credentials(a.id) is None
     assert user_db.get_google_credentials(b.id) == '{"refresh_token":"B"}'
+
+
+# ── Feature 032 (W1): OAuth-token encryption at rest ─────────────────────────────
+
+
+def test_stored_token_is_ciphertext_and_roundtrips(user_db):
+    # AC-2: the stored value is NOT the plaintext and does not leak "refresh_token".
+    row = user_db.create("enc@example.com", "h")
+    plaintext = '{"refresh_token": "secret-abc", "token": "t"}'
+    user_db.set_google_credentials(row.id, plaintext, "e@gmail.com")
+
+    raw = _raw_token(user_db, row.id)
+    assert raw is not None
+    assert raw != plaintext
+    assert "refresh_token" not in raw
+    assert "secret-abc" not in raw
+    # Decrypt-on-read returns exactly the original.
+    assert user_db.get_google_credentials(row.id) == plaintext
+    # _row_to_user also decrypts (consistency): UserRow carries plaintext, never ciphertext.
+    assert user_db.get_by_id(row.id).google_oauth_token == plaintext
+
+
+def test_legacy_plaintext_token_read_then_reencrypted(user_db):
+    # AC-5: a pre-032 plaintext value is readable as-is, and re-encrypted on the next write.
+    row = user_db.create("legacy@example.com", "h")
+    legacy = '{"refresh_token": "legacy-plain"}'
+    # Simulate a row written before feature 032 (plaintext straight into the column).
+    with user_db._lock:
+        user_db._conn.execute(
+            "UPDATE users SET google_oauth_token = ? WHERE id = ?", (legacy, row.id)
+        )
+        user_db._conn.commit()
+    assert _raw_token(user_db, row.id) == legacy  # still plaintext on disk
+    assert user_db.get_google_credentials(row.id) == legacy  # tolerated on read
+
+    # Next write encrypts it.
+    user_db.set_google_credentials(row.id, legacy, "l@gmail.com")
+    raw = _raw_token(user_db, row.id)
+    assert raw != legacy
+    assert "legacy-plain" not in raw
+    assert user_db.get_google_credentials(row.id) == legacy
+
+
+def test_corrupt_ciphertext_reads_as_none(user_db):
+    # EC-1/EC-2: corrupt/foreign value that is neither valid ciphertext nor a plaintext token → None.
+    row = user_db.create("corrupt@example.com", "h")
+    with user_db._lock:
+        user_db._conn.execute(
+            "UPDATE users SET google_oauth_token = ? WHERE id = ?",
+            ("!!not-a-valid-fernet-token!!", row.id),
+        )
+        user_db._conn.commit()
+    assert user_db.get_google_credentials(row.id) is None
+    assert user_db.get_by_id(row.id).google_oauth_token is None
+
+
+def test_empty_token_stored_as_null(user_db):
+    # EC-11: encrypting empty/None must store SQL NULL, not encrypt("").
+    row = user_db.create("empty@example.com", "h")
+    user_db.set_google_credentials(row.id, "", "e@gmail.com")
+    assert _raw_token(user_db, row.id) is None
+    assert user_db.get_google_credentials(row.id) is None
