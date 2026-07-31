@@ -91,14 +91,15 @@ describe("app shell", () => {
     expect(screen.getByRole("searchbox")).toBeInTheDocument();
   });
 
-  test("layout_composes_outlet", () => {
+  test("layout_composes_outlet", async () => {
     render(
       <AppShell>
         <div data-testid="outlet-child">Hello</div>
       </AppShell>,
     );
-    // sidebar (nav) + top bar + the child are all present
-    expect(screen.getByText("ContractSentinel")).toBeInTheDocument();
+    // Feature 032: the protected shell resolves the current user (mock → authUserFixture) before
+    // rendering, so await the sidebar rather than asserting synchronously.
+    expect(await screen.findByText("ContractSentinel")).toBeInTheDocument();
     expect(screen.getByTestId("outlet-child")).toBeInTheDocument();
   });
 });

@@ -12,6 +12,7 @@ and popped on callback — a missing/mismatched/replayed state is rejected.
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 import threading
 import time
@@ -26,6 +27,12 @@ from app.api.auth import AuthUser, require_auth
 from app.delivery.oauth_credentials import revoke_token
 
 logger = logging.getLogger("contractsentinel.integrations")
+
+# Google returns a SUPERSET of the requested scope when the account previously granted more (we send
+# include_granted_scopes=true, and this account also granted the central gmail.send). oauthlib rejects
+# any scope change by default → the token exchange 500s ("Scope has changed"). Relaxing this lets the
+# exchange succeed; we still only USE drive.file for per-user Drive. (Fixes the 031 connect bug.)
+os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
 integrations_router = APIRouter(prefix="/api/integrations")
 
