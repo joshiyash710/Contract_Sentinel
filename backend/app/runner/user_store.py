@@ -38,6 +38,9 @@ class UserRow:
     # field always holds plaintext Credentials.to_json() (or None).
     google_oauth_token: Optional[str] = None
     google_email: Optional[str] = None  # connected Google account email, for display
+    # Server-side session invalidation (feature 032, W2). Bumped on logout-all / password change;
+    # a JWT whose `epoch` claim != this value is rejected by require_auth. Default 0 (legacy rows).
+    session_epoch: int = 0
 
 
 class UserStore:
@@ -113,12 +116,15 @@ class UserStore:
             title=row["title"] if "title" in row.keys() else None,
             google_oauth_token=self._decrypt_token(raw_token),
             google_email=row["google_email"] if "google_email" in row.keys() else None,
+            session_epoch=(
+                row["session_epoch"] if "session_epoch" in row.keys() and row["session_epoch"] is not None else 0
+            ),
         )
 
     def get_by_email(self, email: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email FROM users WHERE email = ?",
+                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email, session_epoch FROM users WHERE email = ?",
                 (email,),
             ).fetchone()
         return self._row_to_user(row) if row is not None else None
@@ -126,7 +132,7 @@ class UserStore:
     def get_by_id(self, user_id: str) -> Optional[UserRow]:
         with self._lock:
             row = self._conn.execute(
-                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email FROM users WHERE id = ?",
+                "SELECT id, email, password_hash, created_at, name, title, google_oauth_token, google_email, session_epoch FROM users WHERE id = ?",
                 (user_id,),
             ).fetchone()
         return self._row_to_user(row) if row is not None else None
@@ -158,6 +164,19 @@ class UserStore:
             self._conn.execute(
                 "UPDATE users SET password_hash = ? WHERE id = ?",
                 (new_hash, user_id),
+            )
+            self._conn.commit()
+
+    def bump_session_epoch(self, user_id: str) -> None:
+        """Feature 032 (W2): invalidate ALL outstanding sessions for a user (logout-everywhere).
+
+        Increments users.session_epoch; any JWT carrying the old epoch is then rejected by require_auth.
+        Called on 'sign out of all devices' and on a password change.
+        """
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ?",
+                (user_id,),
             )
             self._conn.commit()
 

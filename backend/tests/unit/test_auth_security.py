@@ -115,14 +115,56 @@ def test_jwt_rejects_hs512_confusion(_fake_secret):
 
 
 def test_jwt_rejects_expired(_fake_secret):
-    """Expired token must raise (AC-7 — exp check)."""
+    """Expired token (beyond the clock-skew leeway) must raise (AC-7 — exp check).
+
+    Feature 032 added a small `leeway` (AUTH_CLOCK_SKEW_SECONDS) to read_session, so the expiry here
+    is set well past that window to prove genuine expiry is still rejected.
+    """
     sec = _fake_secret
     import jwt as _jwt
 
-    payload = {"sub": "u1", "email": "a@b.com", "exp": int(time.time()) - 1}
+    payload = {"sub": "u1", "email": "a@b.com", "exp": int(time.time()) - 3600}
     expired_token = _jwt.encode(payload, "t" * 32, algorithm="HS256")
     with pytest.raises(Exception):
         sec.read_session(expired_token)
+
+
+# ---------------------------------------------------------------------------
+# Feature 032 (W2): sliding idle exp + absolute cap + session epoch claims
+# ---------------------------------------------------------------------------
+
+
+def test_make_session_carries_epoch_iat_and_aexp(_fake_secret):
+    sec = _fake_secret
+    from types import SimpleNamespace
+
+    user = SimpleNamespace(id="u1", email="a@b.com", session_epoch=3)
+    claims = sec.read_session(sec.make_session(user))
+    assert claims["epoch"] == 3
+    assert "iat" in claims and "aexp" in claims
+    # exp is the sliding idle expiry, never beyond the absolute cap.
+    assert claims["exp"] <= claims["aexp"]
+
+
+def test_make_session_absolute_exp_preserved_across_reissue(_fake_secret):
+    sec = _fake_secret
+    from types import SimpleNamespace
+    from datetime import datetime, timezone, timedelta
+
+    user = SimpleNamespace(id="u1", email="a@b.com", session_epoch=0)
+    fixed_aexp = datetime.now(timezone.utc) + timedelta(hours=2)
+    claims = sec.read_session(sec.make_session(user, absolute_exp=fixed_aexp))
+    # A re-issued token keeps the SAME absolute cap (does not extend the session forever).
+    assert claims["aexp"] == int(fixed_aexp.timestamp())
+
+
+def test_make_session_defaults_epoch_zero_for_epochless_subject(_fake_secret):
+    sec = _fake_secret
+    from app.api.auth import AuthUser
+
+    # An AuthUser (no session_epoch attr) still encodes — epoch defaults to 0.
+    claims = sec.read_session(sec.make_session(AuthUser(id="u1", email="a@b.com")))
+    assert claims["epoch"] == 0
 
 
 # ---------------------------------------------------------------------------

@@ -12,6 +12,8 @@ require_auth: FastAPI dependency applied router-level to the existing gated rout
 
 from __future__ import annotations
 
+import time
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
@@ -147,24 +149,52 @@ class AuthResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def require_auth(request: Request) -> AuthUser:
+def require_auth(request: Request, response: Response) -> AuthUser:
     """FastAPI dependency — verifies the session cookie, returns the AuthUser.
 
     Reads UserStore from request.app.state.user_store (set in lifespan).
     Raises HTTP 401 on any failure (missing / expired / tampered cookie).
+
+    Feature 032 (W2) adds, on top of the base signature check:
+      - absolute lifetime cap (`aexp`) enforcement (AC-8);
+      - server-side invalidation via `epoch` vs the user's stored session_epoch (AC-10/11/12);
+      - forced re-login of pre-032 tokens that carry no `aexp`/`epoch` (Q2/EC-6);
+      - a SLIDING re-issue of the cookie on each valid request, refreshing the idle window while
+        preserving the fixed absolute cap (AC-9). Note: routes that return their OWN Response object
+        (e.g. redirects/streams) won't carry the re-issued cookie — acceptable, the next plain request
+        refreshes it.
     """
     token = request.cookies.get(_cfg.AUTH_COOKIE_NAME)
     if not token:
         raise HTTPException(status_code=401, detail="Authentication required")
     try:
-        claims = read_session(token)
+        claims = read_session(token)  # raises on tampered / idle-expired `exp`
     except Exception:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Pre-032 tokens have no aexp/epoch → force a one-time re-login (Q2/EC-6).
+    aexp = claims.get("aexp")
+    epoch = claims.get("epoch")
+    if aexp is None or epoch is None:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Absolute lifetime cap, skew-tolerant (AC-8 / EC-5).
+    if time.time() > aexp + _cfg.AUTH_CLOCK_SKEW_SECONDS:
         raise HTTPException(status_code=401, detail="Authentication required")
 
     user_store = request.app.state.user_store
     row = user_store.get_by_id(claims.get("sub", ""))
     if row is None:
         raise HTTPException(status_code=401, detail="Authentication required")
+    # Server-side invalidation: any bump of session_epoch kills older tokens (AC-10/11/12).
+    if getattr(row, "session_epoch", 0) != epoch:
+        raise HTTPException(status_code=401, detail="Authentication required")
+
+    # Sliding re-issue — refresh the idle window, keep the fixed absolute cap.
+    aexp_dt = datetime.fromtimestamp(aexp, tz=timezone.utc)
+    if datetime.now(timezone.utc) < aexp_dt:
+        _set_session_cookie(response, make_session(row, absolute_exp=aexp_dt))
+
     return AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
 
 
@@ -217,7 +247,8 @@ async def signup(body: SignupRequest, request: Request, response: Response):
         raise HTTPException(status_code=409, detail="Email already registered")
 
     user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
-    token = make_session(user)  # JWT uses only id/email — name/title stay in the DB
+    # feature 032: pass the UserRow so the JWT carries the user's session_epoch (AuthUser has none).
+    token = make_session(row)
     _set_session_cookie(response, token)
     return AuthResponse(user=user)
 
@@ -236,7 +267,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
-    token = make_session(user)
+    token = make_session(row)  # feature 032: carry session_epoch from the DB row
     _set_session_cookie(response, token)
     return AuthResponse(user=user)
 
@@ -244,6 +275,14 @@ async def login(body: LoginRequest, request: Request, response: Response):
 @auth_router.post("/logout")
 async def logout(response: Response):
     _clear_session_cookie(response)
+    return {"ok": True}
+
+
+@auth_router.post("/logout-all")
+async def logout_all(request: Request, current_user: AuthUser = Depends(require_auth)):
+    """Feature 032 (W2) — 'sign out of all devices'. Bumps the user's session_epoch so EVERY
+    outstanding token for this account (including this browser's) is invalidated (AC-12)."""
+    request.app.state.user_store.bump_session_epoch(current_user.id)
     return {"ok": True}
 
 
@@ -270,15 +309,23 @@ async def update_me(
 async def change_password(
     body: ChangePasswordRequest,
     request: Request,
+    response: Response,
     current_user: AuthUser = Depends(require_auth),
 ):
-    """Feature 023 — change the caller's own password after verifying the current one.
+    """Change the caller's own password after verifying the current one.
 
-    Wrong current password → 400 with no write. The session cookie stays valid (spec D3).
+    Wrong current password → 400 with no write. Feature 032 (W2, AC-11): a successful change bumps
+    session_epoch so all OTHER sessions for this account are logged out, then re-issues THIS browser's
+    cookie (carrying the new epoch) so the changer stays logged in — superseding 023 D3.
     """
     user_store = request.app.state.user_store
     row = user_store.get_by_id(current_user.id)
     if row is None or not verify_password(body.current_password, row.password_hash):
         raise HTTPException(status_code=400, detail="Current password is incorrect")
     user_store.update_password(current_user.id, hash_password(body.new_password))
+    user_store.bump_session_epoch(current_user.id)
+    # Re-issue this browser's cookie with the new epoch (last Set-Cookie wins over the sliding one
+    # require_auth set with the pre-bump epoch), so the caller is not logged out by their own change.
+    fresh = user_store.get_by_id(current_user.id)
+    _set_session_cookie(response, make_session(fresh))
     return {"ok": True}

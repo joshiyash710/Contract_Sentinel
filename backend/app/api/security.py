@@ -18,7 +18,7 @@ import os
 import secrets
 import stat
 from datetime import datetime, timezone, timedelta
-from typing import Any
+from typing import Any, Optional
 
 import bcrypt as _bcrypt
 import jwt
@@ -104,13 +104,27 @@ def bootstrap_secret() -> None:
 # ---------------------------------------------------------------------------
 
 
-def make_session(user: Any) -> str:
-    """Encode a signed HS256 session JWT carrying {sub, email, exp}."""
+def make_session(user: Any, *, absolute_exp: Optional[datetime] = None) -> str:
+    """Encode a signed HS256 session JWT (feature 032, W2).
+
+    Claims: {sub, email, iat, exp, aexp, epoch}.
+      - exp   = sliding IDLE expiry = min(now + AUTH_IDLE_TIMEOUT_SECONDS, aexp). `require_auth`
+                re-issues the cookie on each authenticated request, sliding this forward.
+      - aexp  = ABSOLUTE lifetime cap, fixed at first login (now + AUTH_SESSION_TTL_SECONDS) and
+                PRESERVED across re-issues by passing `absolute_exp` — a session can never live past it.
+      - epoch = the user's session_epoch; bumping it server-side invalidates all outstanding tokens.
+    """
     now = datetime.now(timezone.utc)
+    aexp = absolute_exp or (now + timedelta(seconds=_cfg.AUTH_SESSION_TTL_SECONDS))
+    idle_exp = now + timedelta(seconds=_cfg.AUTH_IDLE_TIMEOUT_SECONDS)
+    exp = min(idle_exp, aexp)
     payload = {
         "sub": user.id,
         "email": user.email,
-        "exp": now + timedelta(seconds=_cfg.AUTH_SESSION_TTL_SECONDS),
+        "iat": now,
+        "exp": exp,
+        "aexp": int(aexp.timestamp()),
+        "epoch": getattr(user, "session_epoch", 0),
     }
     return jwt.encode(payload, load_secret(), algorithm="HS256")
 
@@ -118,6 +132,12 @@ def make_session(user: Any) -> str:
 def read_session(token: str) -> dict[str, Any]:
     """Decode and verify a session JWT; raise on any failure (tampered/expired/alg-swap).
 
-    algorithms=["HS256"] pins the algorithm — alg=none and any other alg are rejected.
+    algorithms=["HS256"] pins the algorithm — alg=none and any other alg are rejected. A small
+    `leeway` tolerates minor clock skew on the idle `exp` check (feature 032, EC-5).
     """
-    return jwt.decode(token, load_secret(), algorithms=["HS256"])
+    return jwt.decode(
+        token,
+        load_secret(),
+        algorithms=["HS256"],
+        leeway=_cfg.AUTH_CLOCK_SKEW_SECONDS,
+    )
