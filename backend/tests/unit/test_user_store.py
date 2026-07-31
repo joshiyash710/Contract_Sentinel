@@ -208,3 +208,74 @@ def test_empty_token_stored_as_null(user_db):
     user_db.set_google_credentials(row.id, "", "e@gmail.com")
     assert _raw_token(user_db, row.id) is None
     assert user_db.get_google_credentials(row.id) is None
+
+
+# ── Feature 032 (W3): per-account lockout state ──────────────────────────────────
+
+
+def test_lockout_after_max_failures_and_reset(user_db, monkeypatch):
+    # AC-13/AC-14 substrate.
+    import app.config as _c
+
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_MAX_FAILURES", 3)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_WINDOW_SECONDS", 1000)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_DURATION_SECONDS", 1000)
+    user_db.create("lock@e.com", "h")
+
+    assert not user_db.is_locked("lock@e.com")
+    for _ in range(2):
+        user_db.record_login_failure("lock@e.com")
+    assert not user_db.is_locked("lock@e.com")   # below threshold
+    user_db.record_login_failure("lock@e.com")   # 3rd → locked
+    assert user_db.is_locked("lock@e.com")
+
+    user_db.reset_login_failures("lock@e.com")    # success clears everything (AC-14)
+    assert not user_db.is_locked("lock@e.com")
+
+
+def test_failures_outside_window_do_not_accumulate(user_db, monkeypatch):
+    import time
+    import app.config as _c
+
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_MAX_FAILURES", 2)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_WINDOW_SECONDS", 1)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_DURATION_SECONDS", 1000)
+    user_db.create("win@e.com", "h")
+
+    user_db.record_login_failure("win@e.com")   # count=1
+    time.sleep(1.1)                              # window elapses
+    user_db.record_login_failure("win@e.com")   # counter resets to 1, not 2
+    assert not user_db.is_locked("win@e.com")
+
+
+def test_lockout_unknown_email_is_noop(user_db):
+    # AC-16: never create a row / never disclose for an unknown email.
+    user_db.record_login_failure("ghost@e.com")  # must not raise, must not insert
+    assert not user_db.is_locked("ghost@e.com")
+    assert user_db.get_by_email("ghost@e.com") is None
+
+
+def test_lockout_persists_across_store_reopen(tmp_path, monkeypatch):
+    # EC-8: a lockout survives a process/store restart (persisted in the DB).
+    import app.config as _c
+    from app.runner.migrations import upgrade_to_head
+    from app.runner.user_store import UserStore
+
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_MAX_FAILURES", 2)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_WINDOW_SECONDS", 1000)
+    monkeypatch.setattr(_c, "AUTH_LOCKOUT_DURATION_SECONDS", 1000)
+
+    db_path = str(tmp_path / "lock.db")
+    upgrade_to_head(db_path)
+    s1 = UserStore(db_path)
+    s1.create("persist@e.com", "h")
+    s1.record_login_failure("persist@e.com")
+    s1.record_login_failure("persist@e.com")
+    assert s1.is_locked("persist@e.com")
+    s1.close()
+
+    s2 = UserStore(db_path)  # "restart"
+    try:
+        assert s2.is_locked("persist@e.com")  # still locked
+    finally:
+        s2.close()

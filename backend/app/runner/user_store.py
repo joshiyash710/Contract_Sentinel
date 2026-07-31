@@ -11,11 +11,12 @@ import sqlite3
 import threading
 import uuid
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from cryptography.fernet import InvalidToken
 
+import app.config as _cfg
 from app.security import crypto
 
 
@@ -166,6 +167,71 @@ class UserStore:
                 (new_hash, user_id),
             )
             self._conn.commit()
+
+    # ── Feature 032 (W3): per-account brute-force lockout (persisted; EC-8) ──────
+    def record_login_failure(self, email: str) -> None:
+        """Record a failed login for `email`. Locks the account after AUTH_LOCKOUT_MAX_FAILURES
+        CONSECUTIVE failures within AUTH_LOCKOUT_WINDOW_SECONDS. Unknown email → no-op (AC-16)."""
+        now = datetime.now(timezone.utc)
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT failed_login_count, first_failure_at FROM users WHERE email = ?",
+                (email,),
+            ).fetchone()
+            if row is None:
+                return  # unknown email — never create a row / never disclose
+            count = row["failed_login_count"] or 0
+            first_at = row["first_failure_at"]
+
+            within_window = False
+            if first_at is not None:
+                try:
+                    elapsed = (now - datetime.fromisoformat(first_at)).total_seconds()
+                    within_window = elapsed <= _cfg.AUTH_LOCKOUT_WINDOW_SECONDS
+                except ValueError:
+                    within_window = False
+
+            if within_window:
+                count += 1
+            else:
+                count = 1
+                first_at = now.isoformat()
+
+            lockout_until = None
+            if count >= _cfg.AUTH_LOCKOUT_MAX_FAILURES:
+                lockout_until = (
+                    now + timedelta(seconds=_cfg.AUTH_LOCKOUT_DURATION_SECONDS)
+                ).isoformat()
+
+            self._conn.execute(
+                "UPDATE users SET failed_login_count = ?, first_failure_at = ?, lockout_until = ? "
+                "WHERE email = ?",
+                (count, first_at, lockout_until, email),
+            )
+            self._conn.commit()
+
+    def reset_login_failures(self, email: str) -> None:
+        """Clear failure counter + lockout on a successful login (AC-14). Unknown email → no-op."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE users SET failed_login_count = 0, first_failure_at = NULL, "
+                "lockout_until = NULL WHERE email = ?",
+                (email,),
+            )
+            self._conn.commit()
+
+    def is_locked(self, email: str) -> bool:
+        """True if `email` is currently locked out (now < lockout_until). Unknown email → False."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT lockout_until FROM users WHERE email = ?", (email,)
+            ).fetchone()
+        if row is None or row["lockout_until"] is None:
+            return False
+        try:
+            return datetime.now(timezone.utc) < datetime.fromisoformat(row["lockout_until"])
+        except ValueError:
+            return False
 
     def bump_session_epoch(self, user_id: str) -> None:
         """Feature 032 (W2): invalidate ALL outstanding sessions for a user (logout-everywhere).

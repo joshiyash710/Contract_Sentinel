@@ -145,6 +145,26 @@ class AuthResponse(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Rate-limiting helpers (feature 032, W3)
+# ---------------------------------------------------------------------------
+
+
+def _client_ip(request: Request) -> str:
+    return request.client.host if request.client else "unknown"
+
+
+def _enforce_ip_rate_limit(request: Request) -> None:
+    """Per-IP sliding-window limit on auth-sensitive endpoints → 429 + Retry-After (AC-15/AC-20)."""
+    limiter = getattr(request.app.state, "rate_limiter", None)
+    if limiter is not None and not limiter.check(_client_ip(request)):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many attempts. Please try again later.",
+            headers={"Retry-After": str(_cfg.AUTH_RATE_LIMIT_WINDOW_SECONDS)},
+        )
+
+
+# ---------------------------------------------------------------------------
 # require_auth dependency
 # ---------------------------------------------------------------------------
 
@@ -235,6 +255,7 @@ auth_router = APIRouter(prefix="/api/auth")
 
 @auth_router.post("/signup", response_model=AuthResponse)
 async def signup(body: SignupRequest, request: Request, response: Response):
+    _enforce_ip_rate_limit(request)  # W3: cap signup abuse per IP
     user_store = request.app.state.user_store
 
     if not _cfg.AUTH_SIGNUP_OPEN and user_store.count() > 0:
@@ -255,7 +276,18 @@ async def signup(body: SignupRequest, request: Request, response: Response):
 
 @auth_router.post("/login", response_model=AuthResponse)
 async def login(body: LoginRequest, request: Request, response: Response):
+    _enforce_ip_rate_limit(request)  # W3: per-IP cap first
     user_store = request.app.state.user_store
+
+    # W3: per-account lockout — a locked account is rejected with 429 even with the correct
+    # password (AC-13). is_locked is False for unknown emails, so this never discloses existence.
+    if user_store.is_locked(body.email):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many failed attempts. Please try again later.",
+            headers={"Retry-After": str(_cfg.AUTH_LOCKOUT_DURATION_SECONDS)},
+        )
+
     row = user_store.get_by_email(body.email)
 
     if row is None:
@@ -264,8 +296,10 @@ async def login(body: LoginRequest, request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     if not verify_password(body.password, row.password_hash):
+        user_store.record_login_failure(body.email)  # W3: count consecutive failures
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
+    user_store.reset_login_failures(body.email)  # W3: success clears the counter (AC-14)
     user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
     token = make_session(row)  # feature 032: carry session_epoch from the DB row
     _set_session_cookie(response, token)
@@ -317,7 +351,11 @@ async def change_password(
     Wrong current password → 400 with no write. Feature 032 (W2, AC-11): a successful change bumps
     session_epoch so all OTHER sessions for this account are logged out, then re-issues THIS browser's
     cookie (carrying the new epoch) so the changer stays logged in — superseding 023 D3.
+
+    Feature 032 (W3, AC-20): per-IP rate-limited (blunts online current-password guessing); NOT subject
+    to the per-account lockout (a session-holder locking their own account is pointless).
     """
+    _enforce_ip_rate_limit(request)
     user_store = request.app.state.user_store
     row = user_store.get_by_id(current_user.id)
     if row is None or not verify_password(body.current_password, row.password_hash):

@@ -28,6 +28,7 @@ from app.runner.worker import PipelineWorker
 from app.runner.models import JobState
 from app.runner.user_store import UserStore
 from app.api.security import bootstrap_secret
+from app.api.rate_limit import RateLimiter
 from app.security.crypto import bootstrap_encryption_key
 from app.api.auth import auth_router, require_auth
 from app.api.integrations import integrations_router
@@ -78,6 +79,7 @@ async def lifespan(application: FastAPI):
         _recover(registry, store, saver, worker)
     application.state.ctx = RunnerContext(registry=registry, worker=worker, loop=loop)
     application.state.user_store = user_store
+    application.state.rate_limiter = RateLimiter()  # feature 032 (W3): per-IP auth rate limiting
     try:
         yield
     finally:
