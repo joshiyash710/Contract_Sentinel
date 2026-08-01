@@ -77,6 +77,16 @@ OLLAMA_SEED: Optional[int] = 42
 # random seed) — the escape hatch the 028 variance driver uses (with a raised temperature) to probe
 # true model wobble.
 
+# ── Prompt-injection defense (feature 035, Security Tier 2) ──────────────────────
+# Source: specs/035-prompt-injection-defense/{spec,plan}.md. Within-node prompt hardening across the
+# 4 generative chat() sites; no node/edge/state change. Read ONCE in app/llm/prompt_guard.py.
+PROMPT_INJECTION_DEFENSE_ENABLED: bool = True
+# Master reversible lever. True → untrusted clause/evidence/rationale is fenced in a wrap_untrusted
+# block inside a `user` message and trusted instructions move to a `system` message. False → the exact
+# pre-035 single-`user`-message prompts (byte-identical), for an accuracy-regression escape hatch.
+PROMPT_GUARD_SENTINEL_BYTES: int = 8
+# Entropy (bytes) of the per-call random nonce in the untrusted-block delimiter; token_hex → 16 hex chars.
+
 CLAUSE_SPLITTER_TIMEOUT_SECONDS: int = 120
 # Wall-clock timeout for the LLM call in ClauseSplitterAgent.
 # Conservative starting value — Qwen3 14B is fast on GPU but needs headroom

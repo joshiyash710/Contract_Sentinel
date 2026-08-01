@@ -268,8 +268,9 @@ def test_prompt_truncated_to_max_chars():
     captured_prompts = []
 
     def fake_chat(**kwargs):
-        msg_content = kwargs["messages"][0]["content"]
-        captured_prompts.append(msg_content)
+        # Feature 035: untrusted clause/evidence live in the user message; join all messages so the
+        # truncation assertion sees the actual data, not just the system (messages[0]) instructions.
+        captured_prompts.append("".join(m["content"] for m in kwargs["messages"]))
         return _make_ollama_response("high")
 
     mock_client = MagicMock()
@@ -283,12 +284,13 @@ def test_prompt_truncated_to_max_chars():
     assert result is not None
     assert len(captured_prompts) == 1
     # The combined variable portion (clause_trunc + evidence_str) must be <= prompt_max
-    # The actual prompt includes template text, but the variable data part is bounded
     clause_portion = long_clause[:prompt_max]
     remaining = max(0, prompt_max - len(clause_portion))
-    # evidence portion cannot exceed remaining
     assert len(clause_portion) <= prompt_max
     assert remaining + len(clause_portion) == prompt_max
+    # the truncated clause (not the full 200 chars) actually reached the model
+    assert clause_portion in captured_prompts[-1]
+    assert long_clause not in captured_prompts[-1]  # full untruncated clause must NOT appear
 
 
 def test_empty_evidence_scores_on_text():
@@ -397,3 +399,54 @@ def test_chat_options_reversible_to_sampling(monkeypatch):
     assert opts["temperature"] == 0.8
     assert "seed" not in opts
     assert opts["num_predict"] == 384
+
+
+# ── Feature 035: prompt-injection defense (risk scorer) ──────────────────────
+
+
+def test_035_off_path_byte_identical(monkeypatch):
+    """AC-7: defense OFF → the exact pre-035 single user message."""
+    from app.graph.nodes.scorers.risk_scorer import score_risk, _SCORING_TEXT_ONLY_PROMPT
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
+    captured = {}
+
+    def fake_chat(**kwargs):
+        captured["messages"] = kwargs["messages"]
+        return _make_ollama_response("high")
+
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = fake_chat
+    with patch("app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client):
+        score_risk("a clause", None, "liability", 30, "qwen3:8b", 6000)
+
+    expected = _SCORING_TEXT_ONLY_PROMPT.format(clause_type="liability", clause_text="a clause")
+    assert captured["messages"] == [{"role": "user", "content": expected}]
+
+
+def test_035_on_path_wraps_clause_keeps_clause_type_in_system(monkeypatch):
+    """AC-4/5: ON → [system,user]; clause only inside a fence in the user message; the TRUSTED
+    clause_type label stays in the system message."""
+    from app.graph.nodes.scorers.risk_scorer import score_risk
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
+    captured = {}
+
+    def fake_chat(**kwargs):
+        captured["messages"] = kwargs["messages"]
+        return _make_ollama_response("high")
+
+    mock_client = MagicMock()
+    mock_client.chat.side_effect = fake_chat
+    with patch("app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client):
+        score_risk("UNIQUE_CLAUSE_MARK_555", None, "liability", 30, "qwen3:8b", 6000)
+
+    msgs = captured["messages"]
+    assert len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[1]["role"] == "user"
+    assert prompt_guard.ANTI_INJECTION_PREAMBLE in msgs[0]["content"]
+    assert "liability" in msgs[0]["content"]                 # trusted label → system
+    assert "UNIQUE_CLAUSE_MARK_555" in msgs[1]["content"]    # untrusted clause → user, fenced
+    assert "UNIQUE_CLAUSE_MARK_555" not in msgs[0]["content"]
+    assert "⟦CLAUSE:" in msgs[1]["content"]

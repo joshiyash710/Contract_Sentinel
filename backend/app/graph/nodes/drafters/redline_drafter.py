@@ -16,6 +16,7 @@ import httpx
 import ollama
 
 from app.graph.nodes.validators import format_evidence
+from app.llm import prompt_guard
 
 import app.config as _config
 
@@ -61,6 +62,36 @@ Contract clause to rewrite:
 Respond with ONLY a JSON object — no markdown, no explanation:
 {{"suggested_rewrite": "<rewritten clause text>"}}
 """
+
+# ── Feature 035: system-message instruction blocks (ON path). The templates INTERLEAVE untrusted
+# {rationale}/{clause_text}/{evidence_text} with the trusted {{"suggested_rewrite"}} JSON contract
+# footer, so the JSON contract + rubric + trusted {clause_type} go in the system message and ALL
+# untrusted values (incl. the LLM-derived rationale, Decision 3) move to the wrapped user_body. The
+# original _REWRITE_* templates above are used UNCHANGED on the OFF path (byte-identical, AC-7).
+_REWRITE_WITH_EVIDENCE_SYSTEM = """\
+You are a contract-risk remediation assistant. Your task is to rewrite the \
+following contract clause to neutralize the identified risk while preserving \
+the clause's legitimate commercial intent.
+
+This clause is categorized as: {clause_type}
+
+The user message provides the risk rationale, supporting evidence, and the clause to rewrite.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{{"suggested_rewrite": "<rewritten clause text>"}}"""
+
+_REWRITE_TEXT_ONLY_SYSTEM = """\
+You are a contract-risk remediation assistant. Your task is to rewrite the \
+following contract clause to neutralize the identified risk while preserving \
+the clause's legitimate commercial intent. No retrieved evidence is available — \
+rewrite based on the clause text and the risk rationale alone.
+
+This clause is categorized as: {clause_type}
+
+The user message provides the risk rationale and the clause to rewrite.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{{"suggested_rewrite": "<rewritten clause text>"}}"""
 
 
 def draft_rewrite(
@@ -115,25 +146,47 @@ def draft_rewrite(
 
     ct_label = clause_type or "unspecified"
 
+    rationale_val = rationale_trunc or "No rationale provided."
     if evidence_str:
-        prompt = _REWRITE_WITH_EVIDENCE_PROMPT.format(
+        legacy = _REWRITE_WITH_EVIDENCE_PROMPT.format(
             clause_type=ct_label,
-            rationale=rationale_trunc or "No rationale provided.",
+            rationale=rationale_val,
             evidence_text=evidence_str,
             clause_text=clause_trunc,
         )
+        system = _REWRITE_WITH_EVIDENCE_SYSTEM.format(clause_type=ct_label)
+        user_body = (
+            prompt_guard.wrap_block(
+                "This clause was flagged as risky because:", rationale_val, "RATIONALE"
+            )
+            + "\n\n"
+            + prompt_guard.wrap_block(
+                "Supporting evidence from legal knowledge base:", evidence_str, "EVIDENCE"
+            )
+            + "\n\n"
+            + prompt_guard.wrap_block("Contract clause to rewrite:", clause_trunc, "CLAUSE")
+        )
     else:
-        prompt = _REWRITE_TEXT_ONLY_PROMPT.format(
+        legacy = _REWRITE_TEXT_ONLY_PROMPT.format(
             clause_type=ct_label,
-            rationale=rationale_trunc or "No rationale provided.",
+            rationale=rationale_val,
             clause_text=clause_trunc,
         )
+        system = _REWRITE_TEXT_ONLY_SYSTEM.format(clause_type=ct_label)
+        user_body = (
+            prompt_guard.wrap_block(
+                "This clause was flagged as risky because:", rationale_val, "RATIONALE"
+            )
+            + "\n\n"
+            + prompt_guard.wrap_block("Contract clause to rewrite:", clause_trunc, "CLAUSE")
+        )
 
-    return _run_drafting(prompt, timeout_seconds, model_name)
+    messages = prompt_guard.build_messages(system, user_body, legacy)
+    return _run_drafting(messages, timeout_seconds, model_name)
 
 
-def _run_drafting(prompt: str, timeout_seconds: int, model_name: str) -> Optional[str]:
-    """Submit a drafting prompt to Ollama and parse the suggested_rewrite result.
+def _run_drafting(messages: list, timeout_seconds: int, model_name: str) -> Optional[str]:
+    """Submit a drafting message list to Ollama and parse the suggested_rewrite result.
 
     Uses ollama.Client(timeout=...) as the primary abort bound (kills the
     underlying httpx call so a hung socket cannot outlive the timeout),
@@ -141,7 +194,7 @@ def _run_drafting(prompt: str, timeout_seconds: int, model_name: str) -> Optiona
     Mirrors risk_scorer._run_scoring. Never raises — all failures return None.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_ollama, prompt, timeout_seconds, model_name)
+        future = executor.submit(_call_ollama, messages, timeout_seconds, model_name)
         try:
             return future.result(timeout=timeout_seconds)
         except (concurrent.futures.TimeoutError, httpx.TimeoutException):
@@ -152,12 +205,12 @@ def _run_drafting(prompt: str, timeout_seconds: int, model_name: str) -> Optiona
             return None
 
 
-def _call_ollama(prompt: str, timeout_seconds: int, model_name: str) -> Optional[str]:
+def _call_ollama(messages: list, timeout_seconds: int, model_name: str) -> Optional[str]:
     """Perform the Ollama chat call and parse the rewrite. Raises on any error."""
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.

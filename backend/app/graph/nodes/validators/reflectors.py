@@ -15,6 +15,7 @@ import httpx
 import ollama
 
 from app.graph.nodes.validators import format_evidence
+from app.llm import prompt_guard
 
 import app.config as _config
 
@@ -133,6 +134,100 @@ Retrieved evidence:
 """
 
 
+# ── Feature 035: system-message instruction blocks (ON path). Data headers move to the wrapped
+# user_body; the original _*_PROMPT constants above are used UNCHANGED on the OFF path (byte-identical).
+_RELEVANCE_SYSTEM = """\
+You are a contract-risk analysis assistant. Your task is to decide whether the \
+following contract clause is a SUBSTANTIVE provision — one that could plausibly \
+carry a contractual concern worth evaluating (e.g. obligations, rights, \
+liabilities, deadlines, restrictions, IP assignment, termination rights).
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{"verdict": true, "reason": "<one short sentence>"}
+
+Set "verdict" to true if the clause IS a substantive, analyzable provision.
+Set "verdict" to false if the clause is boilerplate / structural filler \
+(e.g. a page header, a definitions list with no substantive content, a \
+signature block, or blank / numbering-only text)."""
+
+_ISREL_SYSTEM = """\
+You are a contract-risk analysis assistant. Your task is to decide whether the \
+retrieved evidence is ON-TOPIC and RELEVANT to the following contract clause.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{"verdict": true, "reason": "<one short sentence>"}
+
+Set "verdict" to true if the evidence directly addresses the legal issue \
+raised by this clause (e.g. relevant case law, regulatory text, or market \
+norms that bear on the clause's terms).
+Set "verdict" to false if the evidence is off-topic, too generic, or \
+clearly about a different legal domain than the clause."""
+
+_ISSUP_WITH_EVIDENCE_SYSTEM = """\
+You are a contract-risk analysis assistant. Your task is to decide whether \
+the evidence SUPPORTS flagging this contract clause as a concern worth \
+surfacing to a reviewer (i.e. the clause poses a material contractual risk).
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{"verdict": true, "reason": "<one short sentence>"}
+
+Set "verdict" to true if the clause, in light of the evidence, represents \
+a meaningful risk (one-sided obligation, missing protection, unusual liability \
+shift, IP assignment issue, punitive termination right, etc.).
+Set "verdict" to false if the clause appears standard/balanced or the \
+evidence does not support flagging it."""
+
+_ISSUP_TEXT_ONLY_SYSTEM = """\
+You are a contract-risk analysis assistant. No retrieved evidence is available \
+for this clause — judge SOLELY on the clause text itself.
+
+Your task is to decide whether this contract clause on its own represents \
+a material contractual risk worth surfacing to a reviewer.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{"verdict": true, "reason": "<one short sentence>"}
+
+Set "verdict" to true if the clause is self-evidently risky on its face \
+(e.g. an uncapped liability cap, a unilateral termination right, a broad IP \
+assignment, a forced-forum clause in an unfavourable jurisdiction).
+Set "verdict" to false if the clause appears standard or low-risk."""
+
+_COMBINED_SYSTEM = """\
+You are a contract-risk analysis assistant. Judge the following contract clause on THREE \
+independent questions at once, using the clause text and the retrieved evidence:
+
+1. "relevance": is the clause a SUBSTANTIVE, analyzable provision (obligations, rights, \
+liabilities, deadlines, restrictions, IP assignment, termination rights)? true if substantive; \
+false if boilerplate / structural filler (page header, pure definitions list, signature block, \
+numbering-only text).
+2. "isrel": is the retrieved evidence ON-TOPIC and RELEVANT to this clause? true if it directly \
+addresses the legal issue the clause raises; false if off-topic, too generic, or about a different \
+legal domain.
+3. "issup": does the evidence SUPPORT flagging this clause as a concern worth surfacing to a \
+reviewer (a material contractual risk — one-sided obligation, missing protection, unusual liability \
+shift, IP assignment issue, punitive termination right)? true if it represents a meaningful risk; \
+false if standard/balanced or unsupported.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{"relevance": true, "isrel": true, "issup": true, "reason": "<one short sentence>"}
+
+Each of the three values must be a JSON boolean (true or false)."""
+
+
+def _clause_body(clause_trunc: str) -> str:
+    """user_body carrying only the wrapped clause (ON path)."""
+    return prompt_guard.wrap_block("Contract clause:", clause_trunc, "CLAUSE")
+
+
+def _clause_evidence_body(clause_trunc: str, evidence_str: str) -> str:
+    """user_body carrying the wrapped clause + wrapped evidence (ON path)."""
+    return (
+        prompt_guard.wrap_block("Contract clause:", clause_trunc, "CLAUSE")
+        + "\n\n"
+        + prompt_guard.wrap_block("Retrieved evidence:", evidence_str, "EVIDENCE")
+    )
+
+
 def check_relevance(
     clause_text: str,
     timeout_seconds: int,
@@ -144,8 +239,9 @@ def check_relevance(
     Returns True/False, or None on any LLM failure. Never raises.
     """
     clause_trunc = clause_text[:prompt_max_chars]
-    prompt = _RELEVANCE_PROMPT.format(clause_text=clause_trunc)
-    return _run_judgment(prompt, timeout_seconds, model_name)
+    legacy = _RELEVANCE_PROMPT.format(clause_text=clause_trunc)
+    messages = prompt_guard.build_messages(_RELEVANCE_SYSTEM, _clause_body(clause_trunc), legacy)
+    return _run_judgment(messages, timeout_seconds, model_name)
 
 
 def check_isrel(
@@ -162,8 +258,11 @@ def check_isrel(
     clause_trunc = clause_text[:prompt_max_chars]
     remaining = max(0, prompt_max_chars - len(clause_trunc))
     evidence_str = format_evidence(evidence_snippets, remaining)
-    prompt = _ISREL_PROMPT.format(clause_text=clause_trunc, evidence_text=evidence_str)
-    return _run_judgment(prompt, timeout_seconds, model_name)
+    legacy = _ISREL_PROMPT.format(clause_text=clause_trunc, evidence_text=evidence_str)
+    messages = prompt_guard.build_messages(
+        _ISREL_SYSTEM, _clause_evidence_body(clause_trunc, evidence_str), legacy
+    )
+    return _run_judgment(messages, timeout_seconds, model_name)
 
 
 def check_issup(
@@ -180,14 +279,20 @@ def check_issup(
     """
     clause_trunc = clause_text[:prompt_max_chars]
     if not evidence_snippets:
-        prompt = _ISSUP_TEXT_ONLY_PROMPT.format(clause_text=clause_trunc)
+        legacy = _ISSUP_TEXT_ONLY_PROMPT.format(clause_text=clause_trunc)
+        messages = prompt_guard.build_messages(
+            _ISSUP_TEXT_ONLY_SYSTEM, _clause_body(clause_trunc), legacy
+        )
     else:
         remaining = max(0, prompt_max_chars - len(clause_trunc))
         evidence_str = format_evidence(evidence_snippets, remaining)
-        prompt = _ISSUP_WITH_EVIDENCE_PROMPT.format(
+        legacy = _ISSUP_WITH_EVIDENCE_PROMPT.format(
             clause_text=clause_trunc, evidence_text=evidence_str
         )
-    return _run_judgment(prompt, timeout_seconds, model_name)
+        messages = prompt_guard.build_messages(
+            _ISSUP_WITH_EVIDENCE_SYSTEM, _clause_evidence_body(clause_trunc, evidence_str), legacy
+        )
+    return _run_judgment(messages, timeout_seconds, model_name)
 
 
 def check_combined(
@@ -211,10 +316,13 @@ def check_combined(
     clause_trunc = clause_text[:prompt_max_chars]
     remaining = max(0, prompt_max_chars - len(clause_trunc))
     evidence_str = format_evidence(evidence_snippets, remaining)
-    prompt = _COMBINED_PROMPT.format(clause_text=clause_trunc, evidence_text=evidence_str)
+    legacy = _COMBINED_PROMPT.format(clause_text=clause_trunc, evidence_text=evidence_str)
+    messages = prompt_guard.build_messages(
+        _COMBINED_SYSTEM, _clause_evidence_body(clause_trunc, evidence_str), legacy
+    )
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_combined, prompt, timeout_seconds, model_name)
+        future = executor.submit(_call_combined, messages, timeout_seconds, model_name)
         try:
             return future.result(timeout=timeout_seconds)
         except (concurrent.futures.TimeoutError, httpx.TimeoutException):
@@ -227,13 +335,13 @@ def check_combined(
             return None
 
 
-def _call_combined(prompt: str, timeout_seconds: int, model_name: str) -> Optional[dict]:
+def _call_combined(messages: list, timeout_seconds: int, model_name: str) -> Optional[dict]:
     """Perform the combined Ollama chat call and parse the 3-verdict object. Raises on
     transport error so the caller's except block returns None (whole-call failure)."""
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         format="json",
         think=False,  # same rationale as _call_ollama
         options={
@@ -276,8 +384,8 @@ def _parse_combined(raw: str) -> Optional[dict]:
     return result
 
 
-def _run_judgment(prompt: str, timeout_seconds: int, model_name: str) -> Optional[bool]:
-    """Submit a judgment prompt to Ollama and parse the bool verdict.
+def _run_judgment(messages: list, timeout_seconds: int, model_name: str) -> Optional[bool]:
+    """Submit a judgment message list to Ollama and parse the bool verdict.
 
     Uses ollama.Client(timeout=...) as the primary abort bound (kills the
     underlying httpx call so a hung socket cannot outlive the timeout),
@@ -286,7 +394,7 @@ def _run_judgment(prompt: str, timeout_seconds: int, model_name: str) -> Optiona
     return None.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_ollama, prompt, timeout_seconds, model_name)
+        future = executor.submit(_call_ollama, messages, timeout_seconds, model_name)
         try:
             return future.result(timeout=timeout_seconds)
         except (concurrent.futures.TimeoutError, httpx.TimeoutException):
@@ -297,12 +405,12 @@ def _run_judgment(prompt: str, timeout_seconds: int, model_name: str) -> Optiona
             return None
 
 
-def _call_ollama(prompt: str, timeout_seconds: int, model_name: str) -> Optional[bool]:
+def _call_ollama(messages: list, timeout_seconds: int, model_name: str) -> Optional[bool]:
     """Perform the Ollama chat call and parse the verdict. Raises on any error."""
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.

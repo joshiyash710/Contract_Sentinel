@@ -185,6 +185,13 @@ def test_uses_generative_model_only():
 # ── Prompt content checks ────────────────────────────────────────────────────
 
 
+def _joined(mock_inst) -> str:
+    """Feature 035: the outgoing prompt now spans a [system, user] message list; join both so
+    assertions about untrusted (clause/evidence) content see the whole prompt, not just messages[0]
+    (which is the SYSTEM instruction message under the defense-ON path)."""
+    return "".join(m["content"] for m in mock_inst.chat.call_args.kwargs["messages"])
+
+
 def test_relevance_prompt_excludes_evidence():
     """The Relevance prompt is a function of clause text only (no evidence text)."""
     check_relevance, _, _ = _import_reflectors()
@@ -192,8 +199,8 @@ def test_relevance_prompt_excludes_evidence():
     mock_cls, mock_inst = _make_client_mock(True)
     with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
         check_relevance("clause text here", 10, "qwen3:14b", 6000)
-    prompt_sent = mock_inst.chat.call_args.kwargs["messages"][0]["content"]
-    assert evidence_marker not in prompt_sent
+    # Negative-assert against the JOINED content so it cannot pass trivially (035 tasks §C).
+    assert evidence_marker not in _joined(mock_inst)
 
 
 def test_issup_empty_evidence_uses_text_only_prompt():
@@ -202,6 +209,7 @@ def test_issup_empty_evidence_uses_text_only_prompt():
     mock_cls, mock_inst = _make_client_mock(True)
     with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
         check_issup("clause text", None, 10, "qwen3:14b", 6000)
+    # This asserts TRUSTED instruction wording, which lives in the system message (messages[0]).
     prompt_sent = mock_inst.chat.call_args.kwargs["messages"][0]["content"]
     assert (
         "clause text" in prompt_sent.lower()
@@ -220,7 +228,8 @@ def test_prompt_truncated_to_max_chars():
     mock_cls, mock_inst = _make_client_mock(True)
     with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
         check_issup(big_clause, big_evidence, 10, "qwen3:14b", prompt_max_chars)
-    prompt_sent = mock_inst.chat.call_args.kwargs["messages"][0]["content"]
+    # Untrusted clause text lives in the user message → assert against the JOINED content (035).
+    prompt_sent = _joined(mock_inst)
     # The variable clause+evidence portion of the prompt must not exceed prompt_max_chars
     clause_trunc = big_clause[:prompt_max_chars]
     remaining = max(0, prompt_max_chars - len(clause_trunc))
@@ -383,4 +392,42 @@ def test_combined_uses_generative_model_and_evidence_in_prompt():
         check_combined("A clause.", _SNIPPETS, 10, OLLAMA_MODEL_NAME, 6000)
     kwargs = mock_inst.chat.call_args.kwargs
     assert kwargs["model"] == OLLAMA_MODEL_NAME
-    assert "evidence" in kwargs["messages"][0]["content"]
+    # The evidence snippet text + clause both reach the model (in the wrapped user body under 035).
+    assert "evidence" in _joined(mock_inst)
+    assert "A clause." in _joined(mock_inst)
+
+
+# ── Feature 035: prompt-injection defense (reflectors) ───────────────────────
+
+
+def test_035_off_path_byte_identical_relevance(monkeypatch):
+    """AC-7: with the defense OFF, the reflectors send the exact pre-035 single user message."""
+    from app.graph.nodes.validators.reflectors import _RELEVANCE_PROMPT
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
+    check_relevance, _, _ = _import_reflectors()
+    mock_cls, mock_inst = _make_client_mock(True)
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        check_relevance("hello clause", 10, "qwen3:8b", 6000)
+    msgs = mock_inst.chat.call_args.kwargs["messages"]
+    assert msgs == [{"role": "user", "content": _RELEVANCE_PROMPT.format(clause_text="hello clause")}]
+
+
+def test_035_on_path_wraps_clause_in_user_message(monkeypatch):
+    """AC-4/AC-5: ON path → [system,user]; the clause appears ONLY inside a ⟦CLAUSE:…⟧ fence in the
+    user message, and the anti-injection preamble is in the system message."""
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
+    check_relevance, _, _ = _import_reflectors()
+    mock_cls, mock_inst = _make_client_mock(True)
+    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        check_relevance("UNIQUE_CLAUSE_MARKER_777", 10, "qwen3:8b", 6000)
+    msgs = mock_inst.chat.call_args.kwargs["messages"]
+    assert len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[1]["role"] == "user"
+    assert prompt_guard.ANTI_INJECTION_PREAMBLE in msgs[0]["content"]
+    # clause only inside the fence in the user message, not in the system message
+    assert "UNIQUE_CLAUSE_MARKER_777" in msgs[1]["content"]
+    assert "UNIQUE_CLAUSE_MARKER_777" not in msgs[0]["content"]
+    assert "⟦CLAUSE:" in msgs[1]["content"] and "⟦/CLAUSE:" in msgs[1]["content"]

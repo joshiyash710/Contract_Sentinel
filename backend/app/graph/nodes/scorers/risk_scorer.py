@@ -17,6 +17,7 @@ import ollama
 
 from app.graph.state import RiskLevel
 from app.graph.nodes.validators import format_evidence
+from app.llm import prompt_guard
 
 import app.config as _config
 
@@ -75,6 +76,46 @@ Contract clause:
 {clause_text}
 """
 
+# ── Feature 035: system-message instruction blocks (ON path). `{clause_type}` is a TRUSTED enum label
+# and stays in the system message; the untrusted clause/evidence move to the wrapped user_body. The
+# original _SCORING_* templates above are used UNCHANGED on the OFF path (byte-identical, AC-7).
+_SCORING_WITH_EVIDENCE_SYSTEM = """\
+You are a contract-risk analysis assistant. Your task is to assess the severity \
+of the following contract clause as a legal risk finding.
+
+This clause is categorized as: {clause_type}
+
+Scoring rubric:
+- "low": a minor or standard deviation from typical contract terms; low financial \
+or legal exposure.
+- "medium": a materially one-sided or non-standard term that could lead to \
+meaningful financial or legal disadvantage.
+- "high": a severe, uncapped, or unilateral risk — e.g. unlimited liability, \
+broad indemnification, unilateral termination, forced IP assignment, or \
+similarly extreme terms.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{{"risk_level": "low"|"medium"|"high", "rationale": "<one or two sentences>"}}"""
+
+_SCORING_TEXT_ONLY_SYSTEM = """\
+You are a contract-risk analysis assistant. Your task is to assess the severity \
+of the following contract clause as a legal risk finding. No retrieved evidence \
+is available — judge SOLELY on the clause text and its category.
+
+This clause is categorized as: {clause_type}
+
+Scoring rubric:
+- "low": a minor or standard deviation from typical contract terms; low financial \
+or legal exposure.
+- "medium": a materially one-sided or non-standard term that could lead to \
+meaningful financial or legal disadvantage.
+- "high": a severe, uncapped, or unilateral risk — e.g. unlimited liability, \
+broad indemnification, unilateral termination, forced IP assignment, or \
+similarly extreme terms.
+
+Respond with ONLY a JSON object — no markdown, no explanation:
+{{"risk_level": "low"|"medium"|"high", "rationale": "<one or two sentences>"}}"""
+
 
 def score_risk(
     clause_text: str,
@@ -108,24 +149,33 @@ def score_risk(
     ct_label = clause_type or "unspecified"
 
     if evidence_str:
-        prompt = _SCORING_WITH_EVIDENCE_PROMPT.format(
+        legacy = _SCORING_WITH_EVIDENCE_PROMPT.format(
             clause_type=ct_label,
             clause_text=clause_trunc,
             evidence_text=evidence_str,
         )
+        system = _SCORING_WITH_EVIDENCE_SYSTEM.format(clause_type=ct_label)
+        user_body = (
+            prompt_guard.wrap_block("Contract clause:", clause_trunc, "CLAUSE")
+            + "\n\n"
+            + prompt_guard.wrap_block("Supporting evidence:", evidence_str, "EVIDENCE")
+        )
     else:
-        prompt = _SCORING_TEXT_ONLY_PROMPT.format(
+        legacy = _SCORING_TEXT_ONLY_PROMPT.format(
             clause_type=ct_label,
             clause_text=clause_trunc,
         )
+        system = _SCORING_TEXT_ONLY_SYSTEM.format(clause_type=ct_label)
+        user_body = prompt_guard.wrap_block("Contract clause:", clause_trunc, "CLAUSE")
 
-    return _run_scoring(prompt, timeout_seconds, model_name)
+    messages = prompt_guard.build_messages(system, user_body, legacy)
+    return _run_scoring(messages, timeout_seconds, model_name)
 
 
 def _run_scoring(
-    prompt: str, timeout_seconds: int, model_name: str
+    messages: list, timeout_seconds: int, model_name: str
 ) -> Optional[Tuple[RiskLevel, str]]:
-    """Submit a scoring prompt to Ollama and parse the (RiskLevel, rationale) result.
+    """Submit a scoring message list to Ollama and parse the (RiskLevel, rationale) result.
 
     Uses ollama.Client(timeout=...) as the primary abort bound (kills the
     underlying httpx call so a hung socket cannot outlive the timeout),
@@ -133,7 +183,7 @@ def _run_scoring(
     Mirrors reflectors._run_judgment. Never raises — all failures return None.
     """
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_call_ollama, prompt, timeout_seconds, model_name)
+        future = executor.submit(_call_ollama, messages, timeout_seconds, model_name)
         try:
             return future.result(timeout=timeout_seconds)
         except (concurrent.futures.TimeoutError, httpx.TimeoutException):
@@ -145,13 +195,13 @@ def _run_scoring(
 
 
 def _call_ollama(
-    prompt: str, timeout_seconds: int, model_name: str
+    messages: list, timeout_seconds: int, model_name: str
 ) -> Optional[Tuple[RiskLevel, str]]:
     """Perform the Ollama chat call and parse the score. Raises on any error."""
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.

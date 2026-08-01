@@ -144,8 +144,11 @@ def test_prompt_truncated_to_max_chars():
 
     captured_prompt = {}
 
-    def capture_call(prompt, timeout_seconds, model_name):
-        captured_prompt["prompt"] = prompt
+    def capture_call(messages, timeout_seconds, model_name):
+        # Feature 035: _run_drafting now takes a [system, user] message list; join both so the
+        # membership assertions see the full prompt (trusted clause_type in system + untrusted
+        # clause/rationale/evidence in the user message).
+        captured_prompt["prompt"] = "".join(m["content"] for m in messages)
         return "safer text"
 
     with patch(
@@ -183,8 +186,11 @@ def test_long_clause_preserves_rationale():
 
     captured_prompt = {}
 
-    def capture_call(prompt, timeout_seconds, model_name):
-        captured_prompt["prompt"] = prompt
+    def capture_call(messages, timeout_seconds, model_name):
+        # Feature 035: _run_drafting now takes a [system, user] message list; join both so the
+        # membership assertions see the full prompt (trusted clause_type in system + untrusted
+        # clause/rationale/evidence in the user message).
+        captured_prompt["prompt"] = "".join(m["content"] for m in messages)
         return "safer text"
 
     with patch(
@@ -231,8 +237,11 @@ def test_rationale_included_in_prompt():
     """The provided risk_rationale text appears in the built prompt."""
     captured_prompt = {}
 
-    def capture_call(prompt, timeout_seconds, model_name):
-        captured_prompt["prompt"] = prompt
+    def capture_call(messages, timeout_seconds, model_name):
+        # Feature 035: _run_drafting now takes a [system, user] message list; join both so the
+        # membership assertions see the full prompt (trusted clause_type in system + untrusted
+        # clause/rationale/evidence in the user message).
+        captured_prompt["prompt"] = "".join(m["content"] for m in messages)
         return "safer text"
 
     with patch(
@@ -258,8 +267,8 @@ def test_clause_type_included_in_prompt():
     for clause_type, expected in [("liability", "liability"), (None, "unspecified")]:
         captured_prompt = {}
 
-        def capture_call(prompt, timeout_seconds, model_name):
-            captured_prompt["prompt"] = prompt
+        def capture_call(messages, timeout_seconds, model_name):
+            captured_prompt["prompt"] = "".join(m["content"] for m in messages)
             return "safer text"
 
         with patch(
@@ -341,3 +350,79 @@ def test_chat_options_reversible_to_sampling(monkeypatch):
     assert opts["temperature"] == 0.8
     assert "seed" not in opts
     assert opts["num_predict"] == 1536
+
+
+# ── Feature 035: prompt-injection defense (redline drafter) ──────────────────
+
+
+def test_035_off_path_byte_identical(monkeypatch):
+    """AC-7: defense OFF → the exact pre-035 single user message (interleaved template)."""
+    from app.graph.nodes.drafters.redline_drafter import (
+        draft_rewrite,
+        _REWRITE_TEXT_ONLY_PROMPT,
+    )
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
+    captured = {}
+
+    def capture_call(messages, timeout_seconds, model_name):
+        captured["messages"] = messages
+        return "safer text"
+
+    with patch(
+        "app.graph.nodes.drafters.redline_drafter._run_drafting", side_effect=capture_call
+    ):
+        draft_rewrite(
+            "the clause",
+            risk_rationale="too risky",
+            evidence_snippets=None,
+            clause_type="liability",
+            timeout_seconds=30,
+            model_name=OLLAMA_MODEL_NAME,
+            prompt_max_chars=500,
+            rationale_reserve=100,
+        )
+
+    expected = _REWRITE_TEXT_ONLY_PROMPT.format(
+        clause_type="liability", rationale="too risky", clause_text="the clause"
+    )
+    assert captured["messages"] == [{"role": "user", "content": expected}]
+
+
+def test_035_on_path_wraps_rationale_and_clause(monkeypatch):
+    """AC-4/5 + Decision 3: ON → [system,user]; the untrusted clause AND the laundered rationale are
+    each inside a fence in the user message; clause_type (trusted) stays in the system message."""
+    from app.graph.nodes.drafters.redline_drafter import draft_rewrite
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
+    captured = {}
+
+    def capture_call(messages, timeout_seconds, model_name):
+        captured["messages"] = messages
+        return "safer text"
+
+    with patch(
+        "app.graph.nodes.drafters.redline_drafter._run_drafting", side_effect=capture_call
+    ):
+        draft_rewrite(
+            "UNIQUE_CLAUSE_444",
+            risk_rationale="RATIONALE_MARK_888",
+            evidence_snippets=None,
+            clause_type="liability",
+            timeout_seconds=30,
+            model_name=OLLAMA_MODEL_NAME,
+            prompt_max_chars=500,
+            rationale_reserve=100,
+        )
+
+    msgs = captured["messages"]
+    assert len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[1]["role"] == "user"
+    assert prompt_guard.ANTI_INJECTION_PREAMBLE in msgs[0]["content"]
+    assert "liability" in msgs[0]["content"]                   # trusted → system
+    user = msgs[1]["content"]
+    assert "UNIQUE_CLAUSE_444" in user and "⟦CLAUSE:" in user
+    assert "RATIONALE_MARK_888" in user and "⟦RATIONALE:" in user  # Decision 3: rationale fenced
+    assert "UNIQUE_CLAUSE_444" not in msgs[0]["content"]
+    assert "RATIONALE_MARK_888" not in msgs[0]["content"]

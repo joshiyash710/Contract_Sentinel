@@ -14,6 +14,7 @@ import ollama
 
 from app.graph.nodes.splitters import ClauseBoundary
 from app.graph.state import ClauseType
+from app.llm import prompt_guard
 
 import app.config as _config
 
@@ -97,6 +98,68 @@ Here are the regex-detected clause segments:
 {clauses_json}
 """
 
+# ── Feature 035: system-message instruction blocks (ON path). The untrusted serialized segments move
+# to the wrapped user_body; the original _LLM_PROMPT/_GROUPING_PROMPT are used UNCHANGED on the OFF
+# path (byte-identical, AC-7). Used raw (not .format()ed) → single braces in the JSON schema example.
+_LLM_SYSTEM = """You are a contract clause analysis assistant. You are given a list of clause segments
+that were detected by a regex-based pre-pass on a legal contract. Your job is to:
+
+1. REVIEW the clause boundaries. Merge fragments that belong to the same logical clause.
+   Split any run-on segments that contain multiple distinct clauses.
+2. CLASSIFY each clause into one of these types: "definitions", "payment", "delivery",
+   "term", "termination", "confidentiality", "intellectual_property", "liability",
+   "force_majeure", "dispute_resolution", "general", "other".
+   If you cannot confidently classify a clause, set clause_type to null.
+
+Respond with ONLY a JSON object matching this exact schema — no markdown, no explanation:
+
+{
+  "clauses": [
+    {
+      "text": "The full text of the clause",
+      "section_number": "1.2" or null,
+      "clause_type": "one of the types listed above" or null
+    }
+  ]
+}
+
+Rules:
+- Preserve ALL original text — do not rewrite, summarize, or omit any clause content.
+- Maintain the original document order.
+- Every piece of input text must appear in exactly one output clause.
+- If a clause has a section number (e.g. "1.2", "Article 5", "§3"), include it.
+  If it has no section marker, set section_number to null.
+- If you are uncertain about the clause_type, set it to null rather than guessing."""
+
+_GROUPING_SYSTEM = """You are a contract clause analysis assistant. You are given a numbered list of
+clause segments detected by a regex-based pre-pass on a legal contract. Your job is to:
+
+1. GROUP the segments into logical clauses by referencing their "index" numbers. Merge segments that
+   belong to the same logical clause by listing their indices together. Do NOT rewrite or emit any
+   clause text — reference indices only.
+2. CLASSIFY each grouped clause into one of these types: "definitions", "payment", "delivery",
+   "term", "termination", "confidentiality", "intellectual_property", "liability", "force_majeure",
+   "dispute_resolution", "general", "other". If you cannot confidently classify, use null.
+
+Respond with ONLY a JSON object matching this exact schema — no markdown, no explanation, NO clause text:
+
+{
+  "clauses": [
+    {
+      "indices": [1, 2],
+      "section_number": "1.2" or null,
+      "clause_type": "one of the types listed above" or null
+    }
+  ]
+}
+
+Rules:
+- Every input index must appear in EXACTLY ONE output clause.
+- Maintain the original document order (indices ascending overall, no gaps, no duplicates).
+- Do NOT split a segment — a segment index belongs wholly to one output clause.
+- If a clause has a section number, include it; otherwise set section_number to null.
+- If uncertain about the clause_type, set it to null rather than guessing."""
+
 
 def refine_with_llm(
     regex_clauses: list,
@@ -147,16 +210,24 @@ def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> 
     # full text re-emit), with a smaller output-token cap. EMIT_TEXT=True is the reversible
     # pre-029 path (re-emit full text, num_predict 4096).
     if CLAUSE_SPLITTER_LLM_EMIT_TEXT:
-        prompt = _LLM_PROMPT.format(clauses_json=clauses_json)
+        legacy = _LLM_PROMPT.format(clauses_json=clauses_json)
+        system = _LLM_SYSTEM
         num_predict = 4096
     else:
-        prompt = _GROUPING_PROMPT.format(clauses_json=clauses_json)
+        legacy = _GROUPING_PROMPT.format(clauses_json=clauses_json)
+        system = _GROUPING_SYSTEM
         num_predict = CLAUSE_SPLITTER_LLM_NUM_PREDICT
+
+    # Feature 035: wrap the untrusted serialized segments; OFF path uses `legacy` unchanged (AC-7).
+    user_body = prompt_guard.wrap_block(
+        "Here are the regex-detected clause segments:", clauses_json, "SEGMENTS"
+    )
+    messages = prompt_guard.build_messages(system, user_body, legacy)
 
     client = ollama.Client(timeout=timeout_seconds)
     response = client.chat(
         model=model_name,
-        messages=[{"role": "user", "content": prompt}],
+        messages=messages,
         format="json",
         think=False,  # qwen3 thinking mode + format="json" wastes the token budget
         # on hidden reasoning and blows the timeout; the JSON answer never needs it.

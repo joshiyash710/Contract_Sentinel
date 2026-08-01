@@ -528,3 +528,45 @@ def test_grouping_never_raises_on_bad_json(_grouping_mode, three_clauses):
     with patch("ollama.Client", return_value=mock_client):
         result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
     assert result is three_clauses
+
+
+# ── Feature 035: prompt-injection defense (clause-splitter refiner) ──────────
+
+
+def test_035_off_path_byte_identical(monkeypatch, two_clauses):
+    """AC-7: defense OFF → the exact pre-035 single user message (emit-text template)."""
+    import app.graph.nodes.splitters.llm_refiner as node
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
+    client = _mock_client({"clauses": []})
+    with patch("app.graph.nodes.splitters.llm_refiner.ollama.Client", return_value=client):
+        node.refine_with_llm(two_clauses, 30, "qwen3:8b")
+
+    msgs = client.chat.call_args.kwargs["messages"]
+    assert len(msgs) == 1 and msgs[0]["role"] == "user"
+    # OFF path == the unchanged _LLM_PROMPT with the serialized segments
+    assert msgs[0]["content"].startswith("You are a contract clause analysis assistant.")
+    assert "Definitions of all terms" in msgs[0]["content"]
+    assert "⟦" not in msgs[0]["content"]  # no fence when OFF
+
+
+def test_035_on_path_wraps_segments(monkeypatch, two_clauses):
+    """AC-4/5: ON → [system,user]; the serialized segments appear ONLY inside a ⟦SEGMENTS:…⟧ fence in
+    the user message, with the preamble in the system message."""
+    import app.graph.nodes.splitters.llm_refiner as node
+    from app.llm import prompt_guard
+
+    monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
+    client = _mock_client({"clauses": []})
+    with patch("app.graph.nodes.splitters.llm_refiner.ollama.Client", return_value=client):
+        node.refine_with_llm(two_clauses, 30, "qwen3:8b")
+
+    msgs = client.chat.call_args.kwargs["messages"]
+    assert len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[1]["role"] == "user"
+    assert prompt_guard.ANTI_INJECTION_PREAMBLE in msgs[0]["content"]
+    assert "Definitions of all terms" in msgs[1]["content"]     # untrusted segment text → user
+    assert "Definitions of all terms" not in msgs[0]["content"]
+    assert "⟦SEGMENTS:" in msgs[1]["content"] and "⟦/SEGMENTS:" in msgs[1]["content"]
