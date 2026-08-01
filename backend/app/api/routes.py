@@ -133,6 +133,24 @@ async def analyze(
         os.unlink(dest_path)
         raise HTTPException(status_code=400, detail="Empty file upload rejected")
 
+    # Feature 036: encrypt the stored contract at rest. The MAX_UPLOAD_SIZE check above ran on the
+    # plaintext stream (AC-7); we now overwrite dest_path with Fernet ciphertext. Ingest decrypts to a
+    # temp file for parsing. Reversible via CONTRACT_ENCRYPTION_AT_REST_ENABLED.
+    if _cfg.CONTRACT_ENCRYPTION_AT_REST_ENABLED:
+        try:
+            from app.security import crypto
+
+            with open(dest_path, "rb") as f:
+                plaintext = f.read()
+            with open(dest_path, "wb") as f:
+                f.write(crypto.encrypt_bytes(plaintext))
+            del plaintext
+        except Exception as exc:  # noqa: BLE001 — never leave a half-written file
+            if os.path.exists(dest_path):
+                os.unlink(dest_path)
+            _logger.exception("Upload encryption failed")
+            raise HTTPException(status_code=500, detail="Internal error saving upload") from exc
+
     # Default the report recipient to the logged-in user's own email (feature 020 — AC-4),
     # so each user's report is delivered to their inbox. An explicit request recipient wins.
     recipient = recipient or current_user.email

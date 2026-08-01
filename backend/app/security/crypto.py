@@ -84,6 +84,19 @@ def decrypt(token: str) -> str:
     return _fernet().decrypt(token.encode("utf-8")).decode("utf-8")
 
 
+def encrypt_bytes(data: bytes) -> bytes:
+    """Encrypt raw bytes → a Fernet token (bytes). Feature 036: at-rest contract-file encryption."""
+    return _fernet().encrypt(data)
+
+
+def decrypt_bytes(token: bytes) -> bytes:
+    """Decrypt a Fernet token (bytes) → raw bytes. Raises InvalidToken on non-ciphertext input —
+    a Fernet token requires a 0x80 version byte + a valid HMAC-SHA256 tag keyed by the secret, so
+    arbitrary (legacy-plaintext) file bytes cannot spuriously decrypt; the caller catches InvalidToken
+    and treats the input as already-plaintext (feature 036 AC-5)."""
+    return _fernet().decrypt(token)
+
+
 def looks_like_plaintext_token(value: str) -> bool:
     """True if `value` parses as JSON carrying a `refresh_token`/`token` key.
 

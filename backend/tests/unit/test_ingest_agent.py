@@ -216,3 +216,51 @@ def test_ingest_ocr_fallback_with_low_confidence(scanned_pdf_path):
     assert result["ocr_used"] is True
     assert result["ocr_confidence"] is not None
     assert 0.0 <= result["ocr_confidence"] <= 1.0
+
+
+# ── Feature 036: contract encryption at rest ─────────────────────────────────
+
+
+def _encrypted_copy(src_path, tmp_path, suffix):
+    from app.security import crypto
+
+    with open(src_path, "rb") as f:
+        enc = crypto.encrypt_bytes(f.read())
+    dest = tmp_path / f"enc{suffix}"
+    dest.write_bytes(enc)
+    return str(dest)
+
+
+def test_ingest_encrypted_pdf_parses_like_plaintext(sample_pdf_path, tmp_path):
+    """AC-3: an at-rest-encrypted PDF yields the same extracted_text as the plaintext."""
+    import app.graph.nodes.ingest_agent as ia
+
+    plain = ia.ingest_agent({"document_path": sample_pdf_path})
+    enc_path = _encrypted_copy(sample_pdf_path, tmp_path, ".pdf")
+    enc = ia.ingest_agent({"document_path": enc_path})
+
+    assert enc.get("ingest_error") is None
+    assert enc["extracted_text"] == plain["extracted_text"]
+    # AC-4: no leftover temp file — only our encrypted source remains in tmp_path
+    leftover = [p for p in tmp_path.iterdir()]
+    assert leftover == [__import__("pathlib").Path(enc_path)]
+
+
+def test_ingest_legacy_plaintext_still_parses(sample_pdf_path):
+    """AC-5: a plaintext PDF (pre-036) is parsed in place even with the flag ON."""
+    from app.graph.nodes.ingest_agent import ingest_agent
+
+    result = ingest_agent({"document_path": sample_pdf_path})
+    assert result.get("ingest_error") is None
+    assert len(result["extracted_text"]) > 100
+
+
+def test_ingest_flag_off_parses_in_place(sample_pdf_path, tmp_path, monkeypatch):
+    """AC-6: flag OFF → no decrypt/temp; plaintext parsed in place."""
+    import app.config as _cfg
+    from app.graph.nodes.ingest_agent import ingest_agent
+
+    monkeypatch.setattr(_cfg, "CONTRACT_ENCRYPTION_AT_REST_ENABLED", False)
+    result = ingest_agent({"document_path": sample_pdf_path})
+    assert result.get("ingest_error") is None
+    assert len(result["extracted_text"]) > 100

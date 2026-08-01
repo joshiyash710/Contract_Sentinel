@@ -134,6 +134,28 @@ points in `user_store` and the central-token loader. **No LangGraph node/edge ch
 cookie hardening and login rate-limiting shipped alongside in feature 032 harden already-in-scope
 authentication (§014 amendment) and require **no** constitutional change.
 
+**AMENDMENT (2026-08-01, feature 036) — encryption at rest for stored contract files is now IN scope.**
+This narrows the remaining "Encryption at rest — AES-256 via Python's `cryptography` (Fernet)" item in
+the PHASE 2 DEFERRED list, extending the feature-032 amendment (which covered only OAuth tokens) to the
+**uploaded contract files stored on disk** in `UPLOAD_DIR` (`data/uploads/`). These raw contracts are
+the user's confidential source documents and are the next-highest at-rest exposure after the OAuth
+tokens 032 already encrypts.
+
+**IN scope:** symmetric encryption at rest (Fernet, reusing the feature-032 `app/security/crypto.py`
+key seam) of the uploaded contract file bytes; transparent decrypt-to-temp-file at ingest time so the
+existing PDF/DOCX parsers are unchanged; legacy plaintext uploads tolerated and read as-is.
+
+**Stays DEFERRED (NOT this amendment):** encryption at rest of the **generated reports / parsed text /
+extracted clauses** stored in `data/reports/` (a larger surface — delivery + Drive upload read those;
+a noted follow-up), Zero Storage mode, PrivacyAgent, audit log, retention policy.
+
+**Stays PERMANENTLY CUT:** dedicated KMS/Vault key management and all other PERMANENTLY-CUT items.
+
+**Mechanics:** adds `encrypt_bytes`/`decrypt_bytes` to the existing crypto module + an encrypt-on-save
+wrap in the upload route + a decrypt-to-tempfile shim at ingest. **No LangGraph node/edge change; no
+`ContractState` field; no DB migration** (files on disk; `document_path` reference unchanged). Fully
+reversible via a config flag.
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.

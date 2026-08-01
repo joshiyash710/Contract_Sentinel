@@ -91,3 +91,20 @@ def test_key_and_plaintext_never_logged(monkeypatch, caplog):
     blob = " ".join(r.getMessage() for r in caplog.records)
     assert key not in blob
     assert "super-secret-value-42" not in blob
+
+
+# ── Feature 036: byte helpers ────────────────────────────────────────────────
+
+
+def test_encrypt_decrypt_bytes_roundtrip():
+    blob = b"%PDF-1.7\x00\x01\x02 binary \xff\xfe contract bytes"
+    token = crypto.encrypt_bytes(blob)
+    assert token != blob
+    assert crypto.decrypt_bytes(token) == blob
+
+
+def test_decrypt_bytes_raises_on_plaintext():
+    from cryptography.fernet import InvalidToken
+
+    with pytest.raises(InvalidToken):
+        crypto.decrypt_bytes(b"%PDF-1.7 not a fernet token")

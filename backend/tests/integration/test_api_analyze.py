@@ -210,3 +210,26 @@ def test_response_not_blocked_by_run(client, monkeypatch):
     # Release before client teardown (review T1)
     hold.set()
     _wait_for(client, job_id, "completed")
+
+
+def test_uploaded_contract_is_encrypted_at_rest(client):
+    """Feature 036 AC-2: the file stored under UPLOAD_DIR is Fernet ciphertext, not the raw upload;
+    decrypt_bytes recovers the original."""
+    import os
+    import app.config as _config
+    from app.security import crypto
+
+    raw = b"%PDF-1.4 secret contract body"
+    resp = client.post(
+        "/api/analyze",
+        files={"file": ("contract.pdf", raw, "application/pdf")},
+    )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+
+    stored_path = os.path.join(_config.UPLOAD_DIR, f"{job_id}.pdf")
+    with open(stored_path, "rb") as f:
+        stored = f.read()
+    assert stored != raw
+    assert not stored.startswith(b"%PDF")          # not plaintext on disk
+    assert crypto.decrypt_bytes(stored) == raw     # recoverable with the key

@@ -577,6 +577,13 @@ ENCRYPTION_KEY_FILE: str = "data/encryption_key"
 # Persisted Fernet key if the env var is unset; generated + written 0600 on first run
 # (mirrors AUTH_SECRET_FILE bootstrap). Losing this orphans stored tokens → users re-connect.
 
+# ── Contract encryption at rest (feature 036) ───────────────────────────────────
+# Source: specs/036-contract-encryption-at-rest/. Encrypts the uploaded contract file bytes on disk
+# (UPLOAD_DIR) with the same Fernet key; decrypt-to-tempfile at ingest. Reversible.
+CONTRACT_ENCRYPTION_AT_REST_ENABLED: bool = True
+# True → uploaded contracts stored as Fernet ciphertext, decrypted to a short-lived temp file for
+# parsing. False → pre-036 plaintext store + in-place parse. Legacy plaintext uploads tolerated either way.
+
 # ── Login/signup rate-limiting & account lockout (feature 032, W3) ───────────────
 # Source: specs/032-security-hardening-tier1/{spec,plan}.md §2.4/§4. All env-overridable (§3).
 AUTH_RATE_LIMIT_MAX: int = _env_int("AUTH_RATE_LIMIT_MAX", 10)

@@ -30,10 +30,43 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import os
+import tempfile
+
 import app.config as _config  # Import module, not names, to allow monkeypatching in tests
 from app.graph.state import ContractState
 from app.graph.nodes.parsers.pdf_parser import parse_pdf
 from app.graph.nodes.parsers.docx_parser import parse_docx
+
+
+def _materialize_plaintext(document_path: str, ext: str) -> tuple[str, bool]:
+    """Feature 036: if the on-disk contract is encrypted at rest, decrypt it to a short-lived temp file
+    with the same extension and return (temp_path, True); the caller parses it and deletes it. Legacy
+    plaintext (decrypt raises InvalidToken) or the flag being OFF → return (document_path, False) so the
+    parser reads the original in place."""
+    if not _config.CONTRACT_ENCRYPTION_AT_REST_ENABLED:
+        return document_path, False
+    from cryptography.fernet import InvalidToken
+    from app.security import crypto
+
+    try:
+        with open(document_path, "rb") as f:
+            plaintext = crypto.decrypt_bytes(f.read())
+    except InvalidToken:
+        return document_path, False  # already plaintext (pre-036 upload) — parse in place (AC-5)
+    tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
+    try:
+        tmp.write(plaintext)
+        tmp.close()  # close before the parser opens the path (Windows file-lock safety)
+    except Exception:
+        # A write failure (e.g. disk full) must not leave a plaintext contract temp behind.
+        tmp.close()
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
+    return tmp.name, True
 
 logger = logging.getLogger("contractsentinel.ingest")
 
@@ -76,12 +109,25 @@ def ingest_agent(state: ContractState) -> dict:
         )
 
     # ── Dispatch to parser ────────────────────────────────────────────────────
+    # Feature 036: decrypt an at-rest-encrypted contract to a temp file first; always clean it up.
+    try:
+        parse_path, _is_temp = _materialize_plaintext(document_path, ext)
+    except PermissionError as exc:
+        return _error_return(
+            document_id, document_path, original_filename, uploaded_at,
+            "permission_denied", str(exc), start_time,
+        )
+    except OSError as exc:  # FileNotFoundError + any read/write failure while materializing
+        return _error_return(
+            document_id, document_path, original_filename, uploaded_at,
+            "corrupted_file", str(exc), start_time,
+        )
     try:
         timeout = INGEST_TIMEOUT_SECONDS  # read from module attr — monkeypatchable
         if ext == ".pdf":
-            result = parse_pdf(document_path, timeout_seconds=timeout)
+            result = parse_pdf(parse_path, timeout_seconds=timeout)
         else:  # .docx
-            result = parse_docx(document_path, timeout_seconds=timeout)
+            result = parse_docx(parse_path, timeout_seconds=timeout)
 
     except FileNotFoundError as exc:
         # Maps to 'corrupted_file': the file was presumably valid at upload time;
@@ -137,6 +183,14 @@ def ingest_agent(state: ContractState) -> dict:
             f"Unexpected error: {exc}",
             start_time,
         )
+    finally:
+        # Feature 036 (AC-4): delete the decrypted temp file on success OR any parser failure, so no
+        # plaintext contract copy is left on disk.
+        if _is_temp:
+            try:
+                os.unlink(parse_path)
+            except OSError:
+                pass
 
     # ── Success path ──────────────────────────────────────────────────────────
     elapsed = time.monotonic() - start_time
