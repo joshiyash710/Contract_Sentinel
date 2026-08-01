@@ -7,7 +7,8 @@ import { ACCEPT_ATTR } from "@/lib/upload";
 
 const FILE_TYPES = [
   { label: "PDF", color: "bg-risk-high" },
-  { label: "DOCX", color: "bg-accent-gradient-to" },
+  // MS Word blue so the DOCX chip reads as the official Word logo (matching PDF's Adobe red).
+  { label: "DOCX", color: "bg-[#2B579A]" },
 ];
 
 /**
