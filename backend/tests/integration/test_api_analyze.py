@@ -233,3 +233,21 @@ def test_uploaded_contract_is_encrypted_at_rest(client):
     assert stored != raw
     assert not stored.startswith(b"%PDF")          # not plaintext on disk
     assert crypto.decrypt_bytes(stored) == raw     # recoverable with the key
+
+
+def test_magic_byte_check_rejects_mislabeled_file(client):
+    """Feature 037: a file with a .pdf extension but non-PDF content is rejected 400."""
+    resp = client.post(
+        "/api/analyze",
+        files={"file": ("evil.pdf", b"MZ\x90\x00 this is an exe", "application/pdf")},
+    )
+    assert resp.status_code == 400
+    assert "does not match" in resp.json()["detail"]
+
+
+def test_security_headers_present(client):
+    """Feature 037: hardening headers are set on responses."""
+    resp = client.get("/api/health")
+    assert resp.headers.get("X-Content-Type-Options") == "nosniff"
+    assert resp.headers.get("X-Frame-Options") == "DENY"
+    assert "default-src 'none'" in resp.headers.get("Content-Security-Policy", "")

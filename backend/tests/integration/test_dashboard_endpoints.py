@@ -141,7 +141,8 @@ def test_dashboard_missing_report_skipped(client, tmp_path):
 
 
 def test_analyze_persists_real_filename(client):
-    files = {"file": ("heavy_contract.docx", io.BytesIO(b"dummy contents"),
+    # DOCX is a ZIP container → leading "PK" so the 037 magic-byte check accepts it.
+    files = {"file": ("heavy_contract.docx", io.BytesIO(b"PK\x03\x04 dummy contents"),
                       "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
     r = client.post("/api/analyze", files=files)
     assert r.status_code == 202

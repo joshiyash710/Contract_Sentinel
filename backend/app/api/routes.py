@@ -133,6 +133,20 @@ async def analyze(
         os.unlink(dest_path)
         raise HTTPException(status_code=400, detail="Empty file upload rejected")
 
+    # Feature 037: magic-byte check — the leading bytes must match the extension, so a mislabeled or
+    # hostile file (e.g. an executable renamed .pdf) is rejected even though its extension passed above.
+    if _cfg.UPLOAD_MAGIC_BYTE_CHECK_ENABLED:
+        prefixes = _cfg.UPLOAD_MAGIC_PREFIXES.get(ext)
+        if prefixes:
+            with open(dest_path, "rb") as f:
+                head = f.read(8)
+            if not any(head.startswith(p) for p in prefixes):
+                os.unlink(dest_path)
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File content does not match its {ext} extension.",
+                )
+
     # Feature 036: encrypt the stored contract at rest. The MAX_UPLOAD_SIZE check above ran on the
     # plaintext stream (AC-7); we now overwrite dest_path with Fernet ciphertext. Ingest decrypts to a
     # temp file for parsing. Reversible via CONTRACT_ENCRYPTION_AT_REST_ENABLED.

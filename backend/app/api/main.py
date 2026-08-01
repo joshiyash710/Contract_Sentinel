@@ -119,6 +119,19 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    # Feature 037: hardening response headers on every response (config-driven, reversible).
+    @application.middleware("http")
+    async def _security_headers(request: Request, call_next):
+        response = await call_next(request)
+        if _cfg.SECURITY_HEADERS_ENABLED:
+            for name, value in _cfg.SECURITY_HEADERS.items():
+                response.headers.setdefault(name, value)
+            if _cfg.SECURITY_HSTS_ENABLED:
+                response.headers.setdefault(
+                    "Strict-Transport-Security", "max-age=63072000; includeSubDomains"
+                )
+        return response
+
     # Router order: public (health) → auth (unguarded) → gated (require_auth on every route)
     application.include_router(public_router)
     application.include_router(auth_router)

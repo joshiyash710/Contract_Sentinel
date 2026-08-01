@@ -519,6 +519,32 @@ API_BIND_HOST: str = "127.0.0.1"
 API_BIND_PORT: int = 8000
 # Uvicorn bind target (spec D1). Localhost-only; no auth. Overridable for local use.
 
+# ── Upload content-type (magic-byte) validation (feature 037, Security Tier 2) ───
+UPLOAD_MAGIC_BYTE_CHECK_ENABLED: bool = True
+# When True, the upload route verifies the file's leading bytes match its extension (not just the
+# extension), rejecting a mislabeled/hostile file (e.g. an executable named .pdf) with 400. Reversible.
+UPLOAD_MAGIC_PREFIXES: dict = {
+    ".pdf": (b"%PDF",),
+    ".docx": (b"PK",),  # OOXML is a ZIP container — all zip variants start with "PK"
+}
+
+# ── Security response headers (feature 037, Security Tier 2) ─────────────────────
+SECURITY_HEADERS_ENABLED: bool = True
+# When True, a middleware adds hardening headers to every response. Reversible.
+SECURITY_HSTS_ENABLED: bool = _env_bool("SECURITY_HSTS_ENABLED", False)
+# HSTS is only meaningful behind TLS and can lock a browser onto https for a domain — default OFF for
+# local plaintext-HTTP dev; set True in a TLS deployment.
+SECURITY_HEADERS: dict = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Cross-Origin-Opener-Policy": "same-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+    # The API returns only JSON; a strict CSP that forbids any active content is safe here and blunts
+    # reflected-content attacks. The Next.js frontend serves its own pages/CSP separately.
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
 # ── Dynamic dashboard (feature 018) ────────────────────────────────────────────
 # Source: specs/018-dynamic-dashboard/spec.md §2.4 (D3/D7). Tunable — aggregation logic
 # reads these, never hardcodes them (constitution §3).
