@@ -62,10 +62,16 @@ Models: generative **Qwen3:8b** (Ollama), embeddings **BGE-M3** (Ollama) — kep
   message, with deterministic breakout neutralization — across all 4 generative LLM calls.
 - **Per-user isolation:** every data read is scoped to the owning account; per-user Drive.
 
+- **Security headers (037):** every API response carries `X-Content-Type-Options`,
+  `X-Frame-Options: DENY`, a strict CSP, `Referrer-Policy`, COOP, Permissions-Policy
+  (HSTS available, TLS-gated).
+- **Upload hardening (037):** magic-byte validation rejects a file whose content doesn't
+  match its extension (PDF→`%PDF`, DOCX→ZIP), not just the extension.
+
 **Known follow-ups (deferred):** TLS termination (ops), publish the Google OAuth app to
 Production (fixes `invalid_grant` token expiry), encryption at rest for *generated
-reports/parsed text*, security headers + dependency scanning, upload magic-byte
-validation, honest-LLM-failure surfacing.
+reports/parsed text*, **dependency scanning (pip-audit/npm audit in CI)**, honest-LLM-
+failure surfacing.
 
 ## 5. Tech stack
 
