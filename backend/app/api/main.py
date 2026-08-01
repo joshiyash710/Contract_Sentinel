@@ -27,6 +27,7 @@ from app.runner.registry import JobRegistry
 from app.runner.worker import PipelineWorker
 from app.runner.models import JobState
 from app.runner.user_store import UserStore
+from app.runner.password_reset_store import PasswordResetStore
 from app.api.security import bootstrap_secret
 from app.api.rate_limit import RateLimiter
 from app.security.crypto import bootstrap_encryption_key
@@ -66,6 +67,7 @@ async def lifespan(application: FastAPI):
     upgrade_to_head(_cfg.JOB_STORE_DB_PATH)
     store = JobStore(_cfg.JOB_STORE_DB_PATH)
     user_store = UserStore(_cfg.JOB_STORE_DB_PATH)
+    password_reset_store = PasswordResetStore(_cfg.JOB_STORE_DB_PATH)  # feature 034
     saver = build_saver(_cfg.CHECKPOINTER_DB_PATH) if _cfg.CHECKPOINTER_ENABLED else None
     registry = JobRegistry(store, saver, loop, max_jobs=_cfg.JOB_STORE_RETENTION_MAX)
     worker = PipelineWorker(
@@ -79,6 +81,7 @@ async def lifespan(application: FastAPI):
         _recover(registry, store, saver, worker)
     application.state.ctx = RunnerContext(registry=registry, worker=worker, loop=loop)
     application.state.user_store = user_store
+    application.state.password_reset_store = password_reset_store  # feature 034
     application.state.rate_limiter = RateLimiter()  # feature 032 (W3): per-IP auth rate limiting
     try:
         yield
@@ -86,6 +89,7 @@ async def lifespan(application: FastAPI):
         worker.stop()
         store.close()
         user_store.close()
+        password_reset_store.close()  # feature 034
         if saver is not None:
             saver.conn.close()
 

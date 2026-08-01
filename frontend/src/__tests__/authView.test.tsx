@@ -55,12 +55,10 @@ describe("AC-12: SSO buttons disabled and Forgot-Password inert", () => {
     expect(ms).toBeDisabled();
   });
 
-  it("Forgot Password link does not navigate", async () => {
+  it("Forgot Password links to /forgot-password (feature 034)", async () => {
     renderAuth("login");
-    const fp = screen.getByText(/forgot password/i);
-    // inert — no href that causes navigation; clicking does not navigate
-    fireEvent.click(fp);
-    expect(assignMock).not.toHaveBeenCalled();
+    const fp = screen.getByRole("link", { name: /forgot password/i });
+    expect(fp).toHaveAttribute("href", "/forgot-password");
   });
 });
 

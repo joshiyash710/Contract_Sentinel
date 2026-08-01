@@ -48,6 +48,13 @@ export interface ApiClient {
   /** Change the caller's own password (verify current, set new). Rejects with ApiError
    * (message = the backend detail, e.g. "Current password is incorrect") on failure. */
   changePassword(body: { current_password: string; new_password: string }): Promise<void>;
+  // ── Feature 034 forgot-password ─────────────────────────────────────────
+  /** Request a password-reset link. Always resolves (server returns a generic 200 regardless of
+   * whether the email exists), so the UI never discloses account existence. */
+  requestPasswordReset(email: string): Promise<void>;
+  /** Redeem a reset token + set a new password. Rejects with ApiError (400 invalid/expired,
+   * 422 weak password) so the /reset page can branch. */
+  resetPassword(token: string, newPassword: string): Promise<void>;
   // ── Feature 031: per-user Google Drive connect ───────────────────────────
   /** Whether the current user has connected their Google Drive (+ the connected email). */
   getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }>;

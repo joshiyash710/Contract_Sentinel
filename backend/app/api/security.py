@@ -14,6 +14,7 @@ compatibility issues (passlib can't find bcrypt.__about__ in 5.x). bcrypt's API
 
 import base64
 import hashlib
+import hmac
 import os
 import secrets
 import stat
@@ -127,6 +128,29 @@ def make_session(user: Any, *, absolute_exp: Optional[datetime] = None) -> str:
         "epoch": getattr(user, "session_epoch", 0),
     }
     return jwt.encode(payload, load_secret(), algorithm="HS256")
+
+
+# ---------------------------------------------------------------------------
+# Password-reset tokens (feature 034)
+# ---------------------------------------------------------------------------
+
+
+def generate_reset_token() -> str:
+    """A high-entropy, URL-safe single-use reset token (~256-bit; Decision 1).
+
+    The raw token is emailed to the user and NEVER stored or logged (S3). Only its
+    HMAC (hash_reset_token) is persisted.
+    """
+    return secrets.token_urlsafe(_cfg.AUTH_RESET_TOKEN_BYTES)
+
+
+def hash_reset_token(raw: str) -> str:
+    """HMAC-SHA256(AUTH_SECRET, raw) hex — the value stored in password_reset_tokens.
+
+    Keying with the app secret (Decision 2) means a DB leak alone cannot be used to
+    precompute or forge a token lookup.
+    """
+    return hmac.new(load_secret().encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
 def read_session(token: str) -> dict[str, Any]:

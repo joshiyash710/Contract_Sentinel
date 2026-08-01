@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { getApiClient } from "@/lib/api/provider";
 import { ApiError } from "@/lib/api/client";
@@ -35,6 +35,16 @@ export function AuthView({ defaultTab = "login" }: Props) {
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Feature 034 — success flash after a completed password reset (/login?reset=1).
+  const [resetDone, setResetDone] = useState(false);
+  useEffect(() => {
+    if (
+      typeof window !== "undefined" &&
+      new URLSearchParams(window.location.search).get("reset") === "1"
+    ) {
+      setResetDone(true);
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,12 +186,12 @@ export function AuthView({ defaultTab = "login" }: Props) {
                     Password
                   </label>
                   {tab === "login" && (
-                    <span
-                      className="cursor-not-allowed text-small text-text-tertiary"
-                      aria-disabled="true"
+                    <a
+                      href="/forgot-password"
+                      className="text-small text-text-tertiary hover:text-text-primary hover:underline"
                     >
                       Forgot password?
-                    </span>
+                    </a>
                   )}
                 </div>
                 <PasswordInput
@@ -193,6 +203,12 @@ export function AuthView({ defaultTab = "login" }: Props) {
                   required
                 />
               </div>
+
+              {resetDone && tab === "login" && !error && (
+                <p role="status" className="rounded-input border border-risk-low/40 bg-risk-low/10 px-3 py-2 text-small text-risk-low">
+                  Your password has been reset. Please sign in with your new password.
+                </p>
+              )}
 
               {error && (
                 <p role="alert" className="rounded-input border border-risk-high/40 bg-risk-high/10 px-3 py-2 text-small text-risk-high">

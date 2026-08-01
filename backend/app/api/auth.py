@@ -12,22 +12,35 @@ require_auth: FastAPI dependency applied router-level to the existing gated rout
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import time
-from datetime import datetime, timezone
+import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, field_validator
 
 import app.config as _cfg
 from app.api.security import (
     DUMMY_HASH,
+    generate_reset_token,
     hash_password,
+    hash_reset_token,
     make_session,
     read_session,
     verify_password,
 )
+from app.delivery.password_reset_email import send_reset_email
 from app.runner.user_store import EmailExists
+
+logger = logging.getLogger("contractsentinel.auth")
+
+# Fixed generic response strings — module constants so byte-equality (034 AC-3) is provable and the
+# reset-error message is a single value regardless of the failure cause (AC-12/13/14, no oracle).
+_GENERIC_RESET_MSG = "If an account exists for that email, a reset link has been sent."
+_GENERIC_RESET_BAD = "Invalid or expired reset link."
 
 
 # ---------------------------------------------------------------------------
@@ -131,6 +144,29 @@ class LoginRequest(BaseModel):
     @classmethod
     def normalize_email(cls, v: str) -> str:
         return v.strip().lower()
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Feature 034 — POST /api/auth/forgot-password body."""
+
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, v: str) -> str:
+        return v.strip().lower()
+
+
+class ResetPasswordRequest(BaseModel):
+    """Feature 034 — POST /api/auth/reset-password body."""
+
+    token: str
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, v: str) -> str:
+        return _validate_password(v)  # 422 on policy violation (AC-15) before the handler runs
 
 
 class AuthUser(BaseModel):
@@ -317,6 +353,96 @@ async def logout_all(request: Request, current_user: AuthUser = Depends(require_
     """Feature 032 (W2) — 'sign out of all devices'. Bumps the user's session_epoch so EVERY
     outstanding token for this account (including this browser's) is invalidated (AC-12)."""
     request.app.state.user_store.bump_session_epoch(current_user.id)
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Forgot-password (feature 034) — unauthenticated
+# ---------------------------------------------------------------------------
+
+
+def _reset_email_task(app_state, user_id: str, email: str) -> None:
+    """Background side effects for a known-email reset request (034 §7 / AC-20 ordering):
+    cleanup → invalidate prior → issue new (hashed) → send email. Runs in a threadpool worker
+    (sync BackgroundTask → no running loop, so asyncio.run is safe). Never lets an exception escape
+    (AC-9). The raw token is never logged (S3)."""
+    reset_store = app_state.password_reset_store
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    try:
+        reset_store.delete_expired_or_used_for_user(user_id, now_iso)  # AC-20 cleanup (scoped)
+        reset_store.invalidate_user_tokens(user_id, now_iso)          # AC-5
+        raw = generate_reset_token()
+        expires = (now + timedelta(seconds=_cfg.AUTH_RESET_TOKEN_TTL_SECONDS)).isoformat()
+        reset_store.create(str(uuid.uuid4()), user_id, hash_reset_token(raw), now_iso, expires)  # AC-4
+        url = f"{_cfg.FRONTEND_RESET_URL}?token={raw}"
+        asyncio.run(send_reset_email(email, url))                     # AC-1
+    except Exception:  # noqa: BLE001 — a send/DB failure must never surface to the caller (AC-9)
+        logger.warning("password-reset email task failed", exc_info=True)
+
+
+@auth_router.post("/forgot-password")
+async def forgot_password(
+    body: ForgotPasswordRequest, request: Request, background_tasks: BackgroundTasks
+):
+    """Request a reset link. Always returns the same generic 200 (no email-existence disclosure).
+
+    The synchronous path does identical work for known/unknown emails (normalize + one get_by_email);
+    only a known, not-cooled email schedules the background task that issues the token and sends the
+    email (Decision 4 / AC-10a). Per-IP rate-limited (AC-6)."""
+    _enforce_ip_rate_limit(request)
+    user_store = request.app.state.user_store
+    row = user_store.get_by_email(body.email)
+    if row is not None:
+        limiter = request.app.state.rate_limiter
+        # Per-email cooldown (AC-7): one email per window. Keyed distinctly from the per-IP limit,
+        # and only touched for KNOWN emails, so it is not a probeable existence oracle.
+        if limiter.check(
+            f"reset-email:{row.email}",
+            max_hits=1,
+            window_seconds=_cfg.AUTH_RESET_EMAIL_COOLDOWN_SECONDS,
+        ):
+            background_tasks.add_task(_reset_email_task, request.app.state, row.id, row.email)
+    return {"ok": True, "message": _GENERIC_RESET_MSG}
+
+
+def _reset_token_expired(expires_at: str, now: datetime) -> bool:
+    try:
+        return now >= datetime.fromisoformat(expires_at)
+    except ValueError:
+        return True  # unparseable expiry → treat as expired/invalid
+
+
+@auth_router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, request: Request):
+    """Consume a reset token and set a new password. Bumps session_epoch (logs out all sessions,
+    AC-11) and sets NO cookie (no auto-login, AC-17). Unknown/expired/used tokens → one generic 400
+    (AC-12/13/14). Per-IP rate-limited (AC-16)."""
+    _enforce_ip_rate_limit(request)
+    reset_store = request.app.state.password_reset_store
+    user_store = request.app.state.user_store
+
+    token_row = reset_store.get_by_hash(hash_reset_token(body.token))
+    now = datetime.now(timezone.utc)
+    if (
+        token_row is None
+        or token_row.used_at is not None
+        or _reset_token_expired(token_row.expires_at, now)
+    ):
+        raise HTTPException(status_code=400, detail=_GENERIC_RESET_BAD)
+
+    user = user_store.get_by_id(token_row.user_id)  # bind to the token's own user (AC-10b/14b)
+    if user is None:
+        raise HTTPException(status_code=400, detail=_GENERIC_RESET_BAD)
+
+    # Consume the token FIRST, atomically (used_at IS NULL guard) — this both closes the read-then-write
+    # TOCTOU (concurrent same-token redemptions) and fails closed: if a later write errored, the token is
+    # already spent rather than the password being changed by a still-redeemable link.
+    if not reset_store.mark_used(token_row.id, now.isoformat()):
+        raise HTTPException(status_code=400, detail=_GENERIC_RESET_BAD)  # lost the race / already used
+
+    user_store.update_password(user.id, hash_password(body.new_password))
+    user_store.bump_session_epoch(user.id)  # invalidate all sessions (AC-11)
     return {"ok": True}
 
 

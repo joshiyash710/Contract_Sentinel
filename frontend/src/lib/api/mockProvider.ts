@@ -109,6 +109,13 @@ export const mockClient: ApiClient = {
   }): Promise<void> {
     return;
   },
+  // ── Feature 034 forgot-password (mock: always resolves) ──────────────────
+  async requestPasswordReset(_email: string): Promise<void> {
+    return;
+  },
+  async resetPassword(_token: string, _newPassword: string): Promise<void> {
+    return;
+  },
   // ── Feature 031: per-user Google Drive connect (mock: not connected) ──────
   async getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }> {
     return { connected: false, googleEmail: null };

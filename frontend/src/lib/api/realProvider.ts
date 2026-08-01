@@ -301,6 +301,45 @@ export const realClient: ApiClient = {
     }
   },
 
+  // ── Feature 034 forgot-password (unauthenticated) ────────────────────────
+  async requestPasswordReset(email: string): Promise<void> {
+    try {
+      const res = await fetch(`${base()}/api/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      // Server always returns a generic 200; only a real transport/5xx error is surfaced.
+      if (!res.ok) throw new ApiError(`HTTP ${res.status}`, res.status);
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error on requestPasswordReset: ${String(err)}`);
+    }
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    try {
+      const res = await fetch(`${base()}/api/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token, new_password: newPassword }),
+      });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try {
+          const j = (await res.json()) as { detail?: unknown };
+          if (typeof j?.detail === "string") detail = j.detail;
+        } catch {
+          /* non-JSON body */
+        }
+        throw new ApiError(detail, res.status);
+      }
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(`Network error on resetPassword: ${String(err)}`);
+    }
+  },
+
   // ── Feature 031: per-user Google Drive connect ───────────────────────────
   async getGoogleDriveStatus(): Promise<{ connected: boolean; googleEmail?: string | null }> {
     try {

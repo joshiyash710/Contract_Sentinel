@@ -66,8 +66,8 @@ def test_upgrade_is_idempotent(tmp_path):
     conn.close()
 
 
-def test_current_head_is_0007(tmp_path):
-    """Feature 032: migration 0007 (security Tier 1) is the current Alembic head."""
+def test_current_head_is_0008(tmp_path):
+    """Feature 034: migration 0008 (password_reset_tokens) is the current Alembic head."""
     from pathlib import Path
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -75,7 +75,24 @@ def test_current_head_is_0007(tmp_path):
     alembic_dir = Path(__file__).resolve().parents[2] / "alembic"
     cfg = Config()
     cfg.set_main_option("script_location", str(alembic_dir))
-    assert ScriptDirectory.from_config(cfg).get_current_head() == "0007"
+    assert ScriptDirectory.from_config(cfg).get_current_head() == "0008"
+
+
+def test_migration_0008_creates_password_reset_tokens(tmp_path):
+    """Feature 034: 0008 creates password_reset_tokens with the expected columns + indexes."""
+    import sqlite3
+    from app.runner.migrations import upgrade_to_head
+
+    db_path = str(tmp_path / "mig0008.db")
+    upgrade_to_head(db_path)
+    conn = sqlite3.connect(db_path)
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(password_reset_tokens)").fetchall()}
+    assert cols == {"id", "user_id", "token_hash", "created_at", "expires_at", "used_at"}
+    indexes = {
+        r[1] for r in conn.execute("PRAGMA index_list(password_reset_tokens)").fetchall()
+    }
+    assert {"ix_prt_token_hash", "ix_prt_user_id"} <= indexes
+    conn.close()
 
 
 def test_migration_0006_adds_and_drops_google_columns(tmp_path):

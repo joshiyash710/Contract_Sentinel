@@ -43,6 +43,8 @@ export interface FakeClientOpts {
   authError?: unknown; // login/signup/me reject this
   updateProfileError?: unknown; // updateProfile rejects this (feature 023)
   changePasswordError?: unknown; // changePassword rejects this (feature 023)
+  requestPasswordResetError?: unknown; // requestPasswordReset rejects this (feature 034)
+  resetPasswordError?: unknown; // resetPassword rejects this (feature 034)
 }
 
 export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
@@ -133,6 +135,13 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
         if (opts.changePasswordError) throw opts.changePasswordError;
       },
     ),
+    // Feature 034 forgot-password
+    requestPasswordReset: vi.fn(async (_email: string): Promise<void> => {
+      if (opts.requestPasswordResetError) throw opts.requestPasswordResetError;
+    }),
+    resetPassword: vi.fn(async (_token: string, _newPassword: string): Promise<void> => {
+      if (opts.resetPasswordError) throw opts.resetPasswordError;
+    }),
     // Feature 031: per-user Google Drive connect
     getGoogleDriveStatus: vi.fn(
       async (): Promise<{ connected: boolean; googleEmail?: string | null }> => ({

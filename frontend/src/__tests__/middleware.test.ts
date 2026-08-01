@@ -78,6 +78,30 @@ describe("middleware redirect logic", () => {
     expect(result === undefined || (result.status !== 307 && result.status !== 308)).toBe(true);
   });
 
+  it("034: /forgot-password + no cookie → pass-through (public, not gated)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_PROVIDER", "real");
+    const { middlewareHandler } = await import("@/middleware");
+    const req = makeMockRequest("/forgot-password", false);
+    const result = middlewareHandler(req as unknown as Parameters<typeof middlewareHandler>[0]);
+    expect(result === undefined || (result.status !== 307 && result.status !== 308)).toBe(true);
+  });
+
+  it("034: /reset + no cookie → pass-through (reset link reachable logged out)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_PROVIDER", "real");
+    const { middlewareHandler } = await import("@/middleware");
+    const req = makeMockRequest("/reset", false);
+    const result = middlewareHandler(req as unknown as Parameters<typeof middlewareHandler>[0]);
+    expect(result === undefined || (result.status !== 307 && result.status !== 308)).toBe(true);
+  });
+
+  it("034 AC-18: /reset + cookie → pass-through (NOT bounced to /dashboard)", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_PROVIDER", "real");
+    const { middlewareHandler } = await import("@/middleware");
+    const req = makeMockRequest("/reset", true);
+    const result = middlewareHandler(req as unknown as Parameters<typeof middlewareHandler>[0]);
+    expect(result === undefined || (result.status !== 307 && result.status !== 308)).toBe(true);
+  });
+
   it("mock provider → always next (no gate)", async () => {
     vi.stubEnv("NEXT_PUBLIC_API_PROVIDER", "mock");
     const { middlewareHandler } = await import("@/middleware");

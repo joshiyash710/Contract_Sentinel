@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { PUBLIC_ROUTES, isProtected } from "@/lib/authRoutes";
+import { AUTH_ENTRY_ROUTES, isProtected } from "@/lib/authRoutes";
 
 /**
  * Auth gate middleware (feature 014 / spec D5 / plan §4.2).
@@ -26,8 +26,9 @@ export function middlewareHandler(request: NextRequest): NextResponse | undefine
   const { pathname } = request.nextUrl;
   const hasCookie = Boolean(request.cookies.get("cs_session"));
 
-  // Authenticated user hitting a public route → send them in
-  if (PUBLIC_ROUTES.includes(pathname) && hasCookie) {
+  // Authenticated user hitting an ENTRY route (/ or /login) → send them in.
+  // Recovery routes (/forgot-password, /reset) are excluded so a still-logged-in user can reset (034 AC-18).
+  if (AUTH_ENTRY_ROUTES.includes(pathname) && hasCookie) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

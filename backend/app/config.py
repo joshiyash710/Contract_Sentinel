@@ -577,3 +577,12 @@ AUTH_LOCKOUT_WINDOW_SECONDS: int = _env_int("AUTH_LOCKOUT_WINDOW_SECONDS", 15 * 
 AUTH_LOCKOUT_DURATION_SECONDS: int = _env_int("AUTH_LOCKOUT_DURATION_SECONDS", 15 * 60)
 # Per-account: MAX_FAILURES consecutive failed logins within WINDOW → account locked (429) for
 # DURATION seconds, even if the next password is correct (AC-13). A success resets the counter.
+
+# ── Forgot-password / reset link (feature 034) ───────────────────────────────────
+# Source: specs/034-forgot-password/{spec,plan}.md. All §3 named constants; env-overridable.
+AUTH_RESET_TOKEN_TTL_SECONDS: int = _env_int("AUTH_RESET_TOKEN_TTL_SECONDS", 30 * 60)  # 30 min (Decision 3)
+AUTH_RESET_TOKEN_BYTES: int = 32  # secrets.token_urlsafe(32) → ~43-char, ~256-bit token (Decision 1)
+AUTH_RESET_EMAIL_COOLDOWN_SECONDS: int = _env_int("AUTH_RESET_EMAIL_COOLDOWN_SECONDS", 60)
+# Per-email: at most one reset email per COOLDOWN seconds (mailbomb protection, AC-7).
+FRONTEND_RESET_URL: str = os.getenv("FRONTEND_RESET_URL", "http://localhost:3000/reset")
+# Base URL of the frontend /reset page embedded in the emailed link; env-overridable for non-dev deploys.

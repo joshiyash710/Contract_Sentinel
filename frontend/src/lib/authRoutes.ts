@@ -2,7 +2,19 @@
  * Route classification for the auth gate (feature 014 / spec D5 / plan §4.2).
  * Shared by middleware.ts and AppShell.tsx so there is one source of truth.
  */
-export const PUBLIC_ROUTES: string[] = ["/", "/login"];
+export const PUBLIC_ROUTES: string[] = [
+  "/",
+  "/login",
+  "/forgot-password", // feature 034 — reachable while logged out
+  "/reset", // feature 034 — reset link target; reachable while logged out
+];
+
+/**
+ * Entry routes an ALREADY-authenticated user should be bounced away from (→ /dashboard).
+ * A subset of PUBLIC_ROUTES: the recovery pages (/forgot-password, /reset) are deliberately
+ * excluded so a still-logged-in user can complete a password reset (feature 034 AC-18).
+ */
+export const AUTH_ENTRY_ROUTES: string[] = ["/", "/login"];
 
 /**
  * Returns true if the pathname requires authentication.
