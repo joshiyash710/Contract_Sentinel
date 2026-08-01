@@ -617,3 +617,321 @@ async def test_drive_handle_upload_defaults_to_central_token(tmp_path):
         req = DriveUploadRequest(file_path=str(f), file_name="r.pdf", mime_type="application/pdf")
         await _handle_upload(req)
     assert seen["token_path"] == _config.GOOGLE_OAUTH_TOKEN_PATH  # central default
+
+
+# ─── Feature 033 — Drive folder + human-readable naming ───────────────────────
+
+_FOLDER_MIME = "application/vnd.google-apps.folder"
+
+
+def _make_folder_drive_service(
+    *,
+    folder_list=None,
+    name_match_list=None,
+    folder_create_result=None,
+    file_create_result=None,
+    update_result=None,
+    folder_list_error=None,
+    folder_create_error=None,
+):
+    """A Drive fake that routes list results by the `q` string (folder-query vs
+    name-match) and routes create by `body['mimeType']` (folder-create vs
+    file-create). Supports injecting HttpError on the folder list/create."""
+    from unittest.mock import MagicMock
+
+    svc = MagicMock()
+    files = svc.files.return_value
+
+    def list_side_effect(q=None, fields=None, orderBy=None, **kw):
+        is_folder_q = f"mimeType='{_FOLDER_MIME}'" in (q or "")
+
+        def execute():
+            if is_folder_q:
+                if folder_list_error is not None:
+                    raise folder_list_error
+                return {"files": folder_list or []}
+            return {"files": name_match_list or []}
+
+        req = MagicMock()
+        req.execute = execute
+        return req
+
+    files.list.side_effect = list_side_effect
+
+    def create_side_effect(body=None, media_body=None, fields=None, **kw):
+        is_folder = (body or {}).get("mimeType") == _FOLDER_MIME
+
+        def execute():
+            if is_folder:
+                if folder_create_error is not None:
+                    raise folder_create_error
+                return folder_create_result or {"id": "NEWFOLDER"}
+            return file_create_result or {
+                "id": "file123",
+                "webViewLink": "https://drive.google.com/file/123",
+            }
+
+        req = MagicMock()
+        req.execute = execute
+        return req
+
+    files.create.side_effect = create_side_effect
+    if update_result is not None:
+        files.update.return_value.execute = MagicMock(return_value=update_result)
+    return svc
+
+
+def _list_qs(svc):
+    """All `q` strings passed to files().list, in order."""
+    return [c.kwargs.get("q", "") for c in svc.files.return_value.list.call_args_list]
+
+
+def _create_bodies(svc):
+    """All `body` dicts passed to files().create, in order."""
+    return [
+        c.kwargs.get("body", {}) for c in svc.files.return_value.create.call_args_list
+    ]
+
+
+def _patched(svc):
+    return (
+        patch(
+            "app.delivery.mcp_servers.drive_server.load_credentials",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "app.delivery.mcp_servers.drive_server.build_drive_service",
+            return_value=svc,
+        ),
+        patch(
+            "app.delivery.mcp_servers.drive_server.MediaFileUpload",
+            return_value=MagicMock(),
+        ),
+    )
+
+
+async def test_folder_created_when_absent(tmp_path):  # AC-1
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(folder_list=[], name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is True
+    bodies = _create_bodies(svc)
+    folder_bodies = [b for b in bodies if b.get("mimeType") == _FOLDER_MIME]
+    file_bodies = [b for b in bodies if b.get("mimeType") != _FOLDER_MIME]
+    assert len(folder_bodies) == 1 and folder_bodies[0]["name"] == "ContractSentinel"
+    assert file_bodies and file_bodies[0]["parents"] == ["NEWFOLDER"]
+
+
+async def test_folder_reused_when_present(tmp_path):  # AC-2
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(folder_list=[{"id": "F1"}], name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is True
+    assert not any(b.get("mimeType") == _FOLDER_MIME for b in _create_bodies(svc))
+    file_bodies = [b for b in _create_bodies(svc) if b.get("mimeType") != _FOLDER_MIME]
+    assert file_bodies[0]["parents"] == ["F1"]
+    assert any("'F1' in parents" in q for q in _list_qs(svc))  # name-match scoped (AC-6a)
+
+
+async def test_folder_duplicate_uses_first_and_orders_by_created_time(tmp_path):  # AC-3
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(
+        folder_list=[{"id": "OLD"}, {"id": "NEW"}], name_match_list=[]
+    )
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+        )
+        await _handle_upload(req)
+
+    assert not any(b.get("mimeType") == _FOLDER_MIME for b in _create_bodies(svc))
+    file_bodies = [b for b in _create_bodies(svc) if b.get("mimeType") != _FOLDER_MIME]
+    assert file_bodies[0]["parents"] == ["OLD"]
+    folder_calls = [
+        c
+        for c in svc.files.return_value.list.call_args_list
+        if f"mimeType='{_FOLDER_MIME}'" in c.kwargs.get("q", "")
+    ]
+    assert folder_calls and folder_calls[0].kwargs.get("orderBy") == "createdTime"
+
+
+async def test_explicit_folder_id_skips_resolution(tmp_path):  # AC-4
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_id="EXPLICIT",
+            folder_name="ContractSentinel",
+        )
+        await _handle_upload(req)
+
+    qs = _list_qs(svc)
+    assert not any(f"mimeType='{_FOLDER_MIME}'" in q for q in qs)  # no folder-resolution query
+    assert any("'EXPLICIT' in parents" in q for q in qs)  # name-match ran, scoped
+    file_bodies = [b for b in _create_bodies(svc) if b.get("mimeType") != _FOLDER_MIME]
+    assert file_bodies[0]["parents"] == ["EXPLICIT"]
+
+
+async def test_no_folder_uploads_to_root(tmp_path):  # AC-5
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_id=None,
+            folder_name=None,
+        )
+        await _handle_upload(req)
+
+    qs = _list_qs(svc)
+    assert all("in parents" not in q for q in qs)  # name-match unscoped
+    file_bodies = [b for b in _create_bodies(svc) if b.get("mimeType") != _FOLDER_MIME]
+    assert file_bodies[0]["parents"] == []
+
+
+@pytest.mark.parametrize("token_path", ["/tmp/user_token.json", None])
+async def test_folder_resolution_token_agnostic(tmp_path, token_path):  # AC-6
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(folder_list=[], name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+            token_path=token_path,
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is True
+    file_bodies = [b for b in _create_bodies(svc) if b.get("mimeType") != _FOLDER_MIME]
+    assert file_bodies[0]["parents"] == ["NEWFOLDER"]
+
+
+async def test_q_escapes_single_quotes(tmp_path):  # AC-12
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    svc = _make_folder_drive_service(folder_list=[], name_match_list=[])
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="O'Brien (a3f1c9).pdf",
+            mime_type="application/pdf",
+            folder_name="Con'tract",
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is True  # no HttpError from a malformed query
+    qs = _list_qs(svc)
+    assert any("Con\\'tract" in q for q in qs)  # folder name escaped
+    assert any("O\\'Brien" in q for q in qs)  # file name escaped
+
+
+async def test_folder_list_httperror_contained(tmp_path):  # AC-16 (i)
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+    from googleapiclient.errors import HttpError
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    resp = MagicMock()
+    resp.status = 500
+    svc = _make_folder_drive_service(
+        folder_list_error=HttpError(resp=resp, content=b"boom"), name_match_list=[]
+    )
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is False  # contained, no raise
+
+
+async def test_folder_create_httperror_contained(tmp_path):  # AC-16 (ii)
+    from app.delivery.mcp_servers.drive_server import _handle_upload
+    from app.delivery.models import DriveUploadRequest
+    from googleapiclient.errors import HttpError
+
+    f = tmp_path / "r.pdf"
+    f.write_text("x")
+    resp = MagicMock()
+    resp.status = 500
+    svc = _make_folder_drive_service(
+        folder_list=[],
+        folder_create_error=HttpError(resp=resp, content=b"boom"),
+        name_match_list=[],
+    )
+    p1, p2, p3 = _patched(svc)
+    with p1, p2, p3:
+        req = DriveUploadRequest(
+            file_path=str(f),
+            file_name="r.pdf",
+            mime_type="application/pdf",
+            folder_name="ContractSentinel",
+        )
+        outcome = await _handle_upload(req)
+
+    assert outcome.ok is False  # folder-create failure contained; file path never reached

@@ -16,6 +16,7 @@ class DriveUploadRequest(BaseModel):
     file_name: str
     mime_type: str
     folder_id: Optional[str] = None
+    folder_name: Optional[str] = None  # feature 033: find-or-create target folder; None → root (unless folder_id)
     token_path: Optional[str] = None  # feature 031: per-user Drive token; None → central token
 
 

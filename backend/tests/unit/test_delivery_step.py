@@ -578,11 +578,11 @@ async def test_drive_filename_matches_report_basename(tmp_path):
     ):
         await deliver_report(state, recipient="a@b.com")
 
-    md_path = Path(state["report_path"])
     uploaded_names = [c[0][1] for c in drive_stub.call_args_list]
-    # Feature 030: Drive gets the PDF + json (both keyed on the report basename), not md.
-    assert md_path.with_suffix(".pdf").name in uploaded_names
-    assert md_path.with_suffix(".json").name in uploaded_names
+    # Feature 033: Drive gets the PDF + json under the human-readable base name (default ON),
+    # not the document_id path.name. base = "contract — Risk Report (doc123)".
+    assert "contract — Risk Report (doc123).pdf" in uploaded_names
+    assert "contract — Risk Report (doc123).json" in uploaded_names
 
 
 async def test_config_values_read_not_hardcoded(tmp_path):
@@ -709,9 +709,10 @@ async def test_cta_link_sourced_from_pdf_upload(tmp_path):
 
     plain = gmail_stub.call_args[0][2]
     html = gmail_stub.call_args.kwargs["html_body"]
-    assert "ref://doc123.pdf" in plain          # CTA points at the PDF
-    assert "ref://doc123.pdf" in html
-    assert "ref://doc123.md" not in plain
+    # feature 033: CTA points at the human-readable PDF name (default naming ON)
+    assert "ref://contract — Risk Report (doc123).pdf" in plain
+    assert "ref://contract — Risk Report (doc123).pdf" in html
+    assert "ref://contract — Risk Report (doc123).md" not in plain
 
 
 async def test_pdf_disabled_reverts_to_plain_md(tmp_path):
@@ -766,7 +767,7 @@ async def test_connected_user_uploads_with_per_user_token(tmp_path, monkeypatch)
     state = _make_state(tmp_path)
     seen = {}
 
-    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None, folder_name=None):
         seen["token_path"] = token_path
         seen["contents"] = open(token_path, encoding="utf-8").read() if token_path else None
         return DeliveryResult(service="drive", ok=True, resource_ref=f"ref://{name}")
@@ -860,7 +861,7 @@ async def test_two_users_route_own_tokens(tmp_path, monkeypatch):
     state = _make_state(tmp_path)
     contents = []
 
-    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None, folder_name=None):
         if token_path:
             contents.append(open(token_path, encoding="utf-8").read())
         return DeliveryResult(service="drive", ok=True, resource_ref="r")
@@ -882,7 +883,7 @@ async def test_per_user_disabled_uses_central(tmp_path):
     state = _make_state(tmp_path)
     seen = {}
 
-    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+    async def cap(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None, folder_name=None):
         seen["token_path"] = token_path
         from app.delivery.models import DeliveryResult
         return DeliveryResult(service="drive", ok=True, resource_ref="r")
@@ -922,7 +923,7 @@ async def test_central_drive_uses_decrypted_central_tempfile(tmp_path, monkeypat
     state = _make_state(tmp_path)
     seen = {}
 
-    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None):
+    async def drive_capture(fp, name, mime, folder, *, timeout_seconds, max_retries, token_path=None, folder_name=None):
         seen["token_path"] = token_path
         seen["contents"] = open(token_path, encoding="utf-8").read() if token_path else None
         return _ok_drive(name)
@@ -997,3 +998,170 @@ async def test_central_token_tempfile_cleaned_on_exception(tmp_path, monkeypatch
             await deliver_report(state, recipient="a@b.com")
 
     assert created.get("path") and not _os.path.exists(created["path"])  # tempfile cleaned despite raise
+
+
+# ─── Feature 033 — human-readable Drive/email report naming ───────────────────
+
+
+def _state_named(tmp_path: Path, document_id: str, original_filename: str) -> dict:
+    """State whose report JSON/MD live at document_id stem but with a chosen
+    original_filename for naming."""
+    _make_report_json(tmp_path, document_id)
+    md_path = tmp_path / f"{document_id}.md"
+    return {
+        "document_id": document_id,
+        "original_filename": original_filename,
+        "report_path": str(md_path),
+    }
+
+
+def _drive_file_names(drive_stub):
+    """The file_name (positional arg 1) of each upload_report_to_drive call."""
+    return [c.args[1] for c in drive_stub.call_args_list]
+
+
+async def test_drive_human_readable_names(tmp_path, monkeypatch):  # AC-7
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+    drive_stub = AsyncMock(return_value=_ok_drive())
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    names = _drive_file_names(drive_stub)
+    assert "Acme MSA — Risk Report (a3f1c9).pdf" in names
+    assert "Acme MSA — Risk Report (a3f1c9).json" in names
+    # folder_name threaded through (Decision 3)
+    assert all(c.kwargs.get("folder_name") == ds.MCP_DRIVE_FOLDER_NAME for c in drive_stub.call_args_list)
+
+
+async def test_local_paths_unchanged(tmp_path, monkeypatch):  # AC-8
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+    drive_stub = AsyncMock(return_value=_ok_drive())
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    # the local file_path (arg 0) still points at the document_id-based file on disk
+    for c in drive_stub.call_args_list:
+        assert "a3f1c9e2ffff." in Path(c.args[0]).name
+    # both the local .pdf/.json still carry document_id names on disk
+    assert (tmp_path / "a3f1c9e2ffff.json").exists()
+
+
+async def test_names_revert_when_flag_off(tmp_path, monkeypatch):  # AC-10
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", False)
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+    drive_stub = AsyncMock(return_value=_ok_drive())
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(state, recipient="a@b.com")
+
+    names = _drive_file_names(drive_stub)
+    assert "a3f1c9e2ffff.pdf" in names  # pre-033 path.name
+    assert "a3f1c9e2ffff.json" in names
+
+
+async def test_distinct_jobs_same_filename_distinct_names(tmp_path, monkeypatch):  # AC-11
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+    drive_stub = AsyncMock(return_value=_ok_drive())
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        await deliver_report(_state_named(tmp_path, "aaaaaa11", "NDA.pdf"), recipient="a@b.com")
+        await deliver_report(_state_named(tmp_path, "bbbbbb22", "NDA.pdf"), recipient="a@b.com")
+
+    pdf_names = [n for n in _drive_file_names(drive_stub) if n.endswith(".pdf")]
+    assert "NDA — Risk Report (aaaaaa).pdf" in pdf_names
+    assert "NDA — Risk Report (bbbbbb).pdf" in pdf_names
+
+
+async def test_gmail_attachment_uses_human_readable_name(tmp_path, monkeypatch):  # AC-14
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+    gmail_stub = AsyncMock(return_value=_ok_gmail())
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=AsyncMock(return_value=_ok_drive())),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=gmail_stub),
+    ):
+        result = await deliver_report(state, recipient="a@b.com")
+
+    assert result["mcp_delivery_status"]["gmail"]["status"] == MCPDeliveryStatus.SUCCESS
+    attach_name = gmail_stub.call_args.args[4]  # 5th positional = attachment_name
+    assert attach_name == "Acme MSA — Risk Report (a3f1c9).pdf"
+
+
+async def test_pdf_failure_falls_back_to_md(tmp_path, monkeypatch):  # AC-15 regression
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+    drive_stub = AsyncMock(return_value=_ok_drive())
+
+    def _boom(*a, **k):
+        raise RuntimeError("bad render")
+
+    with (
+        patch("app.delivery.delivery_step.render_report_pdf", new=_boom),
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=drive_stub),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        result = await deliver_report(state, recipient="a@b.com")
+
+    # delivery still succeeds; md substituted for pdf, still human-readable
+    assert result["mcp_delivery_status"]["drive"]["status"] == MCPDeliveryStatus.SUCCESS
+    names = _drive_file_names(drive_stub)
+    assert "Acme MSA — Risk Report (a3f1c9).md" in names
+
+
+async def test_folder_failure_leaves_no_temp_token(tmp_path, monkeypatch):  # AC-17
+    import app.delivery.delivery_step as ds
+    from app.delivery.delivery_step import deliver_report
+
+    monkeypatch.setattr(ds, "PER_USER_DRIVE_ENABLED", True)
+    monkeypatch.setattr(ds, "MCP_DRIVE_HUMAN_READABLE_NAMES", True)
+
+    # a real temp token file the finally-block must unlink
+    token_file = tmp_path / "user_token_temp.json"
+    token_file.write_text("{}", encoding="utf-8")
+    monkeypatch.setattr(ds, "write_token_tempfile", lambda _json: str(token_file))
+
+    state = _state_named(tmp_path, "a3f1c9e2ffff", "Acme MSA.pdf")
+
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=AsyncMock(return_value=_fail_drive("folder boom"))),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        result = await deliver_report(state, recipient="a@b.com", drive_token_json='{"token":"x"}')
+
+    assert result["mcp_delivery_status"]["drive"]["status"] == MCPDeliveryStatus.FAILED
+    assert not token_file.exists()  # finally-block unlinked it despite the failure

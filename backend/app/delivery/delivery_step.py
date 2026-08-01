@@ -27,6 +27,7 @@ from app.delivery.oauth_credentials import (
 )
 from app.delivery.report_pdf import render_report_pdf
 from app.delivery.email_html import build_email_bodies
+from app.delivery.report_naming import report_base_name, drive_file_name
 from app.graph.state import MCPDeliveryStatus
 from app.models.report import ContractReport
 
@@ -47,6 +48,10 @@ MCP_REPORT_PDF_ENABLED = _config.MCP_REPORT_PDF_ENABLED  # feature 030
 PER_USER_DRIVE_ENABLED = _config.PER_USER_DRIVE_ENABLED  # feature 031
 MCP_DELIVERY_TIMEOUT_SECONDS = _config.MCP_DELIVERY_TIMEOUT_SECONDS
 MCP_DELIVERY_MAX_RETRIES = _config.MCP_DELIVERY_MAX_RETRIES
+# feature 033 — Drive folder + human-readable naming. These are read HERE (parent process) only and
+# passed on the request (folder_name=...); the drive_server subprocess acts on req.folder_name/req.folder_id.
+MCP_DRIVE_FOLDER_NAME = _config.MCP_DRIVE_FOLDER_NAME
+MCP_DRIVE_HUMAN_READABLE_NAMES = _config.MCP_DRIVE_HUMAN_READABLE_NAMES
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -111,6 +116,7 @@ async def _deliver_drive(
     pdf_path: Optional[Path],
     pdf_ok: bool,
     token_path: Optional[str] = None,
+    base_name: Optional[str] = None,
 ) -> DeliveryResult:
     """Upload each configured format; aggregate into one DeliveryResult. Feature 030: the
     CTA resource_ref is sourced from the PDF upload (falling back to md when the PDF render
@@ -134,14 +140,17 @@ async def _deliver_drive(
         if path is None:
             continue
         mime = ext_to_mime.get(ext, "application/octet-stream")
+        # feature 033: human-readable Drive name when base_name is set, else pre-033 path.name
+        file_name = drive_file_name(base_name, ext) if base_name else path.name
         r = await upload_report_to_drive(
             str(path),
-            path.name,
+            file_name,
             mime,
             MCP_DRIVE_FOLDER_ID,
             timeout_seconds=MCP_DELIVERY_TIMEOUT_SECONDS,
             max_retries=MCP_DELIVERY_MAX_RETRIES,
             token_path=token_path,
+            folder_name=MCP_DRIVE_FOLDER_NAME,
         )
         results.append(r)
         if r.ok and ext == "pdf":
@@ -201,6 +210,12 @@ async def deliver_report(
     summary = _load_summary(json_path)
     report = _load_report(json_path)
     original_filename = state.get("original_filename", document_id)
+    # feature 033: compute the human-readable base name once (None → pre-033 path.name)
+    base_name = (
+        report_base_name(original_filename, document_id)
+        if MCP_DRIVE_HUMAN_READABLE_NAMES
+        else None
+    )
     status: dict = {}
     drive_ref: Optional[str] = None
 
@@ -227,7 +242,8 @@ async def deliver_report(
             if not PER_USER_DRIVE_ENABLED:
                 # pre-031: central token (feature 032: decrypted temp path, not the ciphertext file)
                 drive_result = await _deliver_drive(
-                    md_path, json_path, pdf_path, pdf_ok, token_path=central_token_path
+                    md_path, json_path, pdf_path, pdf_ok,
+                    token_path=central_token_path, base_name=base_name,
                 )
                 status["drive"] = _to_info(drive_result)
                 if drive_result.ok:
@@ -237,7 +253,8 @@ async def deliver_report(
                 user_token_path = write_token_tempfile(drive_token_json)
                 try:
                     drive_result = await _deliver_drive(
-                        md_path, json_path, pdf_path, pdf_ok, token_path=user_token_path
+                        md_path, json_path, pdf_path, pdf_ok,
+                        token_path=user_token_path, base_name=base_name,
                     )
                 finally:
                     try:
@@ -267,6 +284,14 @@ async def deliver_report(
                         attach_path = pdf_path
                     elif md_path.exists():
                         attach_path = md_path
+                # feature 033: human-readable attachment name matching the Drive file (Decision 4)
+                if attach_path is not None and base_name:
+                    attach_ext = attach_path.suffix.lstrip(".")
+                    attach_name = drive_file_name(base_name, attach_ext)
+                elif attach_path is not None:
+                    attach_name = attach_path.name
+                else:
+                    attach_name = None
                 # AC-15: PDF disabled → full pre-030 revert (plain-text email, no HTML part).
                 html_body = html if MCP_REPORT_PDF_ENABLED else None
                 gmail_result = await send_report_via_gmail(
@@ -274,7 +299,7 @@ async def deliver_report(
                     subject,
                     plain,
                     str(attach_path) if attach_path else None,
-                    attach_path.name if attach_path else None,
+                    attach_name,
                     timeout_seconds=MCP_DELIVERY_TIMEOUT_SECONDS,
                     max_retries=MCP_DELIVERY_MAX_RETRIES,
                     html_body=html_body,

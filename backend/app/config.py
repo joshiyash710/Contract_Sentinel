@@ -400,6 +400,21 @@ REPORT_BRAND_FOOTER: str = (
 )
 # Text/CSS wordmark branding for the PDF + HTML email (no binary logo asset in Phase 1).
 
+# ── Feature 033 — Drive folder + human-readable report naming (delivery-layer, reversible) ──
+# MCP_DRIVE_HUMAN_READABLE_NAMES=False restores pre-033 document_id names; MCP_DRIVE_FOLDER_NAME=None/""
+# restores upload to Drive root. All §3 named constants.
+MCP_DRIVE_FOLDER_NAME: Optional[str] = "ContractSentinel"
+# Drive folder to find-or-create and upload reports into. None/"" → root (pre-033). An explicitly set
+# MCP_DRIVE_FOLDER_ID (below) still takes precedence and skips find-or-create.
+MCP_DRIVE_HUMAN_READABLE_NAMES: bool = True
+# True → Drive/email report names like "<Contract> — Risk Report (<id>).pdf"; False → document_id names.
+MCP_DRIVE_REPORT_NAME_TEMPLATE: str = "{stem} — Risk Report ({disc})"
+# {stem} = sanitized original filename (no extension); {disc} = uniqueness discriminator (Decision 1).
+MCP_DRIVE_NAME_DISCRIMINATOR_CHARS: int = 6
+# Number of leading document_id chars used for {disc}.
+MCP_DRIVE_NAME_MAX_STEM_CHARS: int = 120
+# Cap on {stem} length to avoid pathological Drive names.
+
 MCP_DELIVERY_TIMEOUT_SECONDS: int = 60
 # Per-attempt wall-clock timeout for one MCP tool call (AC-16).
 

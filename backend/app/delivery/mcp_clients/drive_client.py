@@ -21,6 +21,7 @@ async def upload_report_to_drive(
     timeout_seconds: int,
     max_retries: int,
     token_path: Optional[str] = None,
+    folder_name: Optional[str] = None,
 ) -> DeliveryResult:
     try:
         req = DriveUploadRequest(
@@ -28,6 +29,7 @@ async def upload_report_to_drive(
             file_name=file_name,
             mime_type=mime_type,
             folder_id=folder_id,
+            folder_name=folder_name,
             token_path=token_path,
         )
         outcome = await call_tool_with_retry(

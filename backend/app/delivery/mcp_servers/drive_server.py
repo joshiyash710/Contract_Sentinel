@@ -15,6 +15,7 @@ from googleapiclient.http import MediaFileUpload
 
 import app.config as _config
 from app.delivery.models import DriveUploadRequest, ToolOutcome
+from app.delivery.report_naming import drive_escape
 from app.delivery.mcp_servers.google_auth import (
     CredentialsError,
     build_drive_service,
@@ -24,10 +25,43 @@ from app.delivery.mcp_servers.google_auth import (
 logger = logging.getLogger("contractsentinel.delivery.drive_server")
 
 _RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+_FOLDER_MIME = "application/vnd.google-apps.folder"
 
 
 def _is_retryable(status: int) -> bool:
     return status in _RETRYABLE_STATUSES
+
+
+async def _resolve_folder_id(svc, req: DriveUploadRequest):
+    """Resolve the parent folder id for the upload (feature 033).
+
+    Precedence (spec Decision 3 / AC-4): an explicit `folder_id` wins and skips
+    find-or-create. Else, when `folder_name` is set, find-or-create it in the
+    authenticated Drive (AC-1/AC-2/AC-3). Else → None (root, AC-5)."""
+    if req.folder_id:
+        return req.folder_id
+    if not req.folder_name:
+        return None
+
+    q = (
+        f"mimeType='{_FOLDER_MIME}' and name='{drive_escape(req.folder_name)}' "
+        "and trashed=false"
+    )
+    results = await asyncio.to_thread(
+        lambda: svc.files()
+        .list(q=q, fields="files(id)", orderBy="createdTime")
+        .execute()
+    )
+    folders = results.get("files", [])
+    if folders:
+        return folders[0]["id"]  # oldest match reused deterministically (AC-3)
+
+    created = await asyncio.to_thread(
+        lambda: svc.files()
+        .create(body={"name": req.folder_name, "mimeType": _FOLDER_MIME}, fields="id")
+        .execute()
+    )
+    return created["id"]
 
 
 async def _handle_upload(req: DriveUploadRequest) -> ToolOutcome:
@@ -42,8 +76,14 @@ async def _handle_upload(req: DriveUploadRequest) -> ToolOutcome:
         )
         svc = await asyncio.to_thread(build_drive_service, creds)
 
-        folder_query = f" and '{req.folder_id}' in parents" if req.folder_id else ""
-        q = f"name='{req.file_name}'{folder_query} and trashed=false"
+        # Feature 033: resolve (find-or-create) the target folder, then scope the
+        # name-match query and file parents to that resolved id (AC-4/AC-6a).
+        resolved_folder_id = await _resolve_folder_id(svc, req)
+
+        folder_query = (
+            f" and '{resolved_folder_id}' in parents" if resolved_folder_id else ""
+        )
+        q = f"name='{drive_escape(req.file_name)}'{folder_query} and trashed=false"
 
         results = await asyncio.to_thread(
             lambda: svc.files().list(q=q, fields="files(id)").execute()
@@ -62,7 +102,7 @@ async def _handle_upload(req: DriveUploadRequest) -> ToolOutcome:
                 .execute()
             )
         else:
-            parents = [req.folder_id] if req.folder_id else []
+            parents = [resolved_folder_id] if resolved_folder_id else []
             result = await asyncio.to_thread(
                 lambda: svc.files()
                 .create(
@@ -105,6 +145,7 @@ def _build_server():
                         "file_name": {"type": "string"},
                         "mime_type": {"type": "string"},
                         "folder_id": {"type": ["string", "null"]},
+                        "folder_name": {"type": ["string", "null"]},
                         "token_path": {"type": ["string", "null"]},
                     },
                     "required": ["file_path", "file_name", "mime_type"],
