@@ -56,8 +56,9 @@ jobs:
         run: npm ci
 
       - name: Run dependency audit
-        # Threshold: fail on high or critical npm findings. Backend (pip-audit)
-        # has no severity grading, so any backend finding fails the gate. Run
-        # inside the uv env (via `uv run`) so pip-audit audits the synced backend.
+        # Gate: any backend (pip-audit) finding, plus PRODUCTION npm findings at
+        # high/critical (dev-tooling advisories are reported but not enforced).
+        # `--no-sync` so `uv run` does NOT re-sync the env (which would strip the
+        # pip-audit installed in the previous step, since it is not in uv.lock).
         working-directory: backend
-        run: uv run python scripts/security_audit.py --severity high
+        run: uv run --no-sync python scripts/security_audit.py --severity high

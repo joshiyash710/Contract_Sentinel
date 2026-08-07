@@ -8,8 +8,10 @@ configurable severity threshold is present:
     deps in ``pyproject.toml`` + ``uv.lock``; there is no ``requirements.txt``).
     A ``requirements.txt`` is used automatically if one is present.
   * Frontend - ``npm audit --json`` over ``frontend/package-lock.json``. A full
-    audit and a production-only audit (``--omit=dev``) are both run so dev-only
-    findings can be distinguished from prod ones.
+    audit and a production-only audit (``--omit=dev``) are both run: the full audit
+    is printed for visibility, but the GATE keys off the production-only audit, so
+    dev/test/build-tooling advisories (vitest, vite, eslint, …) are reported but do
+    not fail the build (they are never shipped to users).
 
 Both auditors reach their advisory sources over the network
 (pip-audit -> PyPI/OSV, npm audit -> the npm registry), so this script needs
@@ -27,8 +29,8 @@ Run from the repo root or from ``backend/``::
     python backend/scripts/security_audit.py --skip-frontend
 
 The ``--severity`` threshold (default ``low``) applies to the frontend npm
-audit, whose findings are severity-graded. pip-audit does not grade severity,
-so ANY backend finding counts (skip it with ``--skip-backend`` if needed).
+audit's PRODUCTION findings, which are severity-graded. pip-audit does not grade
+severity, so ANY backend finding counts (skip it with ``--skip-backend`` if needed).
 """
 
 from __future__ import annotations
@@ -165,28 +167,37 @@ def audit_frontend(threshold: str) -> tuple[bool, int]:
         print("  ! no package-lock.json; skipping frontend audit.")
         return (False, 0)
 
+    # The FULL audit (prod + dev) is printed for visibility, but the GATE keys off
+    # the production-only audit: dev/test/build tooling (vitest, vite, eslint, …) is
+    # never shipped to users, so its advisories are surfaced but do not fail the
+    # build. Any high/critical vuln in a PRODUCTION dependency does fail the gate.
     full = _npm_audit(FRONTEND_DIR, prod_only=False)
     if full is None:
         return (False, 0)
 
-    print(f"  -- full (prod + dev), threshold={threshold} --")
+    print(f"  -- full (prod + dev), threshold={threshold} [informational] --")
     full_findings = _count_npm_findings(full, threshold)
 
     prod = _npm_audit(FRONTEND_DIR, prod_only=True)
-    prod_findings = 0
-    if prod is not None:
-        print(f"  -- production only (--omit=dev), threshold={threshold} --")
-        prod_findings = _count_npm_findings(prod, threshold)
+    if prod is None:
+        # Could not run the prod-only audit → treat as a tool failure, not a pass.
+        return (False, 0)
+    print(f"  -- production only (--omit=dev), threshold={threshold} [GATED] --")
+    prod_findings = _count_npm_findings(prod, threshold)
 
-    if full_findings == 0:
-        print("  OK: no frontend vulnerabilities at or above threshold.")
+    dev_only = full_findings - prod_findings
+    if prod_findings == 0:
+        print(
+            f"  OK: no PRODUCTION vulnerabilities at or above threshold "
+            f"({dev_only} dev-only finding(s) reported above, not gated)."
+        )
     else:
         print(
-            f"  {full_findings} finding(s) total; {prod_findings} in production "
-            f"dependencies (rest are dev-only)."
+            f"  {prod_findings} PRODUCTION finding(s) at/above threshold gate the "
+            f"build ({dev_only} additional dev-only finding(s) reported, not gated)."
         )
-    # Gate on the full audit so dev-tooling CVEs are not silently ignored.
-    return (True, full_findings)
+    # Gate on PRODUCTION findings only (dev-tooling CVEs are reported, not enforced).
+    return (True, prod_findings)
 
 
 def main(argv: list[str] | None = None) -> int:
