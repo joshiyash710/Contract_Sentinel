@@ -15,7 +15,8 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
 [![Ollama](https://img.shields.io/badge/Ollama-Qwen3%20%2B%20BGE--M3-000000?logo=ollama&logoColor=white)](https://ollama.com/)
-[![Tests](https://img.shields.io/badge/tests-930%2B%20backend%20%C2%B7%20240%2B%20frontend-2EA36F)](#-testing)
+[![Tests](https://img.shields.io/badge/tests-933%20backend%20%C2%B7%20242%20frontend-2EA36F)](#-testing)
+[![Status](https://img.shields.io/badge/status-feature%20complete-2EA36F)](#-project-status)
 [![Local-First](https://img.shields.io/badge/privacy-100%25%20local-0E9C92)](#-why-local-first)
 
 </div>
@@ -45,7 +46,7 @@ It behaves like a real multi-tenant SaaS — landing page, authentication, per-u
 - [Testing](#-testing)
 - [Security](#-security)
 - [Development Methodology](#-development-methodology)
-- [Roadmap](#-roadmap)
+- [Project Status](#-project-status)
 - [Team](#-team)
 - [License](#-license)
 
@@ -64,7 +65,7 @@ It behaves like a real multi-tenant SaaS — landing page, authentication, per-u
 | ♻️ **Durable & resumable** | SQLite job store + LangGraph checkpointer — a killed job **resumes from the last completed node**. |
 | 📡 **Live progress** | Watch the pipeline advance node-by-node over **Server-Sent Events**. |
 | 📤 **Real delivery** | Branded PDF report pushed to the user's **Google Drive** + emailed via **Gmail** (MCP). |
-| 🧪 **Rigorously tested** | **930+** backend tests, **240+** frontend tests, built spec-first with TDD. |
+| 🧪 **Rigorously tested** | **933** backend tests, **242** frontend tests, built spec-first with TDD. |
 
 ---
 
@@ -265,7 +266,7 @@ npm run dev
 npm run test
 ```
 
-**930+** backend tests · **240+** frontend tests. Built spec-first with TDD — tests are written and confirmed failing *before* implementation, and a failing test is fixed by fixing the code, never by weakening the test.
+**933** backend tests · **242** frontend tests — all green. Built spec-first with TDD — tests are written and confirmed failing *before* implementation, and a failing test is fixed by fixing the code, never by weakening the test.
 
 ---
 
@@ -300,14 +301,25 @@ spec.md  →  plan.md  →  tasks.md  →  implementation
 
 ---
 
-## 🗺️ Roadmap
+## ✅ Project Status
 
-- [x] **Backend complete** — the 7-node pipeline, API + SSE, durable persistence, security & delivery
-- [x] Offline evaluation harness + Self-RAG recall floor (recall ~64% → 100%)
-- [x] Security hardening (encryption at rest, session/auth hardening, prompt-injection defense)
-- [ ] **Finish the UI** — wire all designed pages to the live backend for a full upload → report flow
-- [ ] **End-to-end integration** — polished demo, TLS termination, publish the Google OAuth app
-- [ ] **Evaluate & scale** — grow the legal knowledge base, evaluate on a larger corpus, tune latency
+**ContractSentinel is feature-complete.** The entire stack — the agent pipeline, the API, durable persistence, the full Next.js frontend, security, and delivery — is implemented, integrated, and tested end-to-end.
+
+- [x] **7-node LangGraph pipeline** — ingest → split → CRAG → Self-RAG → score → redline → report
+- [x] **FastAPI backend** — live SSE progress + durable, **resumable** SQLite persistence
+- [x] **Full Next.js frontend** — landing, auth, upload, live processing, report workspace, dashboard, history, settings, integrations
+- [x] **Multi-tenant isolation** + **per-user Google Drive** (per-user OAuth)
+- [x] **Security hardening** — encryption at rest, session/auth hardening, rate-limiting + lockout, prompt-injection defense, security headers, upload validation
+- [x] **Offline evaluation harness** + Self-RAG recall floor (recall ~64% → 100%)
+- [x] **Professional PDF report** + branded HTML email + MCP Drive/Gmail delivery
+- [x] **Real end-to-end smoke tests passed** on local Qwen3:8b + BGE-M3
+
+### 🔭 Future Enhancements *(optional, beyond current scope)*
+
+- TLS termination at the edge and publishing the Google OAuth app to production
+- Encryption at rest for generated reports / parsed text (contract files & OAuth tokens already encrypted)
+- Dependency-scan remediation wired into CI
+- Growing the legal knowledge base and evaluating accuracy on a larger corpus
 
 ---
 
