@@ -1,0 +1,16 @@
+
+✅ If your terminal is Git Bash (what you have) — use forward slashes
+
+Backend:
+cd /e/Desktop/ContractSentinel/backend
+AUTH_COOKIE_SECURE=False .venv/Scripts/python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8000
+Frontend (second terminal):
+cd /e/Desktop/ContractSentinel/frontend
+npm run dev
+Key differences from what you pasted: forward slashes /, E: → /e/ (or cd "E:/Desktop/ContractSentinel/backend" also works), and the env var goes inline before the command (no $env:).
+
+✅ If you open a PowerShell terminal instead — your original commands are correct
+
+cd E:\Desktop\ContractSentinel\backend
+$env:AUTH_COOKIE_SECURE="False"
+.venv\Scripts\python.exe -m uvicorn app.api.main:app --host 127.0.0.1 --port 8000
