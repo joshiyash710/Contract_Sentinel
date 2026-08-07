@@ -1,0 +1,63 @@
+name: dependency-audit
+
+# Security Tier 2, item 7 (dependency vulnerability scan). Runs the shared
+# audit runner (backend pip-audit + frontend npm audit) on every push/PR and
+# fails the job when a vulnerability at or above the configured severity is
+# found. Also runs weekly so newly disclosed advisories against pinned versions
+# are caught even without a code change.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Mondays 06:00 UTC
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v5
+
+      # The backend pins its dependencies in backend/uv.lock (no requirements.txt),
+      # so pip-audit must run against the *locked* environment. `uv sync --frozen`
+      # materializes exactly uv.lock into backend/.venv; pip-audit then audits that
+      # resolved set. Without this, pip-audit would see no project dependencies.
+      - name: Sync backend deps (locked) + pip-audit
+        working-directory: backend
+        run: |
+          uv sync --frozen
+          uv pip install pip-audit
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # npm audit reads package-lock.json and queries the registry; no full
+      # install is required, but `npm ci` guarantees the lockfile is coherent.
+      - name: Install frontend deps (lockfile)
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run dependency audit
+        # Threshold: fail on high or critical npm findings. Backend (pip-audit)
+        # has no severity grading, so any backend finding fails the gate. Run
+        # inside the uv env (via `uv run`) so pip-audit audits the synced backend.
+        working-directory: backend
+        run: uv run python scripts/security_audit.py --severity high
