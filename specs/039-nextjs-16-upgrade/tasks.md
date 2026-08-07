@@ -1,5 +1,11 @@
 # Feature 039 — Next.js 14 → 16 Upgrade — Tasks
 
+**SCOPE CORRECTION (2026-08-07, owner-approved):** React 19 is NOT required by
+Next 16 (peer allows React 18.2+). Minimal path chosen: **Next-only upgrade, stay
+on React 18.3.** → **T4 (React-19 type codemod) and T5 (recharts/lucide bump) are
+SKIPPED/N-A**; T3 bumps only `next` + `eslint-config-next` (+ ESLint 9), not
+react/react-dom/@types/react. All other tasks apply as written.
+
 Ordered steps. This is a framework/dependency upgrade, so the regression gate is
 the **existing** suite (242 Vitest tests / 45 files) + `tsc` + `next build` +
 prod `npm audit` — no new product tests are written; per constitution §7 no

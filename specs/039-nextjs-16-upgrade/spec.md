@@ -25,11 +25,20 @@ contract, and no database. It is a framework/dependency maintenance upgrade of
 the Next.js App Router frontend delivered in the 013–024 frontend phase. It is
 not in the PHASE 2 DEFERRED or PERMANENTLY CUT lists.
 
-Next.js 16 requires **React 19**, so React `18.3` → `19` (and the matching
-`@types/react`/`@types/react-dom` and `eslint-config-next`) are part of this
-upgrade. The app is a **pure App Router** application (`src/pages/` contains only
-`.gitkeep`; there is no Pages Router), which keeps the breaking-change surface
-small and contained.
+**SCOPE CORRECTION (implementation finding, 2026-08-07; owner-approved):** The
+original premise that "Next.js 16 requires React 19" is **false** —
+`next@16`'s peer dependency is `react: "^18.2.0 || ^19.0.0"`, i.e. React 18.3 is
+supported. Verified empirically: `next@16.3.0` on React 18.3 builds cleanly, `tsc`
+passes, and the production `npm audit` reports **0** vulnerabilities (both `next`
+and `postcss` cleared). The owner chose the **minimal path: upgrade Next only and
+stay on React 18.3**, which fully achieves the security goal at the lowest risk.
+Therefore React `19`, `@types/react(-dom)@19`, and the `recharts`/`lucide-react`
+React-19 bumps are **NOT part of this feature** (no security benefit, added risk).
+What IS in scope: `next 14→16`, `eslint-config-next 14→16` (which requires
+ESLint 9 + flat config), and the async-`params` migration. All React-19-specific
+acceptance criteria / edge cases below are read as "N/A — React stays 18.3." The
+app is a **pure App Router** application (`src/pages/` contains only `.gitkeep`),
+keeping the breaking-change surface small.
 
 ## Inputs and outputs
 

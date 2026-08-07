@@ -9,6 +9,17 @@ keep the `dependency-audit` CI gate red. No backend, LangGraph, `ContractState`
 this plan asserts and preserves "no 001 change"). Behavior-preserving: no screen
 is redesigned (spec AC-10).
 
+## SCOPE CORRECTION (implementation finding, 2026-08-07; owner-approved)
+`next@16`'s peer is `react: "^18.2.0 || ^19.0.0"` — **React 19 is NOT required**.
+`next@16.3.0` on React 18.3 was verified to build, pass `tsc`, and clear the
+production audit (0 vulns). The owner chose the **minimal path: Next-only upgrade,
+stay on React 18.3.** So **D2 is dropped** (no recharts/lucide/@types/React-19
+bumps) and D1 narrows to "Next 14→16 + eslint-config-next 14→16, React unchanged."
+`react`/`react-dom`/`@types/react(-dom)` stay at 18.3; `recharts`/`lucide-react`
+stay at current versions. The rest of this plan (async-params, lint/ESLint-9,
+lockfile, verification) applies as written. D3 (lint→ESLint CLI) and D4
+(verification bar) are unchanged.
+
 ## Decisions (resolving spec Open Questions 1–4)
 - **D1 — Target Next `16.x`** (latest 16 patch), not 15.x. It is the `npm audit`
   validated fix and 15's breaking changes are a subset.
