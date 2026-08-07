@@ -56,6 +56,9 @@ frontend/out/
 frontend/next-env.d.ts
 frontend/.env.local
 frontend/*.tsbuildinfo
+# Next.js 16 auto-generated AI-agent instruction files (regenerated on every build)
+frontend/AGENTS.md
+frontend/CLAUDE.md
 # local dev server logs (not source)
 backend/.uvicorn.out.log
 backend/.uvicorn.err.log
