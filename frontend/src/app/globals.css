@@ -29,6 +29,9 @@
   --risk-medium: #f59e0b; /* RiskLevel.MEDIUM (a.k.a. "Amber") */
   --risk-low: #22c55e; /* RiskLevel.LOW */
 
+  /* ── File-type brand colors (upload chips) ── */
+  --brand-word: #2b579a; /* MS Word blue — DOCX chip */
+
   /* ── Text ── */
   --text-primary: #f5f6fa;
   --text-secondary: #9aa3b2;
