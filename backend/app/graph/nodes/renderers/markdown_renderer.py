@@ -68,6 +68,16 @@ def render_markdown(report: ContractReport) -> str:
         f"{s.clean_clauses} clean**"
     )
 
+    # ── Degraded-analysis banner (feature 038, AC-6) — before the findings ─────
+    if report.analysis_degraded:
+        parts.append("")
+        parts.append(
+            "> ⚠ **Degraded analysis** — the AI model was unavailable for part or "
+            "all of this run. Severities marked _(auto-assigned)_ were set by a "
+            "fail-safe default, not by model judgment. **Do not rely on them** — "
+            "re-run this analysis when the model is available."
+        )
+
     # ── Findings ──────────────────────────────────────────────────────────────
     if not report.findings:
         parts.append("")
@@ -90,7 +100,8 @@ def render_markdown(report: ContractReport) -> str:
                 f"## Finding {f.position} — {locator} ({ctype}) `{f.clause_id}`"
             )
             parts.append("")
-            parts.append(f"**Severity:** {severity}")
+            failsafe_tag = " _(auto-assigned)_" if f.is_failsafe else ""
+            parts.append(f"**Severity:** {severity}{failsafe_tag}")
             if f.risk_rationale:
                 parts.append(f"**Rationale:** {f.risk_rationale}")
             parts.append("")

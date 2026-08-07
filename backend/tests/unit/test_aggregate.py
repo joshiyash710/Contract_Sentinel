@@ -154,3 +154,41 @@ def test_job_list_legacy_filename_fallback():
     r = _row("j1", "2026-01-10T00:00:00+00:00", original_filename=None)
     jl = build_job_list([r], lambda p: None, limit=20, offset=0, total=1)
     assert jl.items[0].original_filename == "j1.pdf"  # falls back to document_path basename
+
+
+# ── Feature 038: analysis_degraded surfaced to history/dashboard (AC-9 backend) ──
+def test_read_report_data_surfaces_analysis_degraded(tmp_path):
+    from app.api.aggregate import read_report_data
+    import json as _json
+
+    md = tmp_path / "r.md"
+    (tmp_path / "r.json").write_text(_json.dumps({
+        "summary": {"high": 3, "medium": 0, "low": 0, "total_clauses": 3, "validated_findings": 3},
+        "findings": [],
+        "analysis_degraded": True,
+    }), encoding="utf-8")
+    rd = read_report_data(str(md))
+    assert rd is not None and rd.analysis_degraded is True
+
+
+def test_read_report_data_defaults_degraded_false(tmp_path):
+    from app.api.aggregate import read_report_data
+    import json as _json
+
+    md = tmp_path / "r.md"
+    (tmp_path / "r.json").write_text(_json.dumps({
+        "summary": {"high": 0, "medium": 0, "low": 1, "total_clauses": 1, "validated_findings": 1},
+        "findings": [],
+    }), encoding="utf-8")  # no analysis_degraded key
+    rd = read_report_data(str(md))
+    assert rd is not None and rd.analysis_degraded is False
+
+
+def test_job_list_copies_analysis_degraded():
+    rows = [_row("j1", "2026-01-10T00:00:00+00:00")]
+    read = lambda path: ReportData(
+        high=3, medium=0, low=0, total_clauses=3, validated_findings=3,
+        findings=[], analysis_degraded=True,
+    )
+    jl = build_job_list(rows, read, limit=20, offset=0, total=1)
+    assert jl.items[0].analysis_degraded is True

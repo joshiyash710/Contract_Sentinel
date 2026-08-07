@@ -135,6 +135,33 @@ def test_optional_fields_default_none():
     assert report.error_count == 0
 
 
+def test_feature038_fields_default_off(caplog):
+    """Feature 038: analysis_degraded/failsafe_count/finding is_failsafe default to the
+    'not degraded' values so legacy report JSON (lacking the keys) deserializes unchanged."""
+    from app.models.report import ContractReport
+
+    f = _make_finding()
+    assert f.is_failsafe is False
+
+    s = _make_summary()
+    assert s.failsafe_count == 0
+
+    report = _make_report()
+    assert report.analysis_degraded is False
+
+    # Legacy JSON (no new keys) parses with defaults.
+    legacy_json = (
+        '{"document_id":"d","original_filename":"c.pdf",'
+        '"uploaded_at":"2026-07-06T00:00:00+00:00",'
+        '"generated_at":"2026-07-06T00:01:00+00:00",'
+        '"summary":{"total_clauses":0,"validated_findings":0,"clean_clauses":0,'
+        '"high":0,"medium":0,"low":0}}'
+    )
+    parsed = ContractReport.model_validate_json(legacy_json)
+    assert parsed.analysis_degraded is False
+    assert parsed.summary.failsafe_count == 0
+
+
 def test_malformed_finding_raises():
     """Constructing `ReportFinding` without `clause_text` raises `pydantic.ValidationError`."""
     from app.models.report import ReportFinding

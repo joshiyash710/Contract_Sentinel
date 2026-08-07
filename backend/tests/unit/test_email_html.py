@@ -72,3 +72,20 @@ def test_returns_three_strings():
     result = _bodies()
     assert isinstance(result, tuple) and len(result) == 3
     assert all(isinstance(x, str) for x in result)
+
+
+# ── Feature 038: degraded-analysis notice in HTML + plain text (AC-7) ─────────
+def test_degraded_notice_present_when_degraded():
+    subject, plain, html = build_email_bodies(
+        "doc-1", _SUMMARY, "MSA.docx", None, analysis_degraded=True
+    )
+    assert "Degraded analysis" in html
+    assert "Degraded analysis" in plain
+
+
+def test_no_degraded_notice_when_healthy():
+    subject, plain, html = build_email_bodies(
+        "doc-1", _SUMMARY, "MSA.docx", None, analysis_degraded=False
+    )
+    assert "Degraded analysis" not in html
+    assert "Degraded analysis" not in plain

@@ -48,6 +48,7 @@ class ReportData:
     total_clauses: int
     validated_findings: int
     findings: List[dict] = field(default_factory=list)  # [{clause_type, risk_level}]
+    analysis_degraded: bool = False  # feature 038 — top-level report degraded flag
 
 
 ReadFn = Callable[[Optional[str]], Optional[ReportData]]
@@ -72,6 +73,7 @@ def read_report_data(report_path: Optional[str]) -> Optional[ReportData]:
             total_clauses=int(summary.get("total_clauses", 0)),
             validated_findings=int(summary.get("validated_findings", 0)),
             findings=list(data.get("findings") or []),
+            analysis_degraded=bool(data.get("analysis_degraded", False)),
         )
     except (OSError, ValueError, TypeError) as exc:
         logger.warning("dashboard: could not read report %s: %s", json_path, exc)
@@ -135,6 +137,7 @@ def build_job_list(
                 item.report_available = True
                 item.high, item.medium, item.low = rd.high, rd.medium, rd.low
                 item.risk_band = derive_band(rd.high, rd.medium, rd.low, rd.validated_findings)
+                item.analysis_degraded = rd.analysis_degraded
         items.append(item)
     return JobList(items=items, total=total)
 

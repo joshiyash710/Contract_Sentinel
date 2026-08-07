@@ -47,6 +47,13 @@ _SEVERITY_COLORS = {
 }
 _SEVERITY_LABELS = {"high": "High", "medium": "Medium", "low": "Low"}
 
+# Feature 038: degraded-analysis banner text (single source for the seam + the flowable).
+_DEGRADED_BANNER = (
+    "⚠ Degraded analysis — the AI model was unavailable for part or all of this run. "
+    "Severities marked (auto-assigned) were set by a fail-safe default, not by model "
+    "judgment. Do not rely on them; re-run this analysis when the model is available."
+)
+
 
 def _esc(s) -> str:
     """Escape for both safety and reportlab Paragraph mini-markup correctness."""
@@ -62,10 +69,12 @@ def _finding_blocks(f: ReportFinding) -> List[str]:
     """Ordered escaped/truncated text strings for one finding."""
     level = (f.risk_level or "").lower()
     sev = _SEVERITY_LABELS.get(level, "Severity unavailable")
+    # Feature 038: mark an auto-defaulted (fail-safe) severity as not a real model judgment.
+    auto = " (auto-assigned)" if f.is_failsafe else ""
     ctype = f.clause_type or "general"
     sec = f" · Section {f.section_number}" if f.section_number else ""
     blocks = [
-        f"{sev} — {_esc(ctype)}{_esc(sec)}",
+        f"{sev}{auto} — {_esc(ctype)}{_esc(sec)}",
         _esc(_trunc(f.clause_text, REPORT_PDF_CLAUSE_MAX_CHARS)),
     ]
     if f.risk_rationale:
@@ -94,6 +103,8 @@ def report_text_blocks(report: ContractReport) -> List[str]:
         f"Clean: {s.clean_clauses}",
         f"High: {s.high}   Medium: {s.medium}   Low: {s.low}",
     ]
+    if report.analysis_degraded:
+        blocks.append(_DEGRADED_BANNER)
     if not report.findings:
         blocks.append(f"No risks flagged — {s.total_clauses} clauses reviewed, all clean.")
     else:
@@ -173,6 +184,23 @@ def _build_flowables(report: ContractReport) -> list:
     flow.append(Spacer(1, 10))
     flow.append(_summary_band(report, st))
     flow.append(Spacer(1, 14))
+
+    # Feature 038: degraded-analysis banner before the findings (AC-7).
+    if report.analysis_degraded:
+        banner_style = ParagraphStyle(
+            "degraded", parent=st["body"], textColor=colors.white,
+            fontSize=10, leading=14,
+        )
+        banner = Table([[Paragraph(_esc(_DEGRADED_BANNER), banner_style)]], colWidths=[6.5 * inch])
+        banner.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), _SEVERITY_COLORS["high"]),
+            ("LEFTPADDING", (0, 0), (-1, -1), 12),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 10),
+        ]))
+        flow.append(banner)
+        flow.append(Spacer(1, 12))
 
     if not report.findings:
         flow.append(Paragraph(

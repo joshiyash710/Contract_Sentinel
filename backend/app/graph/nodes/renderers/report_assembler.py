@@ -9,6 +9,7 @@ PURE — no file I/O, no LLM, no state mutation, no app.config imports
 and failure handling.
 """
 
+import logging
 from enum import Enum
 from typing import Any, Dict, List
 
@@ -23,6 +24,8 @@ from app.models.report import (
     ReportFinding,
     ReportSummary,
 )
+
+logger = logging.getLogger("contractsentinel.report_assembler")
 
 _MISSING = object()  # sentinel to distinguish "key absent" from "value None"
 
@@ -43,12 +46,21 @@ def assemble_report(
     state: ContractState,
     generated_at: str,
     evidence_text_max_chars: int,
+    honest_enabled: bool = False,
+    degraded_fraction: float = 0.5,
 ) -> ContractReport:
     """Build a ContractReport from ContractState. Pure — reads state, returns a
     validated Pydantic model. Findings = VALIDATED clauses only (spec §2.4, D5),
     ordered by `position`. Clean clauses are counted, not enumerated (D4). On
     ingest_error, returns a minimal report (empty findings, ingest_error populated)
-    — Edge Case 1. generated_at is the shared D8 timestamp."""
+    — Edge Case 1. generated_at is the shared D8 timestamp.
+
+    Feature 038 (honest LLM-failure surfacing): when honest_enabled, each finding's
+    is_failsafe is copied from the clause record, ReportSummary.failsafe_count is
+    derived, and ContractReport.analysis_degraded is set True when the risk-score
+    circuit breaker tripped (error_count >= 1) OR the fail-safe fraction of validated
+    findings is >= degraded_fraction. When honest_enabled is False, all three are
+    forced to their non-degraded defaults (byte-identical pre-038 behavior)."""
 
     base_kwargs = dict(
         document_id=state.get("document_id", "unknown"),
@@ -116,6 +128,9 @@ def assemble_report(
                 )
             )
 
+        # Feature 038: fail-safe provenance (only trusted when the flag was on at scoring time).
+        finding_failsafe = bool(record.get("is_failsafe")) if honest_enabled else False
+
         findings.append(
             ReportFinding(
                 clause_id=clause_id,
@@ -130,6 +145,7 @@ def assemble_report(
                 path_taken=path_taken,
                 confidence_score=record.get("confidence_score"),
                 evidence=evidence,
+                is_failsafe=finding_failsafe,
             )
         )
 
@@ -141,6 +157,41 @@ def assemble_report(
     medium = sum(1 for f in findings if f.risk_level == RiskLevel.MEDIUM.value)
     low = sum(1 for f in findings if f.risk_level == RiskLevel.LOW.value)
 
+    # ── Feature 038: derive the honest degraded-analysis signal (AC-3/AC-4/D2) ──
+    # A report is "degraded" only when it actually contains auto-defaulted (fail-safe)
+    # severities (failsafe_count >= 1). error_count is a SHARED counter incremented by any
+    # node's circuit breaker (ingest / self_rag / redline / risk_score), so gating on
+    # failsafe_count first prevents an unrelated node's failure from falsely flagging a fully
+    # genuine risk analysis as degraded. Given a fail-safe severity is present, either a
+    # circuit tripped this run OR the fail-safe fraction crossed the threshold marks it degraded.
+    failsafe_count = sum(1 for f in findings if f.is_failsafe)
+    circuit_tripped = state.get("error_count", 0) >= 1
+    failsafe_fraction = (failsafe_count / validated_findings) if validated_findings else 0.0
+    analysis_degraded = (
+        honest_enabled
+        and failsafe_count >= 1
+        and (circuit_tripped or failsafe_fraction >= degraded_fraction)
+    )
+    if honest_enabled:
+        logger.info(
+            "ReportAssembler degraded-analysis check",
+            extra={
+                "document_id": state.get("document_id", "unknown"),
+                "validated_findings": validated_findings,
+                "failsafe_count": failsafe_count,
+                "failsafe_fraction": round(failsafe_fraction, 4),
+                "circuit_tripped": circuit_tripped,
+                "analysis_degraded": analysis_degraded,
+                "degraded_reason": (
+                    "circuit_breaker"
+                    if analysis_degraded and circuit_tripped
+                    else "failsafe_fraction"
+                    if analysis_degraded
+                    else "none"
+                ),
+            },
+        )
+
     return ContractReport(
         **base_kwargs,
         summary=ReportSummary(
@@ -150,8 +201,10 @@ def assemble_report(
             high=high,
             medium=medium,
             low=low,
+            failsafe_count=failsafe_count,
         ),
         findings=findings,
+        analysis_degraded=analysis_degraded,
     )
 
 

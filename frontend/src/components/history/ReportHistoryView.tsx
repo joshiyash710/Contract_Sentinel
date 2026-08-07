@@ -145,7 +145,16 @@ export function ReportHistoryView() {
       key: "risk_band",
       header: "Risk",
       render: (row) =>
-        row.status === "completed" && row.risk_band && RISK_PILL[row.risk_band] ? (
+        row.status === "completed" && row.analysis_degraded ? (
+          // Feature 038: a degraded run's risk band is not trustworthy — flag it instead.
+          <span
+            title="Analysis was degraded — the AI model was unavailable; severities are unreliable"
+            className="inline-flex items-center gap-1.5 rounded-pill bg-risk-high/15 px-2.5 py-1 text-small font-semibold text-risk-high ring-1 ring-inset ring-risk-high/40"
+          >
+            <span className="h-1.5 w-1.5 rounded-pill bg-current" />
+            Degraded
+          </span>
+        ) : row.status === "completed" && row.risk_band && RISK_PILL[row.risk_band] ? (
           <span
             className={clsx(
               "inline-flex items-center gap-1.5 rounded-pill px-2.5 py-1 text-small font-semibold",
@@ -164,7 +173,13 @@ export function ReportHistoryView() {
       header: "Findings",
       render: (row) =>
         row.status === "completed" ? (
-          <span className="whitespace-nowrap tabular-nums text-text-secondary">
+          // Degraded → the counts are auto-defaulted; mute them so they don't read as real.
+          <span
+            className={clsx(
+              "whitespace-nowrap tabular-nums",
+              row.analysis_degraded ? "text-text-tertiary line-through" : "text-text-secondary",
+            )}
+          >
             H {row.high ?? 0} · M {row.medium ?? 0} · L {row.low ?? 0}
           </span>
         ) : (

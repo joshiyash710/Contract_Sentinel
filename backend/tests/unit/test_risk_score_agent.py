@@ -545,3 +545,90 @@ def test_clause_type_enum_or_str_context():
 
     call_args3 = mock_score3.call_args[0]
     assert call_args3[2] is None
+
+
+# ── Feature 038: per-clause is_failsafe provenance (AC-1, AC-2, AC-10) ────────────
+
+
+def test_is_failsafe_true_on_empty_text():
+    """Flag ON: empty-text fail-safe update carries is_failsafe=True (AC-1)."""
+    import app.graph.nodes.risk_score_agent as mod
+    from app.graph.nodes.risk_score_agent import risk_score_agent
+
+    state = _make_state({"c1": _validated_clause(text="   ", position=1)})
+    with patch.object(mod, "HONEST_FAILURE_SURFACING_ENABLED", True):
+        with patch(MOCK_TARGET):
+            result = risk_score_agent(state)
+
+    assert result["clauses"]["c1"]["is_failsafe"] is True
+
+
+def test_is_failsafe_true_on_circuit_open_bulk():
+    """Flag ON: clauses defaulted after the circuit opens carry is_failsafe=True (AC-1)."""
+    import app.graph.nodes.risk_score_agent as mod
+    from app.graph.nodes.risk_score_agent import risk_score_agent
+
+    threshold = 3
+    total = threshold + 2  # 2 land on the post-open bulk-default path
+    clauses = {f"c{i}": _validated_clause(position=i) for i in range(total)}
+    state = _make_state(clauses)
+
+    with patch.object(mod, "HONEST_FAILURE_SURFACING_ENABLED", True):
+        with patch.object(mod, "RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD", threshold):
+            with patch(MOCK_TARGET, return_value=None):
+                result = risk_score_agent(state)
+
+    # Every clause is fail-safe here (LLM-None for the first `threshold`, bulk after)
+    assert all(rec["is_failsafe"] is True for rec in result["clauses"].values())
+
+
+def test_is_failsafe_true_on_llm_none():
+    """Flag ON: a single LLM-None fail-safe update carries is_failsafe=True (AC-1)."""
+    import app.graph.nodes.risk_score_agent as mod
+    from app.graph.nodes.risk_score_agent import risk_score_agent
+
+    state = _make_state({"c1": _validated_clause(position=1)})
+    with patch.object(mod, "HONEST_FAILURE_SURFACING_ENABLED", True):
+        with patch(MOCK_TARGET, return_value=None):
+            result = risk_score_agent(state)
+
+    assert result["clauses"]["c1"]["is_failsafe"] is True
+
+
+def test_is_failsafe_false_on_genuine_score():
+    """Flag ON: a genuinely-scored clause carries is_failsafe=False (AC-2)."""
+    import app.graph.nodes.risk_score_agent as mod
+    from app.graph.nodes.risk_score_agent import risk_score_agent
+
+    state = _make_state({"c1": _validated_clause(position=1)})
+    with patch.object(mod, "HONEST_FAILURE_SURFACING_ENABLED", True):
+        with patch(MOCK_TARGET, return_value=(RiskLevel.LOW, "genuine low")):
+            result = risk_score_agent(state)
+
+    assert result["clauses"]["c1"]["is_failsafe"] is False
+
+
+def test_flag_off_omits_is_failsafe_key():
+    """Flag OFF: no clause update contains the is_failsafe key, on any path (AC-10)."""
+    import app.graph.nodes.risk_score_agent as mod
+    from app.graph.nodes.risk_score_agent import risk_score_agent
+
+    threshold = 2
+    clauses = {
+        "genuine": _validated_clause(position=1),
+        "empty": _validated_clause(text="   ", position=2),
+        "fail_a": _validated_clause(position=3),
+        "fail_b": _validated_clause(position=4),
+        "fail_c": _validated_clause(position=5),  # trips + bulk-defaults
+    }
+    state = _make_state(clauses)
+
+    # score_risk: genuine ok for the first genuine clause, then Nones to trip the breaker.
+    side_effects = [(RiskLevel.LOW, "ok"), None, None, None]
+    with patch.object(mod, "HONEST_FAILURE_SURFACING_ENABLED", False):
+        with patch.object(mod, "RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD", threshold):
+            with patch(MOCK_TARGET, side_effect=side_effects):
+                result = risk_score_agent(state)
+
+    for rec in result["clauses"].values():
+        assert "is_failsafe" not in rec

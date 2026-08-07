@@ -366,3 +366,50 @@ def test_footer_renders_total_elapsed():
     report_no_start = _make_report(processing_started_at=None)
     md_no_start = render_markdown(report_no_start)
     assert "unknown" in md_no_start.lower()
+
+
+# ── Feature 038: degraded-analysis banner + per-finding auto tag (AC-6, AC-8) ──
+
+
+def test_degraded_banner_present_before_findings():
+    """analysis_degraded=True → a degraded banner appears before the first Finding heading (AC-6)."""
+    from app.graph.nodes.renderers.markdown_renderer import render_markdown
+
+    report = _make_report(
+        analysis_degraded=True,
+        findings=[_make_finding(risk_level="high")],
+    )
+    md = render_markdown(report)
+    assert "Degraded analysis" in md
+    banner_idx = md.index("Degraded analysis")
+    finding_idx = md.index("## Finding")
+    assert banner_idx < finding_idx
+
+
+def test_no_banner_when_not_degraded():
+    """analysis_degraded=False → no degraded banner (AC-6)."""
+    from app.graph.nodes.renderers.markdown_renderer import render_markdown
+
+    report = _make_report(analysis_degraded=False, findings=[_make_finding(risk_level="high")])
+    md = render_markdown(report)
+    assert "Degraded analysis" not in md
+
+
+def test_failsafe_finding_tagged_auto():
+    """A finding with is_failsafe=True carries an auto-assigned marker on its severity (AC-8)."""
+    from app.graph.nodes.renderers.markdown_renderer import render_markdown
+
+    report = _make_report(
+        findings=[_make_finding(risk_level="high", is_failsafe=True)],
+    )
+    md = render_markdown(report)
+    assert "auto-assigned" in md
+
+
+def test_genuine_finding_not_tagged_auto():
+    """A finding with is_failsafe=False has no auto-assigned marker (AC-8)."""
+    from app.graph.nodes.renderers.markdown_renderer import render_markdown
+
+    report = _make_report(findings=[_make_finding(risk_level="high", is_failsafe=False)])
+    md = render_markdown(report)
+    assert "auto-assigned" not in md

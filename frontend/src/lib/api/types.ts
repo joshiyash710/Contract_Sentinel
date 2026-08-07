@@ -97,6 +97,8 @@ export interface ReportFinding {
   path_taken?: string | null;
   confidence_score?: number | null;
   evidence: ReportEvidence[];
+  // Feature 038: true when this finding's severity was auto-assigned by the fail-safe path.
+  is_failsafe?: boolean;
 }
 
 export interface ReportSummary {
@@ -106,6 +108,8 @@ export interface ReportSummary {
   high: number;
   medium: number;
   low: number;
+  // Feature 038: count of validated findings whose severity was fail-safe (auto-defaulted).
+  failsafe_count?: number;
 }
 
 export interface ContractReport {
@@ -122,6 +126,9 @@ export interface ContractReport {
   findings: ReportFinding[];
   node_timings: Record<string, unknown>;
   error_count: number;
+  // Feature 038: true when the run's analysis is degraded (fail-safe) and its severities
+  // should not be trusted. Missing (legacy report JSON) is treated as false.
+  analysis_degraded?: boolean;
 }
 
 // ── 014 auth boundary models ─────────────────────────────────────────────────
@@ -155,6 +162,8 @@ export interface JobListItem {
   high?: number | null;
   medium?: number | null;
   low?: number | null;
+  // Feature 038: true when this report was produced under a degraded (fail-safe) run.
+  analysis_degraded?: boolean | null;
 }
 
 export interface JobList {

@@ -74,6 +74,9 @@ class JobListItem(BaseModel):
     high: Optional[int] = None
     medium: Optional[int] = None
     low: Optional[int] = None
+    # Feature 038: True when the report was produced under a degraded (fail-safe) run.
+    # The history/dashboard show a "Degraded" badge and do not trust the risk counts.
+    analysis_degraded: bool = False
 
 
 class JobList(BaseModel):

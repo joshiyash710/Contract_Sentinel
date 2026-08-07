@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { CheckCircle2 } from "lucide-react";
 import type { ContractReport } from "@/lib/api/types";
 import { ReportHeader } from "./ReportHeader";
+import { DegradedBanner } from "./DegradedBanner";
 import { SummaryStrip } from "./SummaryStrip";
 import { RiskOverview } from "./RiskOverview";
 import { FindingCard } from "./FindingCard";
@@ -48,6 +49,7 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
           Analysis Workspace
         </p>
         <ReportHeader jobId={jobId} report={report} />
+        {report.analysis_degraded && <DegradedBanner />}
         <SummaryStrip summary={report.summary} />
       </div>
 

@@ -30,6 +30,9 @@ REPORT_OUTPUT_DIR = _config.REPORT_OUTPUT_DIR
 REPORT_MD_FILENAME_TEMPLATE = _config.REPORT_MD_FILENAME_TEMPLATE
 REPORT_JSON_FILENAME_TEMPLATE = _config.REPORT_JSON_FILENAME_TEMPLATE
 REPORT_EVIDENCE_TEXT_MAX_CHARS = _config.REPORT_EVIDENCE_TEXT_MAX_CHARS
+# Feature 038: honest LLM-failure surfacing — passed into assemble_report.
+HONEST_FAILURE_SURFACING_ENABLED = _config.HONEST_FAILURE_SURFACING_ENABLED
+ANALYSIS_DEGRADED_FAILSAFE_FRACTION = _config.ANALYSIS_DEGRADED_FAILSAFE_FRACTION
 
 logger = logging.getLogger("contractsentinel.report")
 
@@ -60,7 +63,13 @@ def report_agent(state: ContractState) -> dict:
     generated_at = datetime.now(timezone.utc).isoformat()  # D8 — one timestamp per run
 
     # ── Step 1: Assemble report model (pure, no I/O) ──────────────────────────
-    report_model = assemble_report(state, generated_at, REPORT_EVIDENCE_TEXT_MAX_CHARS)
+    report_model = assemble_report(
+        state,
+        generated_at,
+        REPORT_EVIDENCE_TEXT_MAX_CHARS,
+        honest_enabled=HONEST_FAILURE_SURFACING_ENABLED,
+        degraded_fraction=ANALYSIS_DEGRADED_FAILSAFE_FRACTION,
+    )
     evidence_trail = build_evidence_trail(report_model, generated_at)
 
     # ── Warn on empty clauses (no ingest_error) ───────────────────────────────

@@ -45,3 +45,14 @@ describe("DashboardView (spec 018 AC-13/15/16/17)", () => {
     expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
   });
 });
+
+describe("Feature 038 — degraded badge in dashboard feed (AC-9)", () => {
+  test("degraded_activity_row_shows_Degraded_badge", async () => {
+    const { degradedJobListItemFixture } = await import("@/lib/api/fixtures");
+    const jobList = { total: 1, items: [degradedJobListItemFixture] };
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ jobList }));
+    render(<DashboardView />);
+    expect(await screen.findByText("outage_run.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Degraded")).toBeInTheDocument();
+  });
+});

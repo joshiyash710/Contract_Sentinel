@@ -165,3 +165,31 @@ def test_html_metachars_are_escaped_in_blocks(tmp_path):
 def test_blocks_are_deterministic():
     r = _report()
     assert report_text_blocks(r) == report_text_blocks(r)
+
+
+# ── Feature 038: degraded banner + per-finding auto tag (AC-7, AC-8) ──────────
+def test_degraded_banner_in_blocks_and_pdf(tmp_path):
+    r = _report(summary=ReportSummary(
+        total_clauses=3, validated_findings=1, clean_clauses=2,
+        high=1, medium=0, low=0, failsafe_count=1,
+    ))
+    r.analysis_degraded = True
+    assert "Degraded analysis" in _joined(r)
+    out = render_report_pdf(r, tmp_path / "d.pdf")
+    assert out.read_bytes()[:5] == b"%PDF-"
+
+
+def test_no_degraded_banner_when_healthy():
+    r = _report()
+    assert r.analysis_degraded is False
+    assert "Degraded analysis" not in _joined(r)
+
+
+def test_failsafe_finding_tagged_auto():
+    r = _report(findings=[_finding(is_failsafe=True)])
+    assert "auto-assigned" in _joined(r)
+
+
+def test_genuine_finding_not_tagged_auto():
+    r = _report(findings=[_finding(is_failsafe=False)])
+    assert "auto-assigned" not in _joined(r)

@@ -107,6 +107,10 @@ class ContractState(TypedDict):
     #   final_status: Optional[ValidationStatus]  # Discarded or Validated
     #   risk_level: Optional[RiskLevel]  # Low/Medium/High risk level
     #   risk_rationale: Optional[str]  # Explanation for risk level assignment
+    #   is_failsafe: Optional[bool]  # True if risk_level was assigned by the Node 5
+    #     fail-safe path (LLM failure / unparseable output / circuit open /
+    #     empty-or-oversize clause text) rather than a genuine model judgment.
+    #     Written by RiskScoreAgent only. See §6 decision 9.
     #   suggested_rewrite: Optional[str]  # New text if risk found, None if clean
     
     # Added by ReportAgent
@@ -212,5 +216,17 @@ Based on the revision, the following decisions have been made for the open quest
 
 8. ~~Ingest Error Field Addition~~
    **DECISION**: Added `ingest_error` field to track ingestion failures. This field is populated by IngestAgent when encountering unsupported formats, corrupted files, permission failures, or timeouts. The addition was made per the constitution's spec-first-change rule as specified in specs/003-ingest-agent/spec.md. Classified as a simple overwrite field in section 4 — see the note there.
+
+9. ~~Per-clause fail-safe provenance (feature 038)~~
+   **DECISION**: Added `is_failsafe: Optional[bool]` to the clause record (§3). Written by
+   RiskScoreAgent (Node 5) when a clause's `risk_level` came from the fail-safe default path
+   (LLM failure/unparseable/circuit-open/empty-or-oversize text) rather than a genuine model
+   judgment, so downstream (ReportAgent → report model → renderers/frontend) can honestly flag
+   a degraded analysis instead of presenting auto-defaulted severities as real. Added per the
+   constitution's spec-first-change rule (§10) as specified in
+   specs/038-honest-llm-failure-surfacing/. Purely additive, simple per-clause sub-field: it
+   rides the existing `merge_nested_clause_dicts` reducer on `clauses`; no reducer change and no
+   new top-level field. Reversible at the source (feature flag `HONEST_FAILURE_SURFACING_ENABLED`
+   — when off the field is simply not written, and old records without it read as absent/None).
 
 No remaining open questions. This spec is considered final.

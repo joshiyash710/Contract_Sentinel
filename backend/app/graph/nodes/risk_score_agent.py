@@ -47,6 +47,9 @@ RISK_SCORE_LLM_CIRCUIT_BREAKER_THRESHOLD = (
 RISK_SCORE_PROMPT_MAX_CHARS = _config.RISK_SCORE_PROMPT_MAX_CHARS
 RISK_RATIONALE_MAX_CHARS = _config.RISK_RATIONALE_MAX_CHARS
 RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE = _config.RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE
+# Feature 038: when True, tag each clause update with is_failsafe provenance so a degraded
+# run can be surfaced honestly downstream. When False → the key is never written (byte-identical).
+HONEST_FAILURE_SURFACING_ENABLED = _config.HONEST_FAILURE_SURFACING_ENABLED
 
 
 def risk_score_agent(state: ContractState) -> dict:
@@ -57,6 +60,8 @@ def risk_score_agent(state: ContractState) -> dict:
     start_time = time.monotonic()
     current_node = "risk_score"
     document_id = state.get("document_id", "unknown")
+    # Feature 038: read the master lever once; passed to _failsafe / the genuine branch below.
+    honest = HONEST_FAILURE_SURFACING_ENABLED
 
     # ── Defensive: skip if IngestAgent reported an error ──────────────────────
     if state.get("ingest_error") is not None:
@@ -113,7 +118,8 @@ def risk_score_agent(state: ContractState) -> dict:
             )
             # CIRCUIT-NEUTRAL: no _account call (AC-14a)
             clause_updates[clause_id] = _failsafe(
-                "clause text was empty; assigned default severity"
+                "clause text was empty; assigned default severity",
+                mark_failsafe=honest,
             )
             level_counts["failsafe"] += 1
             continue
@@ -121,7 +127,8 @@ def risk_score_agent(state: ContractState) -> dict:
         # Post-circuit-open bulk default: no LLM call (circuit-neutral)
         if cb["open"]:
             clause_updates[clause_id] = _failsafe(
-                "scoring backend unavailable; assigned default severity"
+                "scoring backend unavailable; assigned default severity",
+                mark_failsafe=honest,
             )
             level_counts["failsafe"] += 1
             continue
@@ -144,7 +151,8 @@ def risk_score_agent(state: ContractState) -> dict:
         if result is None:
             # LLM failure / unparseable output → fail-safe (AC-12/13)
             clause_updates[clause_id] = _failsafe(
-                "scoring failed; assigned default severity"
+                "scoring failed; assigned default severity",
+                mark_failsafe=honest,
             )
             level_counts["failsafe"] += 1
         else:
@@ -157,10 +165,14 @@ def risk_score_agent(state: ContractState) -> dict:
                     RISK_RATIONALE_MAX_CHARS,
                     clause_id,
                 )
-            clause_updates[clause_id] = {
+            update = {
                 "risk_level": level,
                 "risk_rationale": truncated,
             }
+            if honest:
+                # Genuine model judgment → explicitly not a fail-safe (feature 038, AC-2).
+                update["is_failsafe"] = False
+            clause_updates[clause_id] = update
             level_counts[level.value] += 1
 
         # Reached only via the score_risk path; text is guaranteed non-empty here
@@ -206,14 +218,22 @@ def risk_score_agent(state: ContractState) -> dict:
     return out
 
 
-def _failsafe(reason: str) -> dict:
-    """Return a fail-safe clause update with the default level and an [auto] rationale."""
-    return {
+def _failsafe(reason: str, *, mark_failsafe: bool = False) -> dict:
+    """Return a fail-safe clause update with the default level and an [auto] rationale.
+
+    When mark_failsafe is True (feature 038, HONEST_FAILURE_SURFACING_ENABLED), the update also
+    carries is_failsafe=True so downstream can honestly flag the auto-defaulted severity. When
+    False the returned dict is byte-identical to the pre-038 shape.
+    """
+    update = {
         "risk_level": RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE,
         "risk_rationale": (
             f"[auto] {reason} (default={RISK_SCORE_DEFAULT_LEVEL_ON_FAILURE.value})"
         ),
     }
+    if mark_failsafe:
+        update["is_failsafe"] = True
+    return update
 
 
 def _account(result, cb: dict) -> None:

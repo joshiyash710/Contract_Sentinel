@@ -275,7 +275,11 @@ async def deliver_report(
                 status["gmail"] = _failed_info("no recipient configured")
             else:
                 subject, plain, html = build_email_bodies(
-                    document_id, summary, original_filename, drive_ref
+                    document_id,
+                    summary,
+                    original_filename,
+                    drive_ref,
+                    analysis_degraded=bool(report and report.analysis_degraded),
                 )
                 # Attachment: PDF when available + selected, else the .md fallback (AC-13/AC-15).
                 attach_path = None

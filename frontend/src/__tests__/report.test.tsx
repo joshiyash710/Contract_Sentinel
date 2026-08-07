@@ -199,3 +199,23 @@ describe("ReportView (spec 017 AC-1,3-11, EC-2)", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/jobs/job-9"));
   });
 });
+
+describe("Feature 038 — degraded-analysis surfacing (AC-9)", () => {
+  test("degraded_report_shows_banner_and_auto_tag", async () => {
+    const { degradedReportFixture } = await import("@/lib/api/fixtures");
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ report: degradedReportFixture }));
+    render(<ReportView jobId="job-d" />);
+    expect(await screen.findByTestId("degraded-banner")).toBeInTheDocument();
+    // Every finding in the degraded fixture is fail-safe → auto tags present.
+    expect(within(panel()).getAllByTestId("failsafe-tag").length).toBeGreaterThan(0);
+  });
+
+  test("healthy_report_has_no_banner_or_auto_tag", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({})); // default healthy fixture
+    render(<ReportView jobId="job-1" />);
+    // Wait for the report to render (a known heading), then assert absence.
+    await screen.findByTestId("analysis-panel");
+    expect(screen.queryByTestId("degraded-banner")).not.toBeInTheDocument();
+    expect(within(panel()).queryAllByTestId("failsafe-tag").length).toBe(0);
+  });
+});

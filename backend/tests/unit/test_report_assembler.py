@@ -454,3 +454,189 @@ def test_trail_empty_when_no_evidence():
     report = assemble_report(state, GENERATED_AT, MAX_CHARS)
     trail = build_evidence_trail(report, GENERATED_AT)
     assert trail == []
+
+
+# ── Feature 038: honest degraded-analysis surfacing (AC-3, AC-4, AC-5, AC-10) ─────
+
+
+def _failsafe_validated(clause_id, position):
+    """A VALIDATED clause whose record carries is_failsafe=True (as RiskScoreAgent would write)."""
+    from app.graph.state import ValidationStatus, RiskLevel
+
+    cid, rec = make_clause(
+        clause_id=clause_id,
+        position=position,
+        final_status=ValidationStatus.VALIDATED,
+        risk_level=RiskLevel.HIGH,
+    )
+    rec["is_failsafe"] = True
+    return cid, rec
+
+
+def _genuine_validated(clause_id, position):
+    from app.graph.state import ValidationStatus, RiskLevel
+
+    cid, rec = make_clause(
+        clause_id=clause_id,
+        position=position,
+        final_status=ValidationStatus.VALIDATED,
+        risk_level=RiskLevel.LOW,
+    )
+    rec["is_failsafe"] = False
+    return cid, rec
+
+
+def test_per_finding_is_failsafe_copied():
+    """Per-finding is_failsafe copied from the clause record; absent → False (AC-5)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    cid1, r1 = _failsafe_validated("c1", 1)
+    cid2, r2 = _genuine_validated("c2", 2)
+    cid3, r3 = _validated_clause("c3", 3)  # no is_failsafe key at all
+    state = make_state(clauses=[(cid1, r1), (cid2, r2), (cid3, r3)])
+
+    report = assemble_report(state, GENERATED_AT, MAX_CHARS, honest_enabled=True)
+    by_id = {f.clause_id: f for f in report.findings}
+    assert by_id["c1"].is_failsafe is True
+    assert by_id["c2"].is_failsafe is False
+    assert by_id["c3"].is_failsafe is False
+
+
+def test_failsafe_count(caplog):
+    """failsafe_count == number of fail-safe validated findings, <= validated_findings (AC-4)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    clauses = [
+        _failsafe_validated("c1", 1),
+        _failsafe_validated("c2", 2),
+        _genuine_validated("c3", 3),
+    ]
+    state = make_state(clauses=clauses)
+    report = assemble_report(state, GENERATED_AT, MAX_CHARS, honest_enabled=True)
+    assert report.summary.failsafe_count == 2
+    assert report.summary.failsafe_count <= report.summary.validated_findings
+
+
+def test_not_degraded_zero_findings_even_with_error_count():
+    """error_count>=1 but 0 findings (thus 0 fail-safe severities) → NOT degraded: there are
+    no auto-defaulted severities to warn about, and error_count is shared (AC-3, div-by-zero)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    state = make_state(clauses=[], error_count=1)
+    report = assemble_report(
+        state, GENERATED_AT, MAX_CHARS, honest_enabled=True, degraded_fraction=0.5
+    )
+    assert report.analysis_degraded is False
+    assert report.summary.failsafe_count == 0
+
+
+def test_not_degraded_when_error_count_but_all_genuine():
+    """error_count>=1 from an UNRELATED node (self_rag/redline circuit) but every risk severity
+    is genuine (failsafe_count==0) → NOT degraded. Regression: the shared error_count must not
+    falsely flag a genuine risk analysis (code-review finding)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    clauses = [_genuine_validated("c1", 1), _genuine_validated("c2", 2)]
+    state = make_state(clauses=clauses, error_count=1)  # e.g. redline breaker tripped
+    report = assemble_report(
+        state, GENERATED_AT, MAX_CHARS, honest_enabled=True, degraded_fraction=0.5
+    )
+    assert report.summary.failsafe_count == 0
+    assert report.analysis_degraded is False
+
+
+def test_degraded_circuit_arm_with_failsafe_present():
+    """circuit tripped (error_count>=1) AND ≥1 fail-safe severity, but fraction below threshold
+    (dilution case) → degraded via the circuit arm (AC-3)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    # 1 fail-safe + 4 genuine = 0.2 fraction (< 0.5), but a circuit tripped this run.
+    clauses = [
+        _failsafe_validated("c1", 1),
+        _genuine_validated("c2", 2),
+        _genuine_validated("c3", 3),
+        _genuine_validated("c4", 4),
+        _genuine_validated("c5", 5),
+    ]
+    state = make_state(clauses=clauses, error_count=1)
+    report = assemble_report(
+        state, GENERATED_AT, MAX_CHARS, honest_enabled=True, degraded_fraction=0.5
+    )
+    assert report.analysis_degraded is True
+
+
+def test_degraded_fraction_arm_above_threshold():
+    """error_count=0 but failsafe fraction 0.6 >= 0.5 → degraded (fraction arm) (AC-3)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    clauses = [
+        _failsafe_validated("c1", 1),
+        _failsafe_validated("c2", 2),
+        _failsafe_validated("c3", 3),
+        _genuine_validated("c4", 4),
+        _genuine_validated("c5", 5),
+    ]  # 3/5 = 0.6
+    state = make_state(clauses=clauses, error_count=0)
+    report = assemble_report(
+        state, GENERATED_AT, MAX_CHARS, honest_enabled=True, degraded_fraction=0.5
+    )
+    assert report.analysis_degraded is True
+
+
+def test_not_degraded_fraction_below_threshold():
+    """error_count=0 and failsafe fraction 0.4 < 0.5 → not degraded (AC-3)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    clauses = [
+        _failsafe_validated("c1", 1),
+        _failsafe_validated("c2", 2),
+        _genuine_validated("c3", 3),
+        _genuine_validated("c4", 4),
+        _genuine_validated("c5", 5),
+    ]  # 2/5 = 0.4
+    state = make_state(clauses=clauses, error_count=0)
+    report = assemble_report(
+        state, GENERATED_AT, MAX_CHARS, honest_enabled=True, degraded_fraction=0.5
+    )
+    assert report.analysis_degraded is False
+
+
+def test_ingest_error_not_degraded():
+    """ingest_error branch → analysis_degraded stays False (surfaced separately) (AC-3 edge)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    state = make_state(ingest_error={"message": "boom"}, error_count=1)
+    report = assemble_report(state, GENERATED_AT, MAX_CHARS, honest_enabled=True)
+    assert report.analysis_degraded is False
+
+
+def test_flag_off_forces_defaults():
+    """honest_enabled=False → analysis_degraded False, failsafe_count 0, findings is_failsafe False,
+    regardless of clause data and error_count (AC-10)."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+
+    clauses = [_failsafe_validated("c1", 1), _failsafe_validated("c2", 2)]
+    state = make_state(clauses=clauses, error_count=1)  # would degrade if honest
+    report = assemble_report(state, GENERATED_AT, MAX_CHARS, honest_enabled=False)
+    assert report.analysis_degraded is False
+    assert report.summary.failsafe_count == 0
+    assert all(f.is_failsafe is False for f in report.findings)
+
+
+def test_reversibility_flag_off_no_banner_end_to_end():
+    """AC-10 end-to-end: with honest_enabled=False a state that WOULD degrade yields a
+    report with no degraded signal AND a rendered Markdown with no banner marker."""
+    from app.graph.nodes.renderers.report_assembler import assemble_report
+    from app.graph.nodes.renderers.markdown_renderer import render_markdown
+
+    clauses = [_failsafe_validated("c1", 1), _failsafe_validated("c2", 2)]
+    state = make_state(clauses=clauses, error_count=1)  # would degrade if honest
+
+    report = assemble_report(state, GENERATED_AT, MAX_CHARS, honest_enabled=False)
+    assert report.analysis_degraded is False
+    assert report.summary.failsafe_count == 0
+    assert all(f.is_failsafe is False for f in report.findings)
+
+    md = render_markdown(report)
+    assert "Degraded analysis" not in md
+    assert "auto-assigned" not in md

@@ -147,6 +147,19 @@ export const reportFixture: ContractReport = {
   error_count: 0,
 };
 
+// Feature 038 — a degraded (fail-safe) report: the model was unavailable, so every
+// severity was auto-defaulted to High and the run is flagged analysis_degraded.
+export const degradedReportFixture: ContractReport = {
+  ...reportFixture,
+  summary: { total_clauses: 12, validated_findings: 2, clean_clauses: 10, high: 2, medium: 0, low: 0, failsafe_count: 2 },
+  findings: [
+    { ...reportFixture.findings[0], clause_id: "d-001", risk_level: "high", is_failsafe: true },
+    { ...reportFixture.findings[1], clause_id: "d-002", risk_level: "high", is_failsafe: true },
+  ],
+  error_count: 1,
+  analysis_degraded: true,
+};
+
 // Minimal "could not process" report (009 Edge Case 1 / spec 017 D6 / AC-10).
 export const ingestErrorReportFixture: ContractReport = {
   document_id: FIXTURE_JOB_ID,
@@ -291,6 +304,21 @@ export const jobListFixture: JobList = {
 };
 
 export const emptyJobListFixture: JobList = { items: [], total: 0 };
+
+// Feature 038 — a completed job whose report is degraded (fail-safe run).
+export const degradedJobListItemFixture = {
+  job_id: "job-degraded",
+  original_filename: "outage_run.pdf",
+  status: "completed" as const,
+  submitted_at: "2026-01-30T10:00:00Z",
+  finished_at: "2026-01-30T10:02:00Z",
+  report_available: true,
+  risk_band: "high",
+  high: 4,
+  medium: 0,
+  low: 0,
+  analysis_degraded: true,
+};
 
 /** Ordered scripted stream for a fixture run. */
 export function scriptedEvents(jobId: string): ProgressEvent[] {

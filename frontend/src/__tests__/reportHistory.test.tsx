@@ -251,3 +251,20 @@ describe("ReportHistoryView (spec 021)", () => {
     expect(await screen.findByText(/showing the most recent 3 of 150/i)).toBeInTheDocument();
   });
 });
+
+describe("Feature 038 — degraded badge in history (AC-9)", () => {
+  test("degraded_row_shows_Degraded_not_risk_band", async () => {
+    const { degradedJobListItemFixture } = await import("@/lib/api/fixtures");
+    const list: JobList = { total: 1, items: [degradedJobListItemFixture as JobListItem] };
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ jobList: list }));
+    render(<ReportHistoryView />);
+    expect(await screen.findByText("Degraded")).toBeInTheDocument();
+  });
+
+  test("healthy_row_shows_risk_band_not_Degraded", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({ jobList: sortableList }));
+    render(<ReportHistoryView />);
+    await screen.findByText("Zebra_terms.pdf");
+    expect(screen.queryByText("Degraded")).not.toBeInTheDocument();
+  });
+});

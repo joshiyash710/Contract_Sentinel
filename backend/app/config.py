@@ -553,6 +553,20 @@ PORTFOLIO_HEALTH_MEDIUM_WEIGHT: float = 0.5
 # D3 — a medium finding counts as half a high in the derived health penalty:
 # health% = round(100 * (1 - (high + WEIGHT*medium) / max(1, high+medium+low))).
 
+# ── Honest LLM-failure surfacing (feature 038, Security Tier 2) ──────────────────
+# Source: specs/038-honest-llm-failure-surfacing/{spec,plan,tasks}.md. Surfaces the fail-safe /
+# circuit-breaker signal RiskScoreAgent already computes so a degraded (all-fail-safe) report is
+# honestly flagged instead of masquerading as genuine analysis. No node/edge change.
+HONEST_FAILURE_SURFACING_ENABLED: bool = True
+# Master reversible lever. True → RiskScoreAgent writes per-clause `is_failsafe`, the report model
+# carries `analysis_degraded`/`failsafe_count`/per-finding `is_failsafe`, and the renderers/frontend
+# show a degraded-analysis banner + "(auto)" tags. False → byte-identical pre-038 behavior (the
+# field/flags are never written; no banner/tag anywhere).
+ANALYSIS_DEGRADED_FAILSAFE_FRACTION: float = 0.5
+# Tunable (§3). assemble_report marks a report degraded when the risk-score circuit breaker tripped
+# (error_count >= 1) OR the fraction of validated findings that are fail-safe is >= this value.
+# 0.5 avoids crying wolf on one isolated empty-text clause while catching partial outages.
+
 PORTFOLIO_HEALTH_BAND_HEALTHY: int = 80
 PORTFOLIO_HEALTH_BAND_ELEVATED: int = 50
 # D3 band cutoffs: pct >= HEALTHY → "healthy"; >= ELEVATED → "elevated"; else "at_risk".

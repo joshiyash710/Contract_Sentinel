@@ -85,6 +85,15 @@ export function FindingCard({
             {Math.round(finding.confidence_score * 100)}% confidence
           </span>
         )}
+        {finding.is_failsafe && (
+          <span
+            data-testid="failsafe-tag"
+            title="Severity auto-assigned by a fail-safe default — not a model judgment"
+            className="shrink-0 rounded-pill bg-risk-high/15 px-2 py-0.5 text-small font-semibold text-risk-high ring-1 ring-inset ring-risk-high/40"
+          >
+            auto
+          </span>
+        )}
         <FindingRiskBadge level={finding.risk_level} />
       </button>
 

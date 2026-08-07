@@ -21,11 +21,20 @@ REPORT_BRAND_ACCENT_HEX = _config.REPORT_BRAND_ACCENT_HEX
 REPORT_BRAND_FOOTER = _config.REPORT_BRAND_FOOTER
 
 
+# Feature 038: degraded-analysis notice (single source for plain-text + HTML).
+_DEGRADED_NOTICE = (
+    "Degraded analysis — the AI model was unavailable for part or all of this run. "
+    "Some severities were set by a fail-safe default, not by model judgment. Do not "
+    "rely on them; re-run this analysis when the model is available."
+)
+
+
 def build_email_bodies(
     document_id: str,
     summary: Optional[ReportSummary],
     original_filename: str,
     drive_ref: Optional[str],
+    analysis_degraded: bool = False,
 ) -> tuple[str, str, str]:
     fn = original_filename or document_id
 
@@ -45,17 +54,22 @@ def build_email_bodies(
         subject = f"{REPORT_BRAND_NAME} report — {fn}"
         plain_lines = [f"{REPORT_BRAND_NAME} has completed analysis of {fn}."]
 
+    if analysis_degraded:
+        plain_lines = [f"⚠ {_DEGRADED_NOTICE}", ""] + plain_lines
     if drive_ref:
         plain_lines += ["", f"View report on Google Drive: {drive_ref}"]
     plain_lines += ["", "The full report is attached to this email (PDF)."]
     plain = "\n".join(plain_lines)
 
-    html = _build_html(fn, summary, drive_ref)
+    html = _build_html(fn, summary, drive_ref, analysis_degraded)
     return subject, plain, html
 
 
 def _build_html(
-    filename: str, summary: Optional[ReportSummary], drive_ref: Optional[str]
+    filename: str,
+    summary: Optional[ReportSummary],
+    drive_ref: Optional[str],
+    analysis_degraded: bool = False,
 ) -> str:
     accent = _html.escape(REPORT_BRAND_ACCENT_HEX)
     brand = _html.escape(REPORT_BRAND_NAME)
@@ -86,6 +100,16 @@ def _build_html(
             f"{brand} has completed analysis of <strong>{fn}</strong>.</p>"
         )
 
+    degraded_banner = ""
+    if analysis_degraded:
+        degraded_banner = (
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+            f'style="margin:0 0 18px;"><tr><td style="background:#fef2f2;border:1px solid '
+            f'#dc2626;border-radius:8px;padding:12px 14px;color:#991b1b;font-size:13px;'
+            f'line-height:1.5;">&#9888; <strong>Degraded analysis</strong> — {_html.escape(_DEGRADED_NOTICE)}'
+            f"</td></tr></table>"
+        )
+
     cta = ""
     if drive_ref:
         ref = _html.escape(drive_ref)
@@ -107,6 +131,7 @@ def _build_html(
     <div style="color:#cbd5e1;font-size:12px;margin-top:2px;">Contract Risk Report</div>
   </td></tr>
   <tr><td style="padding:26px 28px;">
+    {degraded_banner}
     {summary_block}
     <p style="margin:12px 0;color:#475569;font-size:13px;line-height:1.5;">
       Your professional PDF report is attached. It details each flagged clause, why it

@@ -192,7 +192,10 @@ function ActivityRow({ item }: { item: JobListItem }) {
         ? "bg-risk-high"
         : "bg-accent";
   const badge =
-    item.status === "completed" && item.risk_band ? (
+    item.status === "completed" && item.analysis_degraded ? (
+      // Feature 038: degraded run — don't present its risk band as trustworthy.
+      <StatusBadge label="Degraded" tone="danger" />
+    ) : item.status === "completed" && item.risk_band ? (
       <StatusBadge label={cap(item.risk_band)} tone={RISK_TONE[item.risk_band] ?? "neutral"} />
     ) : (
       <StatusBadge label={cap(item.status)} tone="neutral" />

@@ -51,6 +51,10 @@ class ReportFinding(BaseModel):
     path_taken: Optional[str] = None  # RetrievalPath.value, or None
     confidence_score: Optional[float] = None
     evidence: List[ReportEvidence] = Field(default_factory=list)
+    # Feature 038: True when this finding's risk_level was assigned by the RiskScoreAgent
+    # fail-safe path (LLM failure/unparseable/circuit-open/empty text) rather than a genuine
+    # model judgment. Defaults False so legacy report JSON deserializes unchanged.
+    is_failsafe: bool = False
 
 
 class ReportSummary(BaseModel):
@@ -62,6 +66,8 @@ class ReportSummary(BaseModel):
     high: int
     medium: int
     low: int
+    # Feature 038: number of validated findings whose severity was fail-safe (auto-defaulted).
+    failsafe_count: int = 0
 
 
 class ContractReport(BaseModel):
@@ -81,3 +87,7 @@ class ContractReport(BaseModel):
     findings: List[ReportFinding] = Field(default_factory=list)  # ordered by position
     node_timings: dict = Field(default_factory=dict)
     error_count: int = 0
+    # Feature 038: True when this run's analysis is materially unreliable — the risk-score
+    # circuit breaker tripped OR the fail-safe fraction crossed the configured threshold.
+    # Renderers/frontend key off this to show a "degraded analysis" banner. Defaults False.
+    analysis_degraded: bool = False
