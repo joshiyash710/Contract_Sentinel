@@ -68,10 +68,13 @@ export function ReportsView() {
   return (
     <div className="p-6">
       {/* Hero */}
-      <div className="relative mb-6 overflow-hidden rounded-card border border-subtle bg-card-raised p-6">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-10 blur-3xl" />
+      <div className="glass gloss reveal relative mb-6 overflow-hidden rounded-card p-6">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-20 blur-3xl" />
         <div className="relative">
-          <h1 className="text-page-title text-text-primary">Risk Dashboard</h1>
+          <div className="mb-1 text-small font-medium uppercase tracking-widest text-text-tertiary">
+            Reports
+          </div>
+          <h1 className="font-display text-page-title text-text-primary">Risk Dashboard</h1>
           <p className="mt-1 text-body text-text-secondary">
             Portfolio-wide clause risk, aggregated across every contract you&apos;ve analyzed.
           </p>
@@ -79,7 +82,7 @@ export function ReportsView() {
       </div>
 
       {/* KPI band */}
-      <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="stagger mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Contracts analyzed" value={m.completed_contracts}
           sub={`${m.total_contracts} total submitted`} icon={<FileCheck2 size={18} />} accent="accent" />
         <StatCard label="Findings flagged" value={flagged} sub="clauses reviewed"
@@ -90,7 +93,7 @@ export function ReportsView() {
           icon={<Layers size={18} />} accent="low" />
       </div>
 
-      <div className="grid grid-cols-12 gap-5">
+      <div className="stagger grid grid-cols-12 gap-5">
         {/* Risk by clause type (stacked) */}
         <Card className="col-span-12 xl:col-span-6">
           <CardHeader icon={<BarChart3 size={16} />} title="Risk by Clause Type"
@@ -162,7 +165,7 @@ export function ReportsView() {
         {/* Total contracts */}
         <Card className="col-span-12 md:col-span-6 xl:col-span-4">
           <CardHeader icon={<FileCheck2 size={16} />} title="Total Contracts Analyzed" />
-          <div className="text-display font-extrabold text-text-primary tabular-nums">
+          <div className="font-display text-display font-semibold text-text-primary tabular-nums">
             {m.completed_contracts}
           </div>
           <p className="mt-1 text-small text-text-secondary">

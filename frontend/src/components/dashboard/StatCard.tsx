@@ -28,14 +28,14 @@ export function StatCard({
   accent?: Accent;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-card border border-subtle bg-card p-5 transition hover:bg-card-raised">
+    <div className="glass gloss lift relative overflow-hidden rounded-card p-5">
       <div className="flex items-start justify-between">
         <span className="text-small font-medium text-text-tertiary">{label}</span>
         <span className={`flex h-9 w-9 items-center justify-center rounded-lg ${ICON_BG[accent]}`}>
           {icon}
         </span>
       </div>
-      <div className="mt-3 text-display font-bold leading-none text-text-primary tabular-nums">
+      <div className="mt-3 font-display text-display font-semibold leading-none text-text-primary tabular-nums">
         {value}
       </div>
       {sub != null && <div className="mt-2 text-small text-text-secondary">{sub}</div>}

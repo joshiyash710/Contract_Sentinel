@@ -99,7 +99,13 @@ describe("app shell", () => {
     );
     // Feature 032: the protected shell resolves the current user (mock → authUserFixture) before
     // rendering, so await the sidebar rather than asserting synchronously.
-    expect(await screen.findByText("ContractSentinel")).toBeInTheDocument();
+    // The brand wordmark splits "Contract" + a gradient "Sentinel" span, so match on the
+    // wrapping element's full textContent rather than a single text node.
+    expect(
+      await screen.findByText(
+        (_content, el) => el?.tagName === "SPAN" && el?.textContent === "ContractSentinel",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("outlet-child")).toBeInTheDocument();
   });
 });

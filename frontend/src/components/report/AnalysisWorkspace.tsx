@@ -44,10 +44,8 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">
       {/* Header zone (full width) */}
-      <div className="space-y-6">
-        <p className="text-small font-semibold uppercase tracking-wide text-text-tertiary">
-          Analysis Workspace
-        </p>
+      <div className="reveal space-y-6">
+        <h1 className="font-display text-page-title text-text-primary">Analysis Workspace</h1>
         <ReportHeader jobId={jobId} report={report} />
         {report.analysis_degraded && <DegradedBanner />}
         <SummaryStrip summary={report.summary} />
@@ -55,7 +53,7 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
 
       {findings.length === 0 ? (
         <>
-          <div className="rounded-card border border-subtle bg-card p-10 text-center">
+          <div className="glass gloss reveal relative rounded-card p-10 text-center">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-risk-low/15">
               <CheckCircle2 size={30} className="text-risk-low" />
             </div>
@@ -74,7 +72,7 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
           <section
             data-testid="analysis-panel"
             aria-label="AI Analysis Panel"
-            className="min-w-0 space-y-4"
+            className="stagger min-w-0 space-y-4"
           >
             <RiskOverview summary={report.summary} />
             {findings.map((f) => (

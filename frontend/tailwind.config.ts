@@ -34,7 +34,10 @@ const config: Config = {
           "linear-gradient(90deg, var(--accent-gradient-from), var(--accent-gradient-to))",
       },
       boxShadow: { glow: "var(--glow-accent)" },
-      fontFamily: { sans: ["var(--font-inter)", "system-ui", "sans-serif"] },
+      fontFamily: {
+        sans: ["var(--font-inter)", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "Georgia", "serif"],
+      },
       fontSize: {
         display: ["3.5rem", { lineHeight: "1.05", fontWeight: "800", letterSpacing: "-0.02em" }],
         "page-title": ["2.375rem", { lineHeight: "1.1", fontWeight: "700", letterSpacing: "-0.01em" }],

@@ -45,12 +45,13 @@ export function DropZone({ onFile, disabled = false }: { onFile: (f: File) => vo
           disabled && "opacity-60",
         )}
       >
-        <div className="mb-4 flex items-center justify-center gap-3">
-          {FILE_TYPES.map((t) => (
+        <div className="mb-5 flex items-center justify-center gap-4">
+          {FILE_TYPES.map((t, i) => (
             <span
               key={t.label}
+              style={{ transform: `rotate(${(i - 0.5) * 6}deg)` }}
               className={clsx(
-                "flex h-14 w-12 items-center justify-center rounded-lg text-caption font-bold text-white",
+                "flex h-20 w-16 items-center justify-center rounded-2xl text-small font-bold text-white shadow-lg shadow-black/30",
                 t.color,
               )}
             >
@@ -58,17 +59,18 @@ export function DropZone({ onFile, disabled = false }: { onFile: (f: File) => vo
             </span>
           ))}
         </div>
-        <p className="text-body text-text-secondary">
-          Drag &amp; Drop files here, or{" "}
+        <p className="text-h3 font-semibold text-text-primary">Drag &amp; drop your contract here</p>
+        <p className="mt-1 text-small text-text-secondary">
+          or{" "}
           <button
             type="button"
             disabled={disabled}
             onClick={() => inputRef.current?.click()}
-            className="text-accent underline-offset-2 hover:underline disabled:no-underline"
+            className="font-medium text-accent underline-offset-2 hover:underline disabled:no-underline"
           >
             browse
-          </button>
-          .
+          </button>{" "}
+          files from your computer
         </p>
         <input
           ref={inputRef}

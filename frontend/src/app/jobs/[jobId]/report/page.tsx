@@ -4,7 +4,7 @@ import { ReportView } from "@/components/report/ReportView";
 export default async function ReportPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   return (
-    <div className="min-h-screen bg-app">
+    <div className="min-h-screen">
       <ReportView jobId={jobId} />
     </div>
   );

@@ -58,22 +58,25 @@ export function FindingCard({
   return (
     <div
       data-testid="finding-card"
-      className={`relative overflow-hidden rounded-card border bg-card pl-1.5 transition before:absolute before:left-0 before:top-0 before:h-full before:w-1.5 before:content-[''] ${accent} ${
-        active ? "border-accent/50 ring-1 ring-accent/40" : "border-subtle hover:border-subtle"
+      className={`glass relative overflow-hidden rounded-card pl-1.5 transition before:absolute before:left-0 before:top-0 before:z-10 before:h-full before:w-1.5 before:content-[''] ${accent} ${
+        active ? "border-accent/50 ring-1 ring-accent/40" : "hover:border-accent/30"
       }`}
     >
       <button
         type="button"
         onClick={toggleOpen}
         aria-expanded={open}
-        className="flex w-full items-center gap-3 p-4 text-left hover:bg-card-raised"
+        className="flex w-full items-center gap-3 p-4 text-left hover:bg-white/5"
       >
         <ChevronDown
           size={18}
           className={`shrink-0 text-text-tertiary transition-transform ${open ? "" : "-rotate-90"}`}
         />
         <span className="flex-1 min-w-0">
-          <span data-testid="finding-title" className="font-semibold text-text-primary">
+          <span
+            data-testid="finding-title"
+            className="font-display text-h3 font-semibold text-text-primary"
+          >
             {title}
           </span>
           {finding.section_number && (
@@ -112,7 +115,7 @@ export function FindingCard({
           {/* Clause text */}
           <section>
             <SectionLabel icon={<FileText size={13} />}>Text</SectionLabel>
-            <blockquote className="rounded-input border-l-2 border-subtle bg-app px-3 py-2 font-mono text-small leading-relaxed text-text-secondary">
+            <blockquote className="rounded-input border-l-2 border-subtle bg-white/5 px-3 py-2 font-mono text-small leading-relaxed text-text-secondary">
               {clauseShown}
             </blockquote>
             {long && (
@@ -137,7 +140,7 @@ export function FindingCard({
                   type="button"
                   onClick={() => setCompare((c) => !c)}
                   aria-pressed={compare}
-                  className="inline-flex items-center gap-1.5 rounded-input border border-subtle px-2 py-1 text-small font-medium text-text-secondary hover:bg-card-raised"
+                  className="inline-flex items-center gap-1.5 rounded-input border border-subtle px-2 py-1 text-small font-medium text-text-secondary hover:bg-white/5"
                 >
                   <Columns2 size={13} />
                   {compare ? "Hide compare" : "Compare"}
@@ -150,7 +153,7 @@ export function FindingCard({
                     <p className="mb-1 text-small font-semibold uppercase tracking-wide text-text-tertiary">
                       Original
                     </p>
-                    <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-input border-l-2 border-risk-high/40 bg-app px-3 py-2 text-small text-text-secondary">
+                    <p className="max-h-64 overflow-y-auto whitespace-pre-wrap rounded-input border-l-2 border-risk-high/40 bg-white/5 px-3 py-2 text-small text-text-secondary">
                       {finding.clause_text}
                     </p>
                   </div>
@@ -182,8 +185,8 @@ export function FindingCard({
               <SectionLabel icon={<BookOpen size={13} />}>Supporting sources</SectionLabel>
               <ul className="space-y-2">
                 {finding.evidence.map((e, i) => (
-                  <li key={i} className="rounded-input bg-app px-3 py-2 text-small">
-                    <span className="font-mono text-text-tertiary">{e.source_reference}</span>
+                  <li key={i} className="rounded-input bg-white/5 px-3 py-2 text-small">
+                    <span className="text-small font-semibold text-text-secondary">{e.source_reference}</span>
                     <p className="mt-0.5 text-text-secondary">{e.snippet_text}</p>
                   </li>
                 ))}

@@ -9,12 +9,14 @@ import { makeFakeClient } from "./_fakeClient";
 import { authUserFixture } from "@/lib/api/fixtures";
 
 // ── Hard-navigation spy ───────────────────────────────────────────────────────
-// AuthView uses a full-page navigation (window.location.assign) on success so the
-// account boundary tears down Next's Router Cache — assert on that, not on the router.
+// AuthView uses a full-page navigation on success so the account boundary tears down Next's
+// Router Cache. It uses location.replace() (not assign()) so /login is dropped from history and
+// browser Back can't return to the login page — assert on replace, not on the router.
 const assignMock = vi.fn();
+const replaceMock = vi.fn();
 Object.defineProperty(window, "location", {
   configurable: true,
-  value: { assign: assignMock, href: "http://localhost/login" },
+  value: { assign: assignMock, replace: replaceMock, href: "http://localhost/login" },
 });
 
 // Stub next/navigation so any child that reads the router/pathname stays inert.
@@ -38,6 +40,7 @@ function renderAuth(tab: "login" | "signup" = "login") {
 beforeEach(() => {
   fakeClient = makeFakeClient();
   assignMock.mockClear();
+  replaceMock.mockClear();
 });
 
 // ── AC-12: Google/Microsoft disabled; Forgot-Password inert ──────────────────
@@ -100,7 +103,7 @@ describe("AC-13: Login tab", () => {
     });
 
     await waitFor(() => expect(fakeClient.login).toHaveBeenCalledWith("a@b.com", "password123"));
-    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/dashboard"));
   });
 
   it("401 → shows inline error, no navigation", async () => {
@@ -114,7 +117,7 @@ describe("AC-13: Login tab", () => {
     });
 
     await waitFor(() => expect(screen.getByText(/invalid email or password/i)).toBeTruthy());
-    expect(assignMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 });
 
@@ -140,7 +143,7 @@ describe("AC-14: Sign-Up tab", () => {
     await waitFor(() =>
       expect(fakeClient.signup).toHaveBeenCalledWith("new@b.com", "password123", "Grace Hopper", "Admiral"),
     );
-    await waitFor(() => expect(assignMock).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(replaceMock).toHaveBeenCalledWith("/dashboard"));
   });
 
   it("Login tab has no name/title fields", () => {

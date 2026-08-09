@@ -217,8 +217,8 @@ export function ReportHistoryView() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="relative mb-6 overflow-hidden rounded-card border border-subtle bg-card-raised p-6">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-10 blur-3xl" />
+      <div className="glass gloss reveal relative mb-6 overflow-hidden rounded-card p-6">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-20 blur-3xl" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
             <h1 className="text-page-title text-text-primary">Report History</h1>
@@ -324,7 +324,7 @@ function FilterSelect({
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-input border border-subtle bg-card-raised py-2.5 pl-3 pr-9 text-body text-text-primary outline-none transition focus:border-border-focus"
+        className="w-full appearance-none rounded-input border border-white/10 bg-white/[0.06] backdrop-blur-md py-2.5 pl-3 pr-9 text-body text-text-primary outline-none transition focus:border-border-focus"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

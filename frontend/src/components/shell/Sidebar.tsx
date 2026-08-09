@@ -25,10 +25,12 @@ export const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   return (
-    <aside className="flex w-60 shrink-0 flex-col bg-sidebar border-r border-subtle">
+    <aside className="glass sticky top-0 flex h-screen w-60 shrink-0 flex-col">
       <div className="flex items-center gap-2.5 px-5 py-5">
         <LogoMark size={32} />
-        <span className="text-h3 font-semibold tracking-tight text-text-primary">ContractSentinel</span>
+        <span className="font-display text-h3 font-semibold tracking-tight text-text-primary">
+          Contract<span className="bg-accent-gradient bg-clip-text text-transparent">Sentinel</span>
+        </span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-3">
         {NAV_ITEMS.map((item) => (

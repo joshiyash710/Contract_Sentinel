@@ -93,7 +93,7 @@ function IngestErrorPanel({ jobId, report }: { jobId: string; report: ContractRe
   );
   return (
     <div className="mx-auto max-w-3xl space-y-4 p-6">
-      <div className="rounded-card border border-subtle bg-card p-8 text-center">
+      <div className="glass gloss reveal relative rounded-card p-8 text-center">
         <AlertTriangle size={44} className="mx-auto text-risk-high" />
         <h1 className="mt-3 text-h2 font-bold">We couldn&apos;t fully process this contract</h1>
         <p className="mt-1 text-body text-text-secondary">{report.original_filename}</p>

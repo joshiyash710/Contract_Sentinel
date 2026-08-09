@@ -44,7 +44,10 @@ export function UploadForm() {
   return (
     <Card className="mx-auto w-full max-w-2xl" glow>
       <Stepper steps={STEPS} current={0} className="mb-6" />
-      <h2 className="mb-5 text-h1 font-bold text-text-primary">Upload New Contract</h2>
+      <h2 className="mb-1 font-display text-h1 font-semibold text-text-primary">Upload New Contract</h2>
+      <p className="mb-5 text-small text-text-secondary">
+        We support PDF and DOCX files. Your files are encrypted at rest.
+      </p>
       <DropZone onFile={onFile} disabled={submitting} />
       {error && (
         <p role="alert" className="mt-3 text-small text-risk-high">

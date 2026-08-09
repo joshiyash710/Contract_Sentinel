@@ -12,7 +12,7 @@ export function SearchInput({ className, ...rest }: InputHTMLAttributes<HTMLInpu
       <input
         type="search"
         placeholder="Search..."
-        className="w-full bg-card-raised border border-subtle rounded-input pl-9 pr-3 py-2.5 text-body text-text-primary placeholder:text-text-tertiary outline-none focus:border-border-focus transition"
+        className="w-full rounded-input border border-white/10 bg-white/[0.06] backdrop-blur-md pl-9 pr-3 py-2.5 text-body text-text-primary placeholder:text-text-tertiary outline-none focus:border-border-focus transition"
         {...rest}
       />
     </div>

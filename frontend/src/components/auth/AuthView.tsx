@@ -46,6 +46,32 @@ export function AuthView({ defaultTab = "login" }: Props) {
     }
   }, []);
 
+  // Bounce an already-authenticated user off the login page. The auth-bounce middleware handles
+  // fresh loads, but Chrome's back/forward cache restores the login page WITHOUT a server round
+  // trip (so middleware never runs) — `pageshow` fires on that restore. If the session is still
+  // valid we replace() straight to the dashboard instead of showing a stale login form.
+  useEffect(() => {
+    let cancelled = false;
+    const redirectIfAuthed = () => {
+      getApiClient()
+        .me()
+        .then(() => {
+          if (!cancelled) window.location.replace("/dashboard");
+        })
+        .catch(() => {
+          /* logged out — stay on the login form */
+        });
+    };
+    const onPageShow = (e: Event) => {
+      if ((e as PageTransitionEvent).persisted) redirectIfAuthed();
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("pageshow", onPageShow);
+    };
+  }, []);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -63,7 +89,9 @@ export function AuthView({ defaultTab = "login" }: Props) {
       // the previous user's cached /dashboard data (their jobs/name never refetch).
       // A full load tears down all in-memory + Router Cache state so the new session's
       // data is fetched fresh with the new cookie.
-      window.location.assign("/dashboard");
+      // Use replace() (not assign()) so /login is REPLACED in history rather than pushed:
+      // pressing browser Back from the dashboard must NOT return to the login page.
+      window.location.replace("/dashboard");
     } catch (err) {
       setError(mapError(err, tab));
     } finally {
@@ -77,7 +105,7 @@ export function AuthView({ defaultTab = "login" }: Props) {
   }
 
   return (
-    <div className="grid min-h-screen bg-app md:grid-cols-2">
+    <div className="grid min-h-screen md:grid-cols-2">
       <AuthBrandPanel />
 
       {/* Form column */}
@@ -91,8 +119,8 @@ export function AuthView({ defaultTab = "login" }: Props) {
             </span>
           </div>
 
-          <div className="rounded-2xl border border-subtle bg-card p-8 shadow-lg shadow-black/30">
-            <h1 className="mb-1 text-h2 font-bold text-text-primary">
+          <div className="glass gloss reveal relative rounded-2xl p-8">
+            <h1 className="mb-1 font-display text-h1 font-semibold text-text-primary">
               {tab === "login" ? "Welcome back" : "Create your account"}
             </h1>
             <p className="mb-6 text-small text-text-secondary">

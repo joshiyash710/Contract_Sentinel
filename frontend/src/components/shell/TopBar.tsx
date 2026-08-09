@@ -18,7 +18,7 @@ export function TopBar({
   search?: ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-20 flex items-center gap-4 border-b border-subtle bg-app/80 px-6 py-3 backdrop-blur">
+    <header className="glass gloss sticky top-0 z-20 flex items-center gap-4 border-b border-white/10 px-6 py-3">
       {title ? <h1 className="text-h2 font-bold text-text-primary">{title}</h1> : null}
       {search != null && <div className="mx-auto w-full max-w-xl">{search}</div>}
     </header>

@@ -26,7 +26,7 @@ export function RiskOverview({ summary }: { summary: ReportSummary }) {
   if (graded === 0) return null;
 
   return (
-    <section className="rounded-card border border-subtle bg-card p-6">
+    <section className="glass gloss reveal relative rounded-card p-6">
       <h2 className="mb-4 text-h3 font-semibold text-text-primary">Risk overview</h2>
       <div className="grid items-center gap-6 md:grid-cols-2">
         {/* Donut */}
@@ -61,8 +61,11 @@ export function RiskOverview({ summary }: { summary: ReportSummary }) {
                   </span>
                   <span className="font-semibold text-text-primary tabular-nums">{v}</span>
                 </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-pill bg-app">
-                  <div className={`h-full rounded-pill ${r.color}`} style={{ width: `${pct}%` }} />
+                <div className="h-2 w-full overflow-hidden rounded-pill border border-white/5 bg-white/5">
+                  <div
+                    className={`h-full rounded-pill transition-[width] duration-700 ease-out ${r.color}`}
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
               </div>
             );

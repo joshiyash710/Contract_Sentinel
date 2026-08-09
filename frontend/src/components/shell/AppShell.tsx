@@ -24,10 +24,20 @@ export function AppShell({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  return <ProtectedShell>{children}</ProtectedShell>;
+  // The live processing route (/jobs/<id>, but NOT /jobs/<id>/report) is a focused, chrome-less
+  // screen: no sidebar, so the running pipeline can't be abandoned via an in-app nav link.
+  const focused = /^\/jobs\/[^/]+$/.test(pathname ?? "");
+
+  return <ProtectedShell chromeless={focused}>{children}</ProtectedShell>;
 }
 
-function ProtectedShell({ children }: { children: ReactNode }) {
+function ProtectedShell({
+  children,
+  chromeless = false,
+}: {
+  children: ReactNode;
+  chromeless?: boolean;
+}) {
   const { user, loading, unauthenticated } = useCurrentUser();
   const redirecting = useRef(false);
 
@@ -56,8 +66,14 @@ function ProtectedShell({ children }: { children: ReactNode }) {
     return <div className="min-h-screen bg-app" aria-busy="true" />;
   }
 
+  // Focused screens (live processing) render full-width with no sidebar so the running pipeline
+  // can't be navigated away from via the nav.
+  if (chromeless) {
+    return <div className="min-h-screen text-text-primary">{children}</div>;
+  }
+
   return (
-    <div className="flex min-h-screen bg-app text-text-primary">
+    <div className="flex min-h-screen text-text-primary">
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">{children}</div>
     </div>

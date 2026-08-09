@@ -35,10 +35,10 @@ export function ClauseNavigator({
     <nav
       data-testid="clause-navigator"
       aria-label="Flagged clauses"
-      className="lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-card border border-subtle bg-card p-3"
+      className="glass gloss reveal relative lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto rounded-card p-3"
     >
       <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="text-small font-semibold uppercase tracking-wide text-text-tertiary">
+        <h2 className="font-sans text-small font-semibold uppercase tracking-wide text-text-tertiary">
           Flagged clauses
         </h2>
         <span className="text-small text-text-tertiary">{findings.length}</span>
@@ -60,8 +60,8 @@ export function ClauseNavigator({
                   aria-current={active ? "true" : undefined}
                   data-active={active ? "true" : undefined}
                   onClick={() => onSelect(f.clause_id)}
-                  className={`flex w-full items-start gap-2.5 rounded-input px-2 py-2 text-left transition hover:bg-card-raised ${
-                    active ? "bg-card-raised ring-1 ring-accent/40" : ""
+                  className={`flex w-full items-start gap-2.5 rounded-input px-2 py-2 text-left transition hover:bg-white/5 ${
+                    active ? "bg-accent/10 ring-1 ring-accent/40" : ""
                   }`}
                 >
                   <span

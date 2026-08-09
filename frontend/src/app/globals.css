@@ -21,6 +21,7 @@
   --accent: #7c6cf5;
   --accent-gradient-from: #7a5cff;
   --accent-gradient-to: #5b8def;
+  --accent-cyan: #48c5ff;
   --accent-fg: #ffffff;
   --border-focus: #7c6cf5;
 
@@ -32,13 +33,16 @@
   /* ── File-type brand colors (upload chips) ── */
   --brand-word: #2b579a; /* MS Word blue — DOCX chip */
 
-  /* ── Text ── */
+  /* ── Text ── (lightened for legibility: tertiary now clears WCAG-AA on dark cards) */
   --text-primary: #f5f6fa;
-  --text-secondary: #9aa3b2;
-  --text-tertiary: #5c6472;
+  --text-secondary: #b3bccb;
+  --text-tertiary: #8892a3;
 
   /* ── Typography family (Inter loaded via layout <link>; system fallback) ── */
   --font-inter: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Display serif for page titles / hero / large stat numbers (design-refs 2026-08).
+     Newsreader loaded via the same layout <link>; falls back to a system serif. */
+  --font-display: "Newsreader", Georgia, "Times New Roman", serif;
 
   /* ── Radius / spacing base / elevation ── */
   --radius-card: 14px;
@@ -46,6 +50,24 @@
   --radius-pill: 9999px;
   --space-unit: 4px;
   --glow-accent: 0 0 0 1px rgba(124, 108, 245, 0.35), 0 8px 40px -8px rgba(124, 108, 245, 0.45);
+
+  /* ── Glassmorphism + motion system (2026-08 premium pass) ──
+     Frosted surfaces need translucent fills + a light hairline + a top gloss highlight, all
+     over the animated backdrop below. `--ease-expo` is the shared "expo-out" curve. */
+  --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Frosted fill: a light translucent wash (top-left brighter) with a faint brand-violet tint at
+     the far corner so the surface catches the aurora behind it. Opacities are strong enough that the
+     panel reads as glass over the dark navy backdrop, not a flat card. */
+  --glass-fill: linear-gradient(
+    150deg,
+    rgba(255, 255, 255, 0.14),
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(124, 108, 245, 0.08)
+  );
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-shadow: 0 18px 55px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 255, 255, 0.16);
+  --glass-shadow-hover: 0 30px 80px -22px rgba(0, 0, 0, 0.72),
+    0 0 0 1px rgba(124, 108, 245, 0.34), inset 0 1px 0 0 rgba(255, 255, 255, 0.22);
 
   /* ── Chart palette (derived; consumed by src/lib/tokens.ts for Recharts/SVG) ── */
   --chart-bar-1: var(--accent);
@@ -77,11 +99,12 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(40% 45% at 20% 20%, rgba(122, 92, 255, 0.22), transparent 70%),
-    radial-gradient(38% 42% at 82% 28%, rgba(91, 141, 239, 0.20), transparent 70%),
-    radial-gradient(45% 50% at 55% 88%, rgba(124, 108, 245, 0.16), transparent 72%);
+    radial-gradient(42% 48% at 18% 18%, rgba(122, 92, 255, 0.42), transparent 68%),
+    radial-gradient(40% 44% at 84% 26%, rgba(91, 141, 239, 0.36), transparent 70%),
+    radial-gradient(48% 52% at 58% 92%, rgba(124, 108, 245, 0.34), transparent 72%),
+    radial-gradient(30% 36% at 92% 78%, rgba(72, 197, 255, 0.22), transparent 74%);
   filter: blur(8px);
-  animation: aurora-drift 22s ease-in-out infinite alternate;
+  animation: aurora-drift 18s ease-in-out infinite alternate;
 }
 .bg-aurora > * {
   position: relative;
@@ -104,6 +127,9 @@
   }
 }
 
+html {
+  scroll-behavior: smooth;
+}
 html,
 body {
   padding: 0;
@@ -115,8 +141,307 @@ body {
   color: var(--text-primary);
   font-family: var(--font-inter), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100dvh;
+}
+
+/* Consistent type voice across the whole project: every heading uses the serif display face
+   (Newsreader). Body copy, labels and UI text stay Inter. A heading that must remain sans (e.g. a
+   micro uppercase label) can opt out with the `font-sans` utility, which wins on specificity. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), Georgia, serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   ANIMATED BACKDROP — a fixed, slowly drifting brand-colored gradient mesh that
+   sits BEHIND all content (negative z-index child of <body>, so it paints above
+   the solid body fill but below the app). Page roots are transparent so frosted
+   surfaces can refract it. Disabled under prefers-reduced-motion.
+   ──────────────────────────────────────────────────────────────────────────── */
+.app-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 42% at 12% 16%, rgba(122, 92, 255, 0.38), transparent 70%),
+    radial-gradient(34% 40% at 88% 20%, rgba(91, 141, 239, 0.32), transparent 70%),
+    radial-gradient(44% 48% at 80% 84%, rgba(124, 108, 245, 0.30), transparent 72%),
+    radial-gradient(32% 38% at 16% 88%, rgba(72, 197, 255, 0.22), transparent 72%),
+    linear-gradient(180deg, #0d0f1a 0%, var(--bg-app) 55%, #08090f 100%);
+  filter: blur(6px) saturate(1.2);
+  animation: mesh-drift 24s var(--ease-expo) infinite alternate;
+}
+@keyframes mesh-drift {
+  0% {
+    transform: translate3d(-2%, -1.5%, 0) scale(1.06);
+  }
+  50% {
+    transform: translate3d(2%, 2%, 0) scale(1.12);
+  }
+  100% {
+    transform: translate3d(2.5%, -2%, 0) scale(1.08);
+  }
+}
+
+/* ── Frosted-glass surfaces ─────────────────────────────────────────────────── */
+.glass {
+  background: var(--glass-fill);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+.glass-nav {
+  background: linear-gradient(180deg, rgba(18, 22, 34, 0.72), rgba(12, 14, 22, 0.62));
+  backdrop-filter: blur(22px) saturate(1.3);
+  -webkit-backdrop-filter: blur(22px) saturate(1.3);
+}
+/* A thin diagonal gloss band across the top of a glass card. */
+.gloss::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(255, 255, 255, 0.18), transparent 40%);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* ── Interaction: lift + glossy sheen sweep + press ─────────────────────────── */
+.lift {
+  transition:
+    transform 0.35s var(--ease-expo),
+    box-shadow 0.35s var(--ease-expo),
+    border-color 0.35s var(--ease-expo);
+  will-change: transform;
+}
+.lift:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--glass-shadow-hover);
+}
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    115deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.16) 48%,
+    rgba(255, 255, 255, 0.05) 55%,
+    transparent 70%
+  );
+  transform: translateX(-130%);
+  transition: transform 0.85s var(--ease-expo);
+  pointer-events: none;
+}
+.sheen:hover::after {
+  transform: translateX(130%);
+}
+.press {
+  transition: transform 0.12s var(--ease-expo);
+}
+.press:active {
+  transform: scale(0.97);
+}
+
+/* ── Entrance motion: on-mount rise + staggered children ─────────────────────── */
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* `both` fill-mode applies the from-state (opacity 0) before the animation and the to-state
+   (opacity 1) after — WITHOUT a stuck base `opacity: 0`. So if another rule overrides `animation`
+   (e.g. an element that also floats), the element falls back to its natural, VISIBLE opacity
+   instead of vanishing. */
+.reveal {
+  animation: rise 0.7s var(--ease-expo) both;
+}
+.stagger > * {
+  animation: rise 0.6s var(--ease-expo) both;
+}
+.stagger > *:nth-child(1) { animation-delay: 0.04s; }
+.stagger > *:nth-child(2) { animation-delay: 0.1s; }
+.stagger > *:nth-child(3) { animation-delay: 0.16s; }
+.stagger > *:nth-child(4) { animation-delay: 0.22s; }
+.stagger > *:nth-child(5) { animation-delay: 0.28s; }
+.stagger > *:nth-child(6) { animation-delay: 0.34s; }
+.stagger > *:nth-child(7) { animation-delay: 0.4s; }
+.stagger > *:nth-child(8) { animation-delay: 0.46s; }
+
+/* ── Slow float for hero art / accents ──────────────────────────────────────── */
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.float-slow {
+  animation: float-y 7s var(--ease-expo) infinite;
+}
+
+/* ── Animated conic sheen for the accent gradient text/border (subtle) ───────── */
+@keyframes shimmer {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+/* Continuously flowing accent-gradient clipped to text — a live, always-moving headline. */
+.gradient-animate {
+  background-image: linear-gradient(
+    100deg,
+    var(--accent-gradient-from),
+    var(--accent-gradient-to) 35%,
+    #48c5ff 50%,
+    var(--accent-gradient-to) 65%,
+    var(--accent-gradient-from)
+  );
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer 6s linear infinite;
+}
+
+/* ── Processing-screen choreography (halo pulse, scanning sweep, orbit, bar gloss) ── */
+@keyframes halo {
+  0%, 100% { opacity: 0.35; transform: scale(0.9); }
+  50% { opacity: 0.72; transform: scale(1.1); }
+}
+@keyframes scan {
+  0% { transform: translateY(-140%); }
+  100% { transform: translateY(360%); }
+}
+@keyframes bar-gloss {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(320%); }
+}
+@keyframes dot-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+   LANDING ATMOSPHERE — fine grid, drifting glow orbs, layered float, ring draw-in,
+   flowing button gradient. Purely decorative; all disabled under reduced-motion.
+   ──────────────────────────────────────────────────────────────────────────── */
+/* A faint blueprint grid that fades out toward the edges. */
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 54px 54px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 15%, transparent 72%);
+  mask-image: radial-gradient(ellipse 75% 55% at 50% 0%, #000 15%, transparent 72%);
+}
+/* Soft drifting color orbs for depth behind the hero. */
+.orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(70px);
+  pointer-events: none;
+  will-change: transform;
+}
+@keyframes orb-a {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(48px, -34px, 0) scale(1.18); }
+  100% { transform: translate3d(-24px, 22px, 0) scale(1.06); }
+}
+@keyframes orb-b {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-54px, 32px, 0) scale(1.22); }
+  100% { transform: translate3d(34px, -14px, 0) scale(1.02); }
+}
+.orb-a { animation: orb-a 19s var(--ease-expo) infinite alternate; }
+.orb-b { animation: orb-b 23s var(--ease-expo) infinite alternate; }
+
+/* A second float channel, out of phase, for parallax between layered art. */
+.float-slow-2 {
+  animation: float-y 9s var(--ease-expo) infinite;
+  animation-delay: -3s;
+}
+/* Slow rotation for decorative rings. */
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.spin-slow { animation: spin-slow 26s linear infinite; }
+/* Conic accent halo used behind the hero mockup (raw CSS so opacities are valid). */
+.accent-ring-conic {
+  background: conic-gradient(
+    from 0deg,
+    transparent,
+    rgba(124, 108, 245, 0.4),
+    transparent 38%,
+    rgba(72, 197, 255, 0.34),
+    transparent 72%,
+    rgba(124, 108, 245, 0.4)
+  );
+}
+
+/* 3D-tilted hero card. `--rx`/`--ry` default to a premium resting angle and are nudged by
+   pointer parallax (see HeroArt); the transition makes the return smooth. */
+.tilt-3d {
+  transform: perspective(1400px) rotateX(var(--rx, 5deg)) rotateY(var(--ry, 11deg));
+  transform-style: preserve-3d;
+  transition: transform 0.4s var(--ease-expo);
+  will-change: transform;
+}
+
+/* SVG ring that draws itself in, then holds. Set `--c` (visible arc length) inline. */
+@keyframes ring-draw {
+  from { stroke-dashoffset: var(--c, 400); }
+  to { stroke-dashoffset: 0; }
+}
+.ring-draw { animation: ring-draw 1.7s var(--ease-expo) 0.25s both; }
+
+/* Flowing accent gradient for buttons (fill, not text-clip). */
+.btn-gradient {
+  background-image: linear-gradient(
+    100deg,
+    var(--accent-gradient-from),
+    var(--accent-gradient-to) 40%,
+    #48c5ff 55%,
+    var(--accent-gradient-to) 70%,
+    var(--accent-gradient-from)
+  );
+  background-size: 200% auto;
+  animation: shimmer 5s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .app-backdrop,
+  .float-slow { animation: none; }
+  .reveal,
+  .stagger > * { opacity: 1; animation: none; }
+  .gradient-animate { animation: none; }
+  .bg-aurora::before { animation: none; }
+  .orb-a, .orb-b, .float-slow-2, .spin-slow, .ring-draw, .btn-gradient { animation: none; }
+  .tilt-3d { transition: none; }
+  .lift:hover { transform: none; }
+  .sheen::after { display: none; }
+  /* stop all decorative loops on the processing artwork */
+  .proc-art,
+  .proc-art * { animation: none !important; }
 }

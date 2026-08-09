@@ -8,6 +8,7 @@ import {
   TriangleAlert,
   Activity,
   ArrowUpRight,
+  FileText,
 } from "lucide-react";
 import { useDashboard } from "@/lib/useDashboard";
 import { useJobs } from "@/lib/useJobs";
@@ -16,7 +17,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
 import { DonutChart, type DonutSlice } from "@/components/charts/DonutChart";
-import { BarChart } from "@/components/charts/BarChart";
+import { AreaChart } from "@/components/charts/AreaChart";
 import { StatCard } from "./StatCard";
 
 const BAND_LABEL: Record<string, string> = { healthy: "Healthy", elevated: "Elevated", at_risk: "At risk" };
@@ -56,13 +57,13 @@ export function DashboardView() {
   return (
     <div className="p-6">
       {/* Hero header */}
-      <div className="relative mb-6 overflow-hidden rounded-card border border-subtle bg-card-raised p-6">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-10 blur-3xl" />
+      <div className="glass gloss reveal relative mb-6 overflow-hidden rounded-card p-6">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-20 blur-3xl" />
         <div className="relative flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-page-title text-text-primary">AI Command Center</h1>
+            <h1 className="font-display text-page-title text-text-primary">AI Command Center</h1>
             <p className="mt-1 text-body text-text-secondary">
-              A live view of contract risk across your workspace.
+              Welcome back — here&apos;s your latest contract intelligence.
             </p>
           </div>
           <Link href="/upload">
@@ -74,7 +75,7 @@ export function DashboardView() {
       </div>
 
       {/* KPI row */}
-      <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="stagger mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard
           label="Contracts analyzed"
           value={m.completed_contracts}
@@ -110,13 +111,18 @@ export function DashboardView() {
         />
       </div>
 
-      <div className="grid grid-cols-12 gap-5">
+      <div className="stagger grid grid-cols-12 gap-5">
         {/* Risk Summary */}
         <Card className="col-span-12 lg:col-span-5">
-          <div className="mb-1 flex items-center justify-between">
+          <div className="mb-1 flex items-center gap-2">
             <h3 className="text-h3 font-semibold text-text-primary">Risk Summary</h3>
-            <span className="text-small text-text-tertiary">All analyzed contracts</span>
+            <span className="rounded-pill border border-subtle bg-card-raised px-2.5 py-0.5 text-caption font-medium text-text-secondary">
+              Portfolio
+            </span>
           </div>
+          <p className="mb-2 text-small text-text-tertiary">
+            Across {m.completed_contracts} analyzed contracts
+          </p>
           <div className="flex items-center gap-4">
             <div className="flex-1">
               <DonutChart
@@ -124,16 +130,18 @@ export function DashboardView() {
                 height={210}
                 center={
                   <div className="text-center">
-                    <div className="text-h1 font-bold text-text-primary tabular-nums">{flagged}</div>
+                    <div className="font-display text-h1 font-semibold text-text-primary tabular-nums">
+                      {flagged}
+                    </div>
                     <div className="text-small text-text-tertiary">findings</div>
                   </div>
                 }
               />
             </div>
-            <div className="flex flex-col gap-3 pr-2">
-              <LegendDot color="bg-risk-high" label={`High: ${m.risk_distribution.high}`} />
-              <LegendDot color="bg-risk-medium" label={`Med: ${m.risk_distribution.medium}`} />
-              <LegendDot color="bg-risk-low" label={`Low: ${m.risk_distribution.low}`} />
+            <div className="flex w-36 flex-col gap-3.5 pr-2">
+              <LegendRow color="bg-risk-high" label="High risk" value={m.risk_distribution.high} />
+              <LegendRow color="bg-risk-medium" label="Medium risk" value={m.risk_distribution.medium} />
+              <LegendRow color="bg-risk-low" label="Low risk" value={m.risk_distribution.low} />
             </div>
           </div>
         </Card>
@@ -150,10 +158,10 @@ export function DashboardView() {
         {/* Usage Analytics */}
         <Card className="col-span-12">
           <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-h3 font-semibold text-text-primary">Usage — last 30 days</h3>
+            <h3 className="text-h3 font-semibold text-text-primary">Usage Analytics</h3>
             <span className="text-small text-text-tertiary">Contracts submitted per day</span>
           </div>
-          <BarChart
+          <AreaChart
             data={m.usage_timeline.map((b) => ({ name: b.period.slice(5), value: b.count }))}
             height={170}
           />
@@ -183,14 +191,17 @@ function ActivityFeed() {
 
 function ActivityRow({ item }: { item: JobListItem }) {
   const when = (item.finished_at ?? item.submitted_at)?.replace("T", " ").slice(0, 16);
-  const dot =
+  const chipTint =
     item.status === "completed" && item.risk_band
-      ? { high: "bg-risk-high", medium: "bg-risk-medium", low: "bg-risk-low", none: "bg-risk-low" }[
-          item.risk_band
-        ] ?? "bg-text-tertiary"
+      ? {
+          high: "bg-risk-high/15 text-risk-high",
+          medium: "bg-risk-medium/15 text-risk-medium",
+          low: "bg-risk-low/15 text-risk-low",
+          none: "bg-risk-low/15 text-risk-low",
+        }[item.risk_band] ?? "bg-card-raised text-text-tertiary"
       : item.status === "failed"
-        ? "bg-risk-high"
-        : "bg-accent";
+        ? "bg-risk-high/15 text-risk-high"
+        : "bg-accent/15 text-accent";
   const badge =
     item.status === "completed" && item.analysis_degraded ? (
       // Feature 038: degraded run — don't present its risk band as trustworthy.
@@ -203,7 +214,9 @@ function ActivityRow({ item }: { item: JobListItem }) {
 
   const body = (
     <div className="flex items-center gap-3 py-3">
-      <span className={`h-2.5 w-2.5 shrink-0 rounded-pill ${dot}`} />
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${chipTint}`}>
+        <FileText size={16} />
+      </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 truncate text-body font-medium text-text-primary">
           {item.original_filename}
@@ -257,11 +270,12 @@ function Centered({ children }: { children: React.ReactNode }) {
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function LegendRow({ color, label, value }: { color: string; label: string; value: number }) {
   return (
-    <div className="flex items-center gap-2 text-body text-text-secondary">
-      <span className={`h-2.5 w-2.5 rounded-pill ${color}`} />
-      <span>{label}</span>
+    <div className="flex items-center gap-2 text-body">
+      <span className={`h-2.5 w-2.5 shrink-0 rounded-pill ${color}`} />
+      <span className="flex-1 text-text-secondary">{label}</span>
+      <span className="font-semibold text-text-primary tabular-nums">{value}</span>
     </div>
   );
 }

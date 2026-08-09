@@ -2,8 +2,9 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, AlertTriangle, WifiOff } from "lucide-react";
+import { CheckCircle2, AlertTriangle, WifiOff, Lock, Loader2 } from "lucide-react";
 import { useJobStatus } from "@/lib/useJobStatus";
+import { useNavigationLock } from "@/lib/useNavigationLock";
 import { nodeLabel } from "@/lib/jobLabels";
 import { REPORT_REDIRECT_DELAY_MS } from "@/lib/reportConstants";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -17,6 +18,12 @@ import { ProcessingArt } from "./ProcessingArt";
 export function ProcessingView({ jobId }: { jobId: string }) {
   const router = useRouter();
   const { state, reconnect } = useJobStatus(jobId);
+
+  // ── lock the user on this page while the pipeline is in flight ──────────────
+  // Traps browser Back/Forward + warns on refresh/close so a running analysis can't be
+  // abandoned; released the moment it finishes/fails so the auto-redirect can proceed.
+  const pipelineRunning = state.phase === "connecting" || state.phase === "running";
+  useNavigationLock(pipelineRunning);
 
   // ── auto-redirect to the report on a clean completion (spec 017 D1/D10) ────
   // Placed ABOVE the phase early-returns (Rules of Hooks). Gates on report_available
@@ -95,33 +102,85 @@ export function ProcessingView({ jobId }: { jobId: string }) {
   return (
     <Centered>
       <ProcessingArt />
-      <div className="w-full max-w-md text-center">
-        <h2 className="text-h3 font-semibold text-text-primary">
-          {state.phase === "connecting" ? "Starting analysis…" : nodeLabel(state.node)}
+      <div className="reveal max-w-lg text-center">
+        <h2 className="font-display text-h1 font-semibold text-text-primary">
+          Analyzing your contract…
         </h2>
-        {hasStep ? (
-          <>
-            <p className="mt-1 text-small text-text-secondary">
-              Step {state.index} of {state.total}
-            </p>
-            <ProgressBar value={pct} className="mt-4" />
-          </>
-        ) : (
-          <p className="mt-1 text-small text-text-secondary">Queued — waiting for the pipeline…</p>
-        )}
-        {/* prior completed steps only — the latest node is shown in the header above */}
-        {state.completedNodes.length > 1 && (
-          <ul className="mt-6 space-y-1 text-left text-small text-text-tertiary">
-            {state.completedNodes.slice(0, -1).map((n, i) => (
-              <li key={i} className="flex items-center gap-2">
-                <CheckCircle2 size={14} className="text-risk-low" /> {nodeLabel(n)}
-              </li>
-            ))}
-          </ul>
-        )}
+        <p className="mt-2 text-body text-text-secondary">
+          Our 7-agent pipeline is reading every clause. This usually takes under 2 minutes.
+        </p>
       </div>
+
+      <div className="glass gloss reveal w-full max-w-xl rounded-card p-5 text-left">
+        <div className="mb-3 flex items-center justify-between gap-4">
+          <span className="min-w-0 truncate text-body font-medium text-text-primary">
+            {hasStep && (
+              <span className="text-text-tertiary">
+                Step {state.index} of {state.total} ·{" "}
+              </span>
+            )}
+            {state.phase === "connecting" ? "Starting analysis…" : nodeLabel(state.node)}
+          </span>
+          <span className="shrink-0 text-body font-semibold text-text-primary tabular-nums">
+            {pct}%
+          </span>
+        </div>
+
+        <ProgressBar value={pct} />
+
+        {/* Stage chips — the real 7-agent pipeline, with done / active / upcoming states. */}
+        <ul className="mt-5 flex flex-wrap gap-2">
+          {STAGES.map(({ idx, label }) => {
+            const st = chipState(idx, state.index);
+            return (
+              <li
+                key={idx}
+                className={`inline-flex items-center gap-1.5 rounded-pill border px-3 py-1 text-small font-medium ${
+                  st === "done"
+                    ? "border-risk-low/40 bg-risk-low/15 text-risk-low"
+                    : st === "active"
+                      ? "border-accent/50 bg-accent/15 text-text-primary"
+                      : "border-white/10 bg-white/5 text-text-tertiary"
+                }`}
+              >
+                {st === "done" ? (
+                  <CheckCircle2 size={13} />
+                ) : st === "active" ? (
+                  <Loader2 size={13} className="animate-spin" />
+                ) : null}
+                {label}
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      <p className="flex items-center gap-2 text-small text-text-tertiary">
+        <Lock size={13} className="text-accent" />
+        Navigation is paused until the analysis finishes — you&apos;ll be taken to your report
+        automatically.
+      </p>
     </Centered>
   );
+}
+
+// The 7-agent pipeline as short stage labels (mirrors jobProgress NODE_INDEX order). Each chip's
+// state is derived from the live step index: past = done, current = active, later = upcoming.
+const STAGES: { idx: number; label: string }[] = [
+  { idx: 1, label: "Ingesting" },
+  { idx: 2, label: "Clauses" },
+  { idx: 3, label: "Evidence" },
+  { idx: 4, label: "Validating" },
+  { idx: 5, label: "Scoring" },
+  { idx: 6, label: "Redlining" },
+  { idx: 7, label: "Report" },
+];
+
+function chipState(idx: number, currentIndex?: number | null): "done" | "active" | "upcoming" {
+  if (currentIndex == null) return "upcoming";
+  if (idx < currentIndex) return "done";
+  if (idx === currentIndex) return "active";
+  return "upcoming";
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

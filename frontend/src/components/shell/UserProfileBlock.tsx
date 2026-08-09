@@ -38,7 +38,7 @@ export function UserProfileBlock({
   }
 
   return (
-    <div className="flex items-center gap-3 border-t border-subtle px-4 py-4">
+    <div className="glass gloss m-3 flex items-center gap-3 rounded-card px-3 py-3">
       <Avatar name={shownName} src={avatarSrc} size="md" />
       <div className="min-w-0 flex-1">
         <div className="truncate text-body font-medium text-text-primary">{shownName}</div>

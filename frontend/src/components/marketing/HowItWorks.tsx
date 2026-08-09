@@ -32,10 +32,13 @@ const STEPS: Step[] = [
 
 export function HowItWorks() {
   return (
-    <section id="how" className="border-y border-subtle/60 bg-card/30 px-6 py-24">
+    <section id="how" className="relative px-6 py-24">
       <div className="mx-auto max-w-6xl">
-        <div className="mx-auto mb-14 max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-text-primary md:text-4xl">
+        <div className="reveal mx-auto mb-14 max-w-2xl text-center">
+          <span className="glass mb-4 inline-block rounded-pill px-3 py-1 text-caption font-semibold uppercase tracking-widest text-accent">
+            The workflow
+          </span>
+          <h2 className="font-display text-3xl font-semibold tracking-tight text-text-primary md:text-4xl">
             How it works
           </h2>
           <p className="mt-4 text-body text-text-secondary">
@@ -43,14 +46,17 @@ export function HowItWorks() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="stagger grid gap-6 md:grid-cols-3">
           {STEPS.map(({ icon: Icon, title, description }, i) => (
             <div
               key={title}
-              className="relative rounded-card border border-subtle bg-card p-7 shadow-lg shadow-black/20"
+              className="glass gloss lift sheen group relative overflow-hidden rounded-card p-7"
             >
+              <span className="pointer-events-none absolute right-5 top-4 font-display text-6xl font-semibold text-white/5">
+                {i + 1}
+              </span>
               <div className="mb-5 flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent-gradient text-accent-fg shadow-glow">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-accent transition-all duration-300 group-hover:border-accent/40 group-hover:bg-accent/10 group-hover:shadow-glow">
                   <Icon size={19} />
                 </span>
                 <span className="text-caption font-semibold uppercase tracking-widest text-text-tertiary">

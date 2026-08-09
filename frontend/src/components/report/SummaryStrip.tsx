@@ -11,13 +11,15 @@ export function SummaryStrip({ summary }: { summary: ReportSummary }) {
     { label: "Low", value: summary.low, tone: "text-risk-low" },
   ];
   return (
-    <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
+    <div className="stagger grid grid-cols-3 gap-3 sm:grid-cols-6">
       {chips.map((c) => (
         <div
           key={c.label}
-          className="rounded-card border border-subtle bg-card p-3 text-center transition hover:bg-card-raised"
+          className="glass gloss lift relative rounded-card p-3 text-center"
         >
-          <div className={`text-h2 font-bold tabular-nums ${c.tone ?? c.accent ?? "text-text-primary"}`}>
+          <div
+            className={`font-display text-h2 font-semibold tabular-nums ${c.tone ?? c.accent ?? "text-text-primary"}`}
+          >
             {c.value}
           </div>
           <div className="mt-0.5 text-small text-text-tertiary">{c.label}</div>

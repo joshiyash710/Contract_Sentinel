@@ -10,12 +10,12 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    "bg-accent-gradient text-accent-fg rounded-input px-4 py-2.5 font-semibold hover:opacity-95",
+    "sheen bg-accent-gradient text-accent-fg rounded-input px-4 py-2.5 font-semibold shadow-glow hover:opacity-95 [box-shadow:var(--glow-accent),inset_0_1px_0_0_rgba(255,255,255,0.25)]",
   secondary:
-    "border border-subtle text-text-primary rounded-input px-4 py-2.5 font-medium hover:bg-card-raised",
+    "glass text-text-primary rounded-input px-4 py-2.5 font-medium hover:border-accent/40",
   ghost: "text-text-secondary rounded-input p-2 hover:bg-card-raised hover:text-text-primary",
   // chip = small pill action (screens 5/6/7 suggestion chips)
-  chip: "bg-card-raised text-text-primary rounded-pill px-3 py-1.5 text-small border border-subtle hover:border-accent",
+  chip: "glass text-text-primary rounded-pill px-3 py-1.5 text-small hover:border-accent/50",
 };
 
 export function Button({ variant = "primary", className, children, ...rest }: ButtonProps) {
@@ -23,7 +23,7 @@ export function Button({ variant = "primary", className, children, ...rest }: Bu
     <button
       className={clsx(
         VARIANTS[variant],
-        "inline-flex items-center justify-center gap-2 transition disabled:cursor-not-allowed disabled:opacity-50",
+        "press inline-flex items-center justify-center gap-2 transition disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...rest}

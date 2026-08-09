@@ -4,7 +4,7 @@ import { ProcessingView } from "@/components/processing/ProcessingView";
 export default async function JobPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
   return (
-    <div className="min-h-screen bg-app">
+    <div className="min-h-screen">
       <ProcessingView jobId={jobId} />
     </div>
   );

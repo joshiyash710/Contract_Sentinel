@@ -17,12 +17,15 @@ export function SidebarNavItem({ item }: { item: NavItem }) {
       aria-current={active ? "page" : undefined}
       data-active={active ? "true" : "false"}
       className={clsx(
-        "flex items-center gap-3 rounded-input px-3 py-2.5 text-body transition-colors",
+        "relative flex items-center gap-3 rounded-input px-3 py-2.5 text-body transition-colors",
         active
-          ? "bg-card-raised text-text-primary font-semibold ring-1 ring-subtle"
+          ? "bg-accent/10 text-text-primary font-semibold ring-1 ring-accent/25"
           : "text-text-secondary hover:bg-card-raised/60 hover:text-text-primary",
       )}
     >
+      {active && (
+        <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-accent" />
+      )}
       <Icon size={18} className={active ? "text-accent" : ""} />
       <span className="flex-1">{item.label}</span>
       {item.expandable && (

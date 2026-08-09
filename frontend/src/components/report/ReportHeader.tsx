@@ -4,11 +4,16 @@ import { deriveRiskBand, countsLine, type RiskBand } from "@/lib/riskBand";
 import { formatGeneratedAt } from "@/lib/reportFormat";
 import type { ContractReport } from "@/lib/api/types";
 
-const BAND_STYLE: Record<RiskBand, { dot: string; text: string; ring: string; glow: string }> = {
-  high: { dot: "bg-risk-high", text: "text-risk-high", ring: "ring-risk-high/30", glow: "shadow-[0_0_40px_-8px_var(--risk-high)]" },
-  medium: { dot: "bg-risk-medium", text: "text-risk-medium", ring: "ring-risk-medium/30", glow: "shadow-[0_0_40px_-8px_var(--risk-medium)]" },
-  low: { dot: "bg-risk-low", text: "text-risk-low", ring: "ring-risk-low/30", glow: "shadow-[0_0_40px_-8px_var(--risk-low)]" },
-  none: { dot: "bg-risk-low", text: "text-risk-low", ring: "ring-risk-low/30", glow: "" },
+// `halo` tints the header background with the risk color (red / amber / green) so the risk
+// category is legible at a glance; `glow` adds a matching soft outer glow around the card.
+const BAND_STYLE: Record<
+  RiskBand,
+  { dot: string; text: string; ring: string; glow: string; halo: string }
+> = {
+  high: { dot: "bg-risk-high", text: "text-risk-high", ring: "ring-risk-high/30", glow: "shadow-[0_0_50px_-10px_var(--risk-high)]", halo: "bg-risk-high" },
+  medium: { dot: "bg-risk-medium", text: "text-risk-medium", ring: "ring-risk-medium/30", glow: "shadow-[0_0_50px_-10px_var(--risk-medium)]", halo: "bg-risk-medium" },
+  low: { dot: "bg-risk-low", text: "text-risk-low", ring: "ring-risk-low/30", glow: "shadow-[0_0_50px_-10px_var(--risk-low)]", halo: "bg-risk-low" },
+  none: { dot: "bg-risk-low", text: "text-risk-low", ring: "ring-risk-low/30", glow: "shadow-[0_0_50px_-10px_var(--risk-low)]", halo: "bg-risk-low" },
 };
 
 /**
@@ -22,20 +27,27 @@ export function ReportHeader({ jobId, report }: { jobId: string; report: Contrac
   const s = BAND_STYLE[band.band];
 
   return (
-    <header
-      className={`relative overflow-hidden rounded-card border border-subtle bg-card-raised p-6 ${s.glow}`}
-    >
-      {/* subtle brand gradient wash */}
-      <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-accent-gradient opacity-10 blur-3xl" />
+    <div className="relative">
+      {/* Risk-colored halo — red / amber / green by band — glowing in the page AROUND / BEHIND the
+          band (not on it). The blobs sit mostly OUTSIDE the card footprint, so the glass doesn't
+          pull them into the card face; they read as an ambient glow radiating from behind. */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+        <div className={`absolute -right-20 top-2 h-56 w-56 rounded-full ${s.halo} opacity-40 blur-[70px]`} />
+        <div className={`absolute -bottom-16 right-1/4 h-48 w-80 rounded-full ${s.halo} opacity-30 blur-[70px]`} />
+        <div className={`absolute -left-16 top-1/3 h-44 w-44 rounded-full ${s.halo} opacity-25 blur-[70px]`} />
+      </div>
 
-      <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+      <header
+        className={`glass gloss reveal relative overflow-hidden rounded-card p-6 ${s.glow}`}
+      >
+        <div className="relative flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-small text-text-tertiary">
             <FileText size={14} /> Contract analysis report
           </div>
-          <h1 className="mt-1 truncate text-h2 font-bold text-text-primary">
+          <h2 className="mt-1 truncate font-display text-page-title text-text-primary">
             {report.original_filename}
-          </h1>
+          </h2>
 
           {/* Risk band pill + counts */}
           <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -82,7 +94,8 @@ export function ReportHeader({ jobId, report }: { jobId: string; report: Contrac
             <Download size={16} /> Download data (JSON)
           </a>
         </div>
-      </div>
-    </header>
+        </div>
+      </header>
+    </div>
   );
 }

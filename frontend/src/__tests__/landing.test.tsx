@@ -36,7 +36,7 @@ describe("LandingView (AC-11)", () => {
   it("renders the feature cards", () => {
     render(<LandingView />);
     expect(screen.getByText(/Risk Scoring/i)).toBeTruthy();
-    expect(screen.getByText(/Clause-by-Clause Explanation/i)).toBeTruthy();
+    expect(screen.getByText(/Clause Explanation/i)).toBeTruthy();
   });
 
   it("renders the 'How it works' section (AC-B1)", () => {
