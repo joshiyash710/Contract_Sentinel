@@ -64,3 +64,9 @@ backend/.uvicorn.out.log
 backend/.uvicorn.err.log
 frontend/.next-dev.out.log
 frontend/.next-dev.err.log
+
+# transient run logs (not source)
+backend/_be.log
+frontend/_fe.log
+# Claude Code design skills — third-party tooling, not app code
+.claude/skills/
