@@ -367,9 +367,11 @@ REPORT_EVIDENCE_TEXT_MAX_CHARS: int = 2000
 # ── MCP delivery ───────────────────────────────────────────────────────────────
 # Source: specs/010-mcp-delivery/spec.md §6
 
-MCP_DELIVERY_ENABLED: bool = True
-MCP_DRIVE_ENABLED: bool = True
-MCP_GMAIL_ENABLED: bool = True
+# Env-overridable so a local/offline smoke can skip the Google Drive/Gmail push (which otherwise
+# blocks job completion on a long network timeout when Google isn't reachable). Default stays True.
+MCP_DELIVERY_ENABLED: bool = _env_bool("MCP_DELIVERY_ENABLED", True)
+MCP_DRIVE_ENABLED: bool = _env_bool("MCP_DRIVE_ENABLED", True)
+MCP_GMAIL_ENABLED: bool = _env_bool("MCP_GMAIL_ENABLED", True)
 
 MCP_DELIVERY_RECIPIENT: str = os.getenv("CONTRACTSENTINEL_DELIVERY_RECIPIENT", "")
 # Default Gmail recipient; "" → Gmail records FAILED ("no recipient configured")
