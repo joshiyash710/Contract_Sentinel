@@ -49,6 +49,10 @@ backend/data/auth_secret
 # Evaluation-harness run cache (feature 026 — generated per run, never committed)
 backend/eval/runs/
 
+# CUAD raw dataset fetch (feature 041 — ~174MB license-clean source data, reproducible via
+# scripts/fetch_cuad.py; never committed. Only the curated corpus slice under data/kb/ is tracked.)
+backend/data/kb/sources/cuad_raw/
+
 # Frontend (feature 013 — Next.js + node)
 frontend/node_modules/
 frontend/.next/
