@@ -1,0 +1,586 @@
+{
+  "document": "eval/corpus/AtnInternationalInc_20191108_10-Q_EX-10.1_11878541_EX-10.1_Maintenance Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The \"Term\" of this Agreement shall commence on the Effective Date and shall continue in full force and effect until the expiration or earlier termination of the"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The laws of the State of New York (excluding any laws that direct the application of another jurisdiction's law) govern all matters arising out of or relating t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to Section 3.5(b), in the event that Vendor, prior to Location Acceptance at all Cell Sites and without the prior written consent of AT&T, consummates ("
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "discretion, to (x) immediately terminate the Maintenance Addendum without further liability or obligation (other than payment of Maintenance Fees for Maintenanc"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If, following Location Acceptance of all Cell Sites, Vendor consummates any Change of Control of Vendor to any Restricted Entity without the prior written conse"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither Party may assign, delegate, or otherwise transfer any of its duties or obligations under this Agreement, voluntarily or involuntarily, without the prior"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any assignment, delegation or transfer for which consent is required hereby and which is made without such consent given in writing will be void."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Party may assign its rights under the Agreement, but any assignment of rights will be void to the extent that (i) the assignment purports to impose upon th"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent needed to perfect AT&T's ownership in AT&T Derived Data, Vendor hereby assigns all right, title and interest in AT&T Derived Data to AT&T."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T shall be the exclusive owner of all right, title, and interest in and to all Paid- For Development (defined below), including, without limitation, all Inte"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor shall assign or have assigned to AT&T and hereby assigns to AT&T all Intellectual Property Rights in and to the Paid-For Development."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent needed to perfect AT&T's ownership in AT&T Data, Vendor hereby assigns all right, title and interest in AT&T Data to AT&T."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor hereby grants and promises to grant and have granted to AT&T and its Affiliates a royalty-free, nonexclusive, sublicensable, assignable, transferable, ir"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In no way expanding the foregoing license, said license in no manner permits Vendor to (and Vendor hereby promises not to without the explicit prior written and"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T grants to Vendor a license to access, use, and copy the AT&T Derived Data, with no right to grant sublicenses, solely for the performance of Vendor's oblig"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The sole exception to the foregoing reservation of rights is that AT&T hereby grants Vendor a limited, nonexclusive, non-transferable license (that shall automa"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "T&T grants to Vendor a license to access, use, and copy the AT&T Derived Data, with no right to grant sublicenses, solely for the performance of Vendor's obliga"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "non_transferable_license",
+      "note": "Non-Transferable License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "as contemplated in the Build Addendum and (iv) reimburse AT&T for any AT&T Provided Equipment or other assets that are not installed at a Cell Site and cannot b"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(ii) provide reasonable assistance as may be necessary for the orderly, non-disrupted continuation of the Services, (iii) transfer all of the contracts related "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon expiration or termination of this Agreement, but prior to the effectiveness of full termination of the Agreement, AT&T may exercise any rights and remedies"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor will maintain and retain the records set forth in Subsection (a) during the term of the Agreement and for three (3) years thereafter (unless a discovery "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor shall, at AT&T's option, return to AT&T, or hold for AT&T's disposition, any or all of such material provided by AT&T under this Agreement upon terminati"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The scope of AT&T Audits shall also include: (i) practices and procedures used in performing the Services; (ii) systems, communications and information technolo"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor shall provide to AT&T (or its third party delegate), upon request and at no charge, its parent company, ATN International, Inc.'s bona fide and unedited:"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T may inspect and inventory the material furnished by AT&T under this Agreement during Vendor's normal business hours."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to Subsection (g) below, Vendor shall provide and shall require that its Subcontractors provide to AT&T, its auditors (including internal audit staff an"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Failing those efforts, Vendor shall, upon AT&T's request and at AT&T's expense, conduct the audit or inspection on behalf of AT&T, subject to terms agreed to by"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T and its auditors (including internal audit staff and external auditors) and governmental authorities shall have the right to review such records (\"AT&T Aud"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "With respect to AT&T requests for audits or inspections of Vendor's Subcontractors, the following applies: (i) If Vendor's agreement with its applicable Subcont"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T Audits may be conducted once a year (or more frequently if requested by governmental authorities who regulate AT&T's business, if required by applicable La"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "When the FirstNet Authority or other governmental authority requests to review Vendor's records, AT&T and its auditors will review these records first if the Fi"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Prior to Location Acceptance, Vendor shall provide AT&T escorted access to the premises wherein all such material is located and, following Location Acceptance,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T's access to the records and other supporting documentation shall include the right to inspect and photocopy Vendor's documentation and the documentation of"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Vendor will provide AT&T, at AT&T's request and cost, with paper and electronic copies of documents and information reasonably necessary to verify Vendor's comp"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding anything contained in this Agreement to the contrary, neither Party shall be liable to the other Party for any special, consequential, incidenta"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "NOTWITHSTANDING ANY OTHER PROVISION IN THIS AGREEMENT TO THE CONTRARY (AND WHETHER OR NOT SUCH A PROVISION CONTAINS LANGUAGE TO THE EFFECT THAT THE PROVISION TA"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "AT&T may elect to, after consultation with Vendor and good faith discussion to negotiate another resolution: (i) terminate its obligations solely with respect t"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Insofar as Vendor's obligations under Subsection (b)(i) result from, arise out of, or relate to a Covered Claim that is a Combination Claim, Vendor shall be lia"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The warranty period for all Material (excluding AT&T Provided Equipment) shall commence upon Delivery of such Material to Vendor from the OEM and shall continue"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "warranty_duration",
+      "note": "Warranty Duration"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The warranty period for workmanship and all Services provided"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "warranty_duration",
+      "note": "Warranty Duration"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "hereunder, including the Build Services contemplated in the Build Addendum, shall commence upon Location Acceptance of the applicable Cell Site and continue for"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "warranty_duration",
+      "note": "Warranty Duration"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Professional Liability (Errors & Omissions) insurance with limits of at least $5,000,000 each claim or wrongful act."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "With respect to Vendor's performance under this Agreement, and in addition to Vendor's obligation to indemnify, Vendor shall at its sole cost and expense: (i) m"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(iv) if requested, provide to AT&T or AT&T's third party administrator certificates of insurance stating the types of insurance and policy limits. Vendor shall "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In states where Workers' Compensation insurance is a monopolistic state-run system, Vendor shall add Stop Gap Employers Liability with limits not less than $500"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Business Automobile Liability insurance if vehicles will be used in the performance of the Agreement with limits of at least $1,000,000 each accident for bodily"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Commercial General Liability insurance policy must: 1. include AT&T, its Affiliates, and their directors, officers, and employees as additional insureds. Ve"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Workers' Compensation insurance with benefits afforded under the laws of any state in which the Work is to be performed and Employers Liability insurance with l"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Explosion, Collapse, and Underground Damage Liability will have the same limit requirement as the Commercial General Liability policy."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the fullest extent allowable by Law, the policy must include a waiver of subrogation in favor of AT&T, its Affiliates, and their directors, officers and empl"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Parties agree that: (i) the failure of AT&T to request such certificate of insurance or failure of AT&T to identify a deficiency will not be construed as a "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Commercial General Liability insurance written on Insurance Services Office (ISO) Form CG 00 01 12 04 or a substitute form providing equivalent coverage, coveri"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent that Vendor utilizes drones, Aircraft Liability insurance covering drones and similar devices, with limits of One Million and No/100 Dollars ($1,0"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At all times and at Vendor's expense, Vendor shall maintain property insurance for all perils, for full replacement cost for all property of AT&T in the care, c"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Property Insurance with limits sufficient to cover the full replacement cost of all of the Cell Sites against direct and indirect loss or damage by fire and all"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Umbrella/Excess Liability insurance with limits of at least $10,000,000 each occurrence, claim or wrongful act with terms and conditions at least as broad as th"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If applicable, Vendor will maintain Products/Completed Operations for at least two (2) years following completion of the Work."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "All AT&T Affiliates receiving Material or Services under this Agreement and the federal government of the United States shall be express third party beneficiari"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "third_party_beneficiary",
+      "note": "Third Party Beneficiary"
+    }
+  ]
+}

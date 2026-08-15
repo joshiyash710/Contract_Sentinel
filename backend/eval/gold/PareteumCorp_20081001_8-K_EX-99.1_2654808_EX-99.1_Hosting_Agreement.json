@@ -1,0 +1,156 @@
+{
+  "document": "eval/corpus/PareteumCorp_20081001_8-K_EX-99.1_2654808_EX-99.1_Hosting Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall come into force on the Date of the Agreement, and shall, subject to article 18, remain in full force and effect for an initial period of **"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "effective_date",
+      "note": "Effective Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Parties can mutually agree in writing to deviate from an automatic extension of *** by extending this Agreement for a longer period than ***."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If no termination notice is provided, the Agreement will be automatically extended for consecutive *** periods until such time as *** termination notice is prov"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At the end of *** Parties will negotiate in good faith regarding a possible extension of the Initial Term."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed by and construed in all respects exclusively in accordance with the laws of the Netherlands."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without the prior written consent of the other Party, a Party shall not at any time while this Agreement is in force and for a one-year period after termination"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Agreement may be terminated by both Parties with a notification period of *** before the end of the Initial Term of the Agreement."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "a) such Affiliated Company expressly assumes, by written instrument, all of the obligations of the Party under this Agreement and thereby becomes a Party to thi"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement and the rights and obligations specified herein shall be binding upon the Parties and their respective legal successors and neither Party shall s"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "T-Mobile hereby grants ELEPHANT TALK a fully paid-up, non-exclusive licence to use the Hosting Services for the purpose of ELEPHANT TALK in providing the ELEPHA"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Limitation of liability as described in this article shall not apply: a) in case the damage or loss is caused by a Party's willful misconduct (including fraud) "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In no event shall either Party be liable for indirect or consequential loss or damage, including but not limited to, loss of profit, loss of sales or turnover, "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without prejudice to the provisions expressly stated elsewhere in this Agreement, a Party's liability for damage suffered by the other Party, attributable to th"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any claim for damages must be notified to the other Party within six (6) months as from the date on which the damage was caused, failing which such claim is dee"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In case of violation of this article, the Party shall pay to the other Party an equivalent of eighteen (18) months gross salary of the respective employee."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    }
+  ]
+}

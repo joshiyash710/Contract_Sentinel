@@ -1,0 +1,106 @@
+{
+  "document": "eval/corpus/ArconicRolledProductsCorp_20191217_10-12B_EX-2.7_11923804_EX-2.7_Trademark License Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Term of this Agreement will commence on the Effective Date and shall continue for the time periods set forth in Schedules 1 and 2 unless sooner terminated i"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed by and interpreted in accordance with the laws of the State of Delaware without regard to its conflicts of law principles."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, no such consent of Licensor is required under this Agreement in the event of a Change of Control of Licensee so long as: (a) the "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement may not be assigned by Licensee without the consent of Licensor which consent shall not be unreasonably withheld."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Licensee will not, however, use the Licensed Mark except for the production and sale of inventory as provided in this Section 1.1 and in Section 8.2 of the Sepa"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "For the avoidance of doubt, Licensor also grants to Licensee and its subsidiaries and affiliates a non-exclusive, worldwide royalty-free license for continued u"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Licensor on behalf of itself and its Affliates hereby grants to Licensee the limited licenses to use and have used the Licensed Mark: (i) for the Licensed Produ"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Licensor, as owner of the Licensed Mark, shall have the right at all times to control and approve the nature and quality of the Licensed Products (and the Licen"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "No more frequently than once per year, a third party auditor chosen by Licensor and approved by Licensee, such approval not to be unreasonably withheld, shall b"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Licensee agrees and covenants that it shall not challenge, contest, or take any actions inconsistent with Licensor's exclusive rights of ownership of the Licens"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}

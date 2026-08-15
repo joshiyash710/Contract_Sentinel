@@ -1,0 +1,96 @@
+{
+  "document": "eval/corpus/ADUROBIOTECH,INC_06_02_2020-EX-10.7-CONSULTING AGREEMENT(1).PDF",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall begin on the Effective Date and shall continue until December 31, 2020, unless extended or earlier terminated."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be construed and enforced in accordance with the laws of the State of California, without regard to the conflict of law principles of Calif"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the term of this Agreement, Consultant will not, directly or indirectly (whether for compensation or without compensation) engage in or provide consultin"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "From the Effective Date and for twelve (12) months after the termination of this Agreement (the \"Restricted Period\"), Consultant shall not, without Aduro's prio"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Either party may terminate this Agreement at any time on prior written notice to the other."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall not be assignable by Consultant."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent, if any, that Consultant has rights in or to any Work Product or any data or inventions developed in connection with work under this Agreement (\"A"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At Aduro's request and expense, Consultant shall assist Aduro in acquiring and maintaining its right in and title to, any Work Product."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Aduro shall be the sole and exclusive owner of, and Consultant hereby assigns to Aduro, any and all writings, documents, work product, inventions, developments,"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "document": "eval/corpus/ADAMSGOLFINC_03_21_2005-EX-10.17-ENDORSEMENT AGREEMENT.PDF",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Term of this Agreement shall be for a period of [* ****] years and [*****] months commencing the 1st day of September 2004 and terminating the [*****] day o"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "effective_date",
+      "note": "Effective Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed and construed according to the laws of the State of Kansas."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "When endorsing a non-competitive product, under no circumstances shall CONSULTANT wear, play, use, hold or in any way be associated with an ADAMS GOLF competito"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the term of this Agreement, CONSULTANT shall exclusively play/use the MANDATORY PRODUCT."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "CONSULTANT hereby gives and grants to ADAMS GOLF the exclusive right and license to use CONSULTANT'S ENDORSEMENT in connection with the manufacture, sale, distr"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the term of this Agreement, unless otherwise authorized at the sole discretion of ADAMS GOLF in writing, CONSULTANT shall not: A.give the right to use or"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding paragraphs 4A, 4B and 4C above, CONSULTANT shall be entitled to endorse and play the [*****]."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding paragraphs 4A, 4B and 4C above, CONSULTANT shall not be required to wear ADAMS GOLF [*****] in [*****] ads."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The parties expressly agree that CONSULTANT may permit [*****] the use of CONSULTANT'S name and/or likeness in [*****] print and/or television advertisement pro"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(It is expressly understood by the parties that CONSULTANT may play [* ****] clubs in the bag other than ADAMS GOLF clubs including, but not limited to, a putte"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither ADAMS GOLF nor CONSULTANT shall have the right to grant sublicenses hereunder or to assign, alienate or otherwise transfer any of its rights or obligati"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In each and every calendar year of this Agreement, CONSULTANT shall achieve a satisfactory record of play in a minimum of [* ****] professional golf association"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If for any reason, CONSULTANT should achieve a satisfactory record of play in less than [*****] SPGA and/or PGA tour events in a calendar year, he shall repay A"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"MANDATORY PRODUCTS\" shall mean the following ADAMS GOLF PRODUCTS that CONSULTANT must exclusively play/use in all Champions/Senior Professional Golf Associatio"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the term of this Agreement, CONSULTANT shall make himself available on not more than [*****] days for television and radio commercials, photo shoots, mod"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    }
+  ]
+}

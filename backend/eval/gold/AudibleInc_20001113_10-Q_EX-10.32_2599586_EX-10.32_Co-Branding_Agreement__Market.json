@@ -1,0 +1,356 @@
+{
+  "document": "eval/corpus/AudibleInc_20001113_10-Q_EX-10.32_2599586_EX-10.32_Co-Branding Agreement_ Marketing Agreement_ Investment Distribution Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The term of this Agreement will commence on the Effective Date, and unless earlier terminated as provided elsewhere in this Agreement, will end automatically up"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement will be interpreted, construed and enforced in accordance with the Laws of the State of Washington, without reference to its choice of Laws rules"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"ACSI Competitor\" means, collectively, such persons and entities as the Parties may agree upon from time to time. ACSI may update any agreed-upon list of ACSI C"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Parties will issue a joint press release promptly upon concluding Advertising. this Agreement, which press release shall be subject to the Party's mutual ap"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the Term, [***], ACSI will not offer or sell through the ACSI Site, or authorize any third party to sell through the ACSI Site, any Exclusive Spoken-Word"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that: (a) Company at any time engages in"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "the same shall be deemed a material breach of this Agreement which is not susceptible to cure, and ACSI shall be entitled to terminate this Agreement upon writt"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "other behavior that is materially harming the goodwill or reputation of ACSI or its Affiliates or the ACSI Site;"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "ACSI may assign this Agreement to (a) any corporation or other entity resulting from any merger, consolidation, or other reorganization involving ACSI, (b) any "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "substantially all of its assets relating to the Spoken-Word Audio Sub-Section; provided that the assignee agrees in writing to be bound by all the terms and con"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company may not assign or delegate this Agreement or any of its rights or obligations hereunder, whether voluntarily, involuntarily, by operation of Law or othe"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In consideration for the intangible rights granted hereunder, for each Year in which the Spoken-Word Audio Sub-Section (including the Mirror Company Site) gener"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Allocation of Payments. The Parties acknowledge and agree that the Annual Fees shall be allocated as consideration for advertising services and intangible right"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During each Year of the Term following the Launch Date, ACSI (or one of its Affiliates) will deliver Amazon.com-branded e-mails and Amazon.com-branded in-produc"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent that any such ACSI Derivative Works or Company Derivative Works are not \"works made for hire\", Company hereby assigns and agrees to assign to ACSI"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the maximum extent permitted by applicable Laws, any ACSI Derivative Works or Company Derivative Works, to the extent created by or for the other Party, shal"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "registration of any Intellectual Property Rights associated with the Joint Works without the other Party's prior written consent; (b) make, manufacture, assembl"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"Joint Work\" means any content, data, URLs, domain names, technology, software, code, user interfaces, \"look and feel\" or other items which are invented, create"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Derivative Works, on the one hand, and/or Company Existing Intellectual Property, Company Future Intellectual Property and/or Company Derivative Works, on the o"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without limiting the generality of the foregoing, either Party may, without any duty to account to the other (including, without limitation, any duty to pay, sh"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To the extent that any Joint Works are created in the course of performance of this Agreement, each Party shall own a joint, equal and undivided ownership inter"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Site Functionality or technology, software, code, user interfaces or \"look and feel\" related thereto or incorporated therein, such items shall be deemed ACSI De"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company hereby grants to ACSI, during the Term, a non-exclusive, non-transferable (except in accordance with Section 11.7 [Assignment]) license, which ACSI may "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "ACSI hereby grants to Company, during the Term, a non- exclusive, non-transferable (except in accordance with Section 11.7 [Assignment]) license, which Company "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon any termination or expiration of the Term the Parties will cooperate in good faith to promote a smooth customer transition, and in any event, Company will,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "accounting firm selected by the Auditing Party and reasonably acceptable to the Audited Party to audit such books and records at the Audited Party's premises to"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Auditing Party agrees that any information learned or disclosed by its auditor in connection with such audit is Confidential Information of the Audited Part"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Party (the \"Audited Party') will, upon at least thirty (30) days' prior written request by the other Party (the \"Auditing Party\"), allow an independent cer"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "EXCEPT TO THE EXTENT AWARDED TO A THIRD PARTY IN A JUDGMENT AGAINST WHICH A PARTY IS ENTITLED TO INDEMNIFICATION PURSUANT TO SECTION 7.2 [Indemnity], OR TO THE "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "EXCEPT FOR LIABILITIES UNDER SECTION 7.2 [Indemnity], NEITHER PARTY'S AGGREGATE LIABILITY ARISING OUT OF OR IN CONNECTION WITH THIS AGREEMENT OR THE TRANSACTION"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "FOR THE AVOIDANCE OF DOUBT, THE PARTIES HEREBY ACKNOWLEDGE AND AGREE THAT NOTHING IN THIS SECTION 8.2 [No Consequential Damages] IS INTENDED TO LIMIT ANY RIGHT "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company will not modify or terminate any coverage without giving at least thirty (30) days' prior written notice to ACSI."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company will at its expense, prior to the Launch Date obtain, and thereafter throughout the Term and for a period of six (6) months thereafter maintain, such po"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon request from ACSI, Company will furnish to ACSI certificates of insurance and such other documentation relating to such policies as ACSI may reasonably req"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without limiting the generality of the foregoing, Company will ensure that such policies contain a waiver of subrogation against ACSI, name ACSI and its assigne"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    }
+  ]
+}

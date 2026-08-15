@@ -50,6 +50,20 @@ _DEFINITION_RE = re.compile(r'^"\*\*(?P<term>[^*]+)\*\*"')
 # Minimum length for a paragraph to stand alone as its own clause snippet.
 _MIN_SNIPPET_CHARS = 40
 
+# ── Feature 041: CUAD (Contract Understanding Atticus Dataset, CC BY 4.0) ingestion ─────────────
+# Raw dataset lives (gitignored) under data/kb/sources/cuad_raw/; fetched via scripts/fetch_cuad.py.
+CUAD_JSON_PATH = BACKEND_DIR / "data" / "kb" / "sources" / "cuad_raw" / "CUAD_v1" / "CUAD_v1.json"
+CUAD_LICENSE = "CC BY 4.0"
+# Per-clause_type cap so the corpus stays BALANCED and small (spec A4/D8). Lives here, in the build
+# SCRIPT, next to _MIN_SNIPPET_CHARS — it is a curation knob, not an eval-harness constant.
+CUAD_MAX_PER_TYPE = 35
+# Truncate very long highlighted spans so the FAISS embeddings stay reasonable.
+CUAD_MAX_SNIPPET_CHARS = 2000
+# CUAD categories that are entity-extraction, not clause language — excluded from the clause corpus.
+CUAD_CATEGORY_DENYLIST = {"Document Name", "Parties"}
+# Pull the category out of a CUAD question, e.g. '... related to "Cap On Liability" that ...'.
+_CUAD_CATEGORY_RE = re.compile(r'related to "([^"]+)"')
+
 
 def _strip_markdown(text: str) -> str:
     """Remove bold markers and collapse whitespace for clean embedding input."""
@@ -150,9 +164,73 @@ def _parse_document(md_path: Path, citation: str) -> Iterator[dict]:
     yield from flush(current)
 
 
+def _slugify_category(category: str) -> str:
+    """CUAD category label → a snake_case clause_type free-text label (NOT the 12-member ClauseType
+    enum — CUAD labels like 'cap_on_liability' are kept as-is; the runtime ignores this key)."""
+    slug = category.strip().lower()
+    slug = re.sub(r"[^\w]+", "_", slug)  # spaces, slashes, hyphens → underscore
+    return slug.strip("_")
+
+
+def _norm_key(text: str) -> str:
+    """Normalized dedup key: lowercase, whitespace-collapsed."""
+    return re.sub(r"\s+", " ", text).strip().lower()
+
+
+def _iter_cuad_spans(cuad_json_path: Path) -> Iterator[dict]:
+    """Yield raw (uncurated) corpus records from CUAD annotated spans. Each answered span becomes a
+    record {snippet_text, source_reference, clause_type, source_license}. Dedup/cap happen in main()."""
+    data = json.loads(cuad_json_path.read_text(encoding="utf-8"))["data"]
+    for contract in data:
+        title = str(contract.get("title", "")).split("_")[0][:60] or "contract"
+        for para in contract.get("paragraphs", []):
+            for qa in para.get("qas", []):
+                if qa.get("is_impossible"):
+                    continue
+                m = _CUAD_CATEGORY_RE.search(qa.get("question", ""))
+                if not m:
+                    continue
+                category = m.group(1)
+                if category in CUAD_CATEGORY_DENYLIST:
+                    continue
+                clause_type = _slugify_category(category)
+                for ans in qa.get("answers", []):
+                    snippet = _strip_markdown(ans.get("text", ""))[:CUAD_MAX_SNIPPET_CHARS]
+                    if len(snippet) < _MIN_SNIPPET_CHARS:
+                        continue
+                    yield {
+                        "snippet_text": snippet,
+                        "source_reference": f"CUAD · {title} · {category}",
+                        "clause_type": clause_type,
+                        "source_license": CUAD_LICENSE,
+                    }
+
+
+def _curate_cuad(cuad_json_path: Path) -> List[dict]:
+    """Dedup near-identical spans and cap per clause_type (spec A4) → the committed CUAD slice."""
+    seen: set = set()
+    per_type: dict = {}
+    out: List[dict] = []
+    for rec in _iter_cuad_spans(cuad_json_path):
+        key = _norm_key(rec["snippet_text"])
+        prefix = key[:120]
+        if key in seen or prefix in seen:
+            continue
+        ct = rec["clause_type"]
+        if per_type.get(ct, 0) >= CUAD_MAX_PER_TYPE:
+            continue
+        seen.add(key)
+        seen.add(prefix)
+        per_type[ct] = per_type.get(ct, 0) + 1
+        out.append(rec)
+    return out
+
+
 def main() -> None:
     CORPUS_PATH.parent.mkdir(parents=True, exist_ok=True)
     records: List[dict] = []
+
+    # ── Source 1: Bonterms curated templates (unchanged) ──
     for filename, citation in SOURCES.items():
         md_path = DB_DIR / filename
         if not md_path.exists():
@@ -161,11 +239,24 @@ def main() -> None:
         print(f"  {filename}: {len(doc_records)} clauses")
         records.extend(doc_records)
 
+    # ── Source 2: CUAD (optional — degrade gracefully if the raw fetch is absent, EC-1) ──
+    if CUAD_JSON_PATH.exists():
+        cuad_records = _curate_cuad(CUAD_JSON_PATH)
+        n_types = len({r["clause_type"] for r in cuad_records})
+        print(f"  CUAD: {len(cuad_records)} clauses across {n_types} clause_types "
+              f"(cap {CUAD_MAX_PER_TYPE}/type)")
+        records.extend(cuad_records)
+    else:
+        print(f"  CUAD: raw dataset not found at {CUAD_JSON_PATH.relative_to(BACKEND_DIR)} — "
+              "skipping (run `python scripts/fetch_cuad.py`). Corpus = Bonterms only.")
+
     with CORPUS_PATH.open("w", encoding="utf-8") as fh:
         for rec in records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
-    print(f"Wrote {len(records)} reference clauses -> {CORPUS_PATH.relative_to(BACKEND_DIR)}")
+    total_types = len({r.get("clause_type") for r in records if r.get("clause_type")})
+    print(f"Wrote {len(records)} reference clauses ({total_types} CUAD clause_types) "
+          f"-> {CORPUS_PATH.relative_to(BACKEND_DIR)}")
 
 
 if __name__ == "__main__":

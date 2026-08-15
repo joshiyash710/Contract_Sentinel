@@ -1,0 +1,226 @@
+{
+  "document": "eval/corpus/AgapeAtpCorp_20191202_10-KA_EX-10.1_11911128_EX-10.1_Supply Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement commences upon execution of this document."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "effective_date",
+      "note": "Effective Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement is for a term of ten (10) years."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement will be automatically renewed at the end of every ten (10) year term, with each subsequent term of renewal being for a ten (10) year term."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement will be automatically renewed at the end of every ten (10) year term, with each subsequent term of renewal being for a ten (10) year term. A six "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "notice_period_to_terminate_renewal",
+      "note": "Notice Period To Terminate Renewal"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement shall be governed by the Laws of England (English common and statutory Law)."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer agrees that the Customer has the right under this agreement to consider, source, promote, market and sell other product outside of the products"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer grants exclusive rights to the Customer for the term of ten (10) years from the date of the signing of this agreement and for an indefinite per"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer covenants not to sell any product listed in this agreement, or product name (as listed in schedule A of this agreement) to any other party with"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer hereby appoints the Customer to be the sole and exclusive agent for the promotion, sales, marketing, distribution and administration of the pro"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer agrees to give the Customer exclusive rights to the marketing, promotion and sales of the new products should the Customer decide to take on th"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer agrees to offer the Customer the first right of refusal to purchase the intellectual property for the products listed in Schedule A of this agr"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If control of either party shall pass from the present shareholders or owners or controllers to other persons whom the other party shall in their absolute discr"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Either parties voting stock is transferred to any third party to such extent as to result in a change in effective control of the company or its ownership or ac"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer may not transfer or assign any of its rights or obligations under this agreement without the prior written consent of the Customer."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Customer may not freely transfer or assign its rights or obligations under this agreement without the prior written consent of the Manufacturer."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "On either party assigning or attempting to assign this agreement without the prior written consent of the other party."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Minimum Annual Product Performance Requirements are listed below: Product Name: Agreed Quantity of Units to be purchased per Annum: ATP 1 S Survivor Select 150g"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer agrees to maintain its focus on the design and formulation of new products and agrees to provide the Customer with one new product each quarter"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturer has appointed the Customer the copyright holder of both the English and the Chinese version of the book How to achieve Super Health beyond 2000"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Customer shall inspect all Products promptly upon receipt thereof and may reject any defective Product, provided that the Customer shall within seven (7) da"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "warranty_duration",
+      "note": "Warranty Duration"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Customer shall at all times during the term of this agreement maintain product liability insurance, covering all products sold by the Manufacturer to the Cu"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Manufacturing Companies utilised by the Agent to manufacture the products listed in Schedule A of this agreement shall maintain throughout the term of this "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    }
+  ]
+}

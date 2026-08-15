@@ -1,0 +1,276 @@
+{
+  "document": "eval/corpus/AMBASSADOREYEWEARGROUPINC_11_17_1997-EX-10.28-ENDORSEMENT AGREEMENT.PDF",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The term of the license hereby granted shall commence August 1, 1995 and continue until January 30, 2000, unless sooner terminated in the manner provided in the"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed by and construed in accordance with the laws of the State of California without regard to conflict of law principles."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The license hereby granted shall be exclusive as to the products described in subparagraphs 2.(a)(1) and (2) of this Agreement, but nonexclusive as to all other"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Nothing in this Agreement shall be construed to prevent KI, Inc. from granting any other licenses for the use of KI's name or likeness, or from utilizing KI's n"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "KI, Inc. may assign its rights hereunder, but shall furnish written notice of such assignment to Diplomat."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement and all rights and duties hereunder are personal to Diplomat and shall not, without the written consent of KI, Inc., be assigned, mortgaged, subl"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Diplomat agrees to pay KI, Inc. as royalty a sum equal to % of the net wholesale volume of the products covered by this Agreement by Diplomat and its affiliated"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event any sale is made at a special price to any of Diplomat's subsidiaries or to any other person, firm or corporation related in any manner to Diplomat"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "No part of the minimum royalty for the first License Year shall in any event be repayable to Diplomat."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The minimum royalty for the 1st License Year shall be paid as follows: $ upon the signing of the Deal Memo dated August 24, 1995, the balance of $ to be paid in"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Diplomat agrees to pay KI, Inc. the minimum royalties set forth below as a minimum guarantee against royalties to be paid to KI, Inc. under subparagraph 3.(a), "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "KI will participate in up to two (2) photo sessions per License Year during the period of this Agreement on behalf of Diplomat at a mutually acceptable time and"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "KI will participate in the production of up to one (1) product information/sales video per License Year during the period of this Agreement on behalf of Diploma"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "in duration, each day to consist of no more than eight (8) working hours."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The photo sessions shall be up to two (2) consecutive days in duration, each day to consist of no more than eight (8) working hours."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The video production sessions shall be up to two (2) consecutive days"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon the terms and conditions set forth in this Agreement, KI, Inc. hereby grants to Diplomat and Diplomat hereby accepts the right, license and privilege of ut"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(2) optical cases, optical eye chains, eye pins, and lens cleaning kits sold only in optical retailers; and (3) such other optical accessories as the parties sh"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon and after the termination of the license, and except as otherwise provided in this Agreement, Diplomat may dispose of products covered by this Agreement wh"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon the termination of this license, notwithstanding anything to the contrary herein, all royalties on sales theretofore made shall become immediately due and "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "subject matter and terms of this Agreement, and shall have free and full access thereto for said purposes and for the purpose of making extracts therefrom."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "KI, Inc. and its duly-authorized representatives shall have the right, upon reasonable notice and at reasonable hours of the day, to visit the offices of Diplom"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Diplomat agrees that it will obtain, at its own expense, product liability insurance from a recognized insurance company which is qualified to do business in th"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "As proof of such insurance, a fully paid certificate of insurance naming KI, Inc. and KI as an insured party will be submitted to KI, Inc. by Diplomat for KI, I"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any proposed change in certificates of insurance shall be submitted to KI, Inc. for its prior approval."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "KI, Inc. shall be entitled to a copy of the then prevailing certificate of insurance, which shall be furnished KI, Inc. by Diplomat."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Diplomat agrees that it will not at any time during the term of this Agreement or thereafter attack (i) KI, Inc.'s title to, or rights in and to, KI's name or ("
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}

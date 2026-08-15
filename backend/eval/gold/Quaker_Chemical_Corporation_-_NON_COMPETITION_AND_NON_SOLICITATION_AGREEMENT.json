@@ -1,0 +1,96 @@
+{
+  "document": "eval/corpus/Quaker Chemical Corporation - NON COMPETITION AND NON SOLICITATION AGREEMENT.PDF",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "THIS AGREEMENT SHALL BE GOVERNED BY AND CONSTRUED IN ACCORDANCE WITH THE INTERNAL LAWS OF THE COMMONWEALTH OF PENNSYLVANIA WITHOUT GIVING EFFECT TO ANY CHOICE O"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Gulf Oil and Gulf India each agree during the Non-Compete Period not to acquire, directly or indirectly, control of any businesses involved in, or otherwise com"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Seller agrees that for a period commencing on the Effective Date and ending two years after the Closing Date (the \"Non- Compete Period\"), it shall not, oth"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "; provided, however that nothing in this Agreement shall: (i) prohibit or restrict any Seller, directly or indirectly, from owning, as a passive investor, not m"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "employees of the Combined Business; provided, however, that this clause (2) shall not permit any Seller to hire any such employees during the Non-Solicit Period"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the above, Sellers shall not be restricted from (1) soliciting for employment or hiring former employees of Buyer or the Company (including thei"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Seller agrees that for a period commencing on the Effective Date and ending three years after the Closing Date (the \"Non-Solicit Period\"), each Seller shal"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be binding upon and inure to the benefit of the parties and their respective successors and permitted assigns; provided that this Agreement"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Pursuant to the Purchase Agreement, Gulf Houghton shall receive cash consideration and shares of Buyer's capital stock in exchange for the Shares owned by Gulf "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    }
+  ]
+}

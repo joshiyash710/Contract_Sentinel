@@ -1,0 +1,736 @@
+{
+  "document": "eval/corpus/PfHospitalityGroupInc_20150923_10-12G_EX-10.1_9266710_EX-10.1_Franchise Agreement1.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement expires ten (10) years from the Agreement Date (the \"Term\"), unless it is terminated sooner as provided in other sections of this Agreement."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "When this Agreement expires, you will have the option to continue the franchise relationship with us for two (2) additional terms of ten (10) years each."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement and the relationship between the parties is governed by and will be construed exclusively in accordance with the laws of the State of Florida (wi"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree that during the term of this Agreement, you will not, without our prior written consent, either directly or indirectly through any other person or ent"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "17.1.1. Own, manage, engage in, be employed by, advise, make loans to, consult for, rent or lease to, or have any other interest in any business that (directly "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree not to: (a) advertise or market the services of your Franchised Business outside of the Delivery/Catering and Advertising Area; and/or (b) engage in d"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without our prior written approval, you may not engage in any other type of sale, including, but not limited to: selling, distributing, or otherwise providing, "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If any of your advertising within the Delivery/Catering and Advertising Area is in media that will or may reach a significant number of persons outside of the D"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "For two (2) years after the expiration or termination of this Agreement or an approved Transfer to a new franchisee, you may not directly or indirectly own, man"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree not to engage in any of the sales activities that we have reserved to ourselves in Sections 1.3 [Our Limitations and Our Reserved Rights] above."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "17.1.2. Divert or attempt to divert any business or customer, or potential business or customer, to any Competitive Business;"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_customers",
+      "note": "No-Solicit Of Customers"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You may not enter into any relationship with a Major Account customer that we deem to conflict with the customer's Major Account arrangement with us."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_customers",
+      "note": "No-Solicit Of Customers"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "17.1.3. Induce any person to leave his or her employment with us."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We may terminate your right to provide products and services to a Major Account customer at any time by giving you at least 30 days' prior written notice, and y"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree that, at our option, you will sell to us any or all your assets used to operate the Franchised Business (including equipment, fixtures, furnishings, D"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We may assign our right of first refusal to someone else either before or after we exercise it."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If the Transfer is proposed to be made pursuant to a sale, we or our designee may purchase the interest proposed to be Transferred on the same economic terms an"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We may exercise this option by delivering a notice of intent to purchase to you within 30 days after the expiration or termination of this Agreement."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any material change in the terms of the offer from a third-party after we have elected not to purchase the seller's interest will constitute a new offer subject"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Closing of the Transfer must occur within 60 calendar days of our election (or such longer period as applicable law may require); otherwise, the third-party's o"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We have the right, exercisable within thirty (30) days after receipt of the notice specified in Section 14.2 [No Transfer without Our Prior Written Consent], to"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "rofr_rofo_rofn",
+      "note": "Rofr/Rofo/Rofn"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You may not permit the Franchised Business to be operated, managed, directed, or controlled by any other person without our prior written consent."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Owners may not enter into any shareholders' agreement, management agreement, voting trust or other arrangement that gives a third party the power to direct "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither you nor any of the Owners may make any Transfer or permit any Transfer to occur without obtaining our prior written consent."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "A majority of the Restaurant owners in the Regional Fund may vote to increase the amount of each Restaurant owner's Regional Fund contribution by up to an addit"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You must pay us a royalty fee (\"Royalty\") equal to six percent (6%) of your Gross Revenues."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During any Period that the Marketing Fund (as defined in Section 9.1 [Pizza Fusion Marketing Fund] below) is in effect, you must make a contribution as describe"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If by reason of state or other law, we are prohibited from receiving a percentage of certain components of Gross Revenues (including alcoholic-beverage sales), "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Additionally, during any Period that a Regional Fund (as defined in Section 9.3 [Regional Fund] below) for the area in which your Franchised Business is located"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree to conduct a Grand Opening Advertising Program for the Franchised Business throughout the first four weeks after the Opening Date, spending an amount "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Beginning on the Opening Date, during each consecutive three-calendar-month period during the Term, you must spend three percent (3%) or more of your Gross Sale"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If you wish to test market an item that we have not approved, then, so long as we have given you our prior written approval, you may do so for so long, and on s"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree that all data that you collect from customers and potential customers in connection with the Franchised Business (\"Customer Data\") is deemed to be own"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Customer List is, and remains, our exclusive property, you hereby assign to us all rights you now have or hereafter may acquire in the Customer List."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "All data pertaining to, derived from, or displayed at the Franchised Business (including without limitation data pertaining to or otherwise about Franchised Bus"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We grant you the right, and you accept the obligation, to use the Proprietary Marks and the System to operate one Restaurant (the \"Franchised Business\") at the "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If, following the Test, we determine that we will approve the tested item, then for so long as we deem that item to be an \"approved item\" under this Agreement, "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You have no right to sublicense either the Proprietary Marks or the System to anyone else;"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "non_transferable_license",
+      "note": "Non-Transferable License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If we do not elect or are unable to exercise our option to acquire, or to acquire the lease or sublease for the Premises, you must make such modifications or al"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(c) Recognize your right to display and use the Proprietary Marks in accordance with the specifications required by the Manual, subject only to the provisions o"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Your lease (or rider to a lease) must include provisions that will: (a) Allow us the right to elect to take an assignment of the leasehold interest upon termina"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We reserve the right to reinspect the facilities and products of any approved supplier and to revoke approval if we find that the supplier fails to meet any of "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To permit us or our representatives to inspect your operations to assure that you are properly using the Proprietary Marks;"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If we request in writing, you agree that your financial institution is authorized to send us a monthly statement of all activity in the designated account (and "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If Gross Revenues have been understated by more than 2% for the period covered by the examination or audit, you must also: (1) reimburse us for the full reasona"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We have the right, both during and after the Term of this Agreement, to inspect, copy and audit your books and records, your federal, state and local tax return"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We have the right, at any time during normal business hours: (i) to conduct inspections of the Franchised Business; (ii) to interview your employees, work crews"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In order to preserve the goodwill of the System following termination, we (or our designee) have the right to enter the Premises (without liability to you, your"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We may conduct the examination or audit at our offices or those of a third-party, in which case we may require you to send us your records."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "We have the ongoing right to inspect any proposed supplier's facilities and to test samples of the proposed products or services."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree to submit financial and operational reports and records and documents to us at the times and in the manner specified in the Manual or other written in"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each of us waives any right to or claim of punitive, exemplary, multiple, or consequential damages against the other in litigation and agrees to be limited to t"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any and all claims and actions arising out of or relating to this Agreement, the relationship between you and us, or your operation of the Restaurant, brought b"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The amounts contemplated under Section 16.4 [Liquidated Damages] above is not a penalty and is intended by the parties only as a compensatory remedy for past br"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The payments called for in Section 16.4 [Liquidated Damages] above constitute liquidated damages for causing the premature termination of this Agreement and not"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If this Agreement is terminated due to your default, you must, upon written demand, pay us a lump-sum payment in an amount calculated as follows: (a) the averag"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Nevertheless, the parties agree that the lump-sum payment provided under Section 16.4 [Liquidated Damages] above is reasonable in light of the damages for prema"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "liquidated_damages",
+      "note": "Liquidated Damages"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Throughout the entire Term, you must maintain such types of insurance, in such amounts, as we may require."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(f) obtain and maintain in force during the entire period of construction the insurance required under this Agreement or as otherwise specified in the Manuals;"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In connection with any construction, renovation, refurbishment, or remodeling of the Premises, you must cause the general contractor to maintain commercial gene"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You must also cause the general contractor to maintain workers' compensation and employer's liability insurance as may be required by law."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If we do so and you choose not to use our recommended construction manager, you must hire a general contractor who is reasonably acceptable to us and who must h"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At any time, we may adjust the amounts of coverage required under such insurance policies and require different or additional kinds of insurance, including exce"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You must obtain and maintain appropriate insurance coverage for you and for our benefit, including any minimum coverages that we may establish."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "By the dates specified below, an approved insurance company must issue a certificate of insurance showing compliance with the insurance requirements in this Sec"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At a minimum, such policies must include the following: (a) commercial general liability insurance, completed-operations and independent-contractors coverage in"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Such insurance must be in the amount of at least $1,000,000 and must name us and you as an additional named insured party, as our respective interests may appea"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(b) workers'-compensation coverage in the amount of at least $100,000/$500,000/$100,000, unemployment insurance and employer's liability insurance, as well as s"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Policies that we require must be written by an insurance company reasonably satisfactory to us with an A.M. Best rating of \"A\" or better, and, must name us as a"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You agree that you will do all of the following things:"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "You and all Owners must execute a general release, in a form satisfactory to us, of all claims against us and our past, present and future affiliates, officers,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the Term of this Agreement and after its expiration or termination, you agree not to directly or indirectly contest, or aid in contesting, the validity o"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To accept the validity of the Proprietary Marks as they exist now and in the future and agree that you will not contest the validity of any of the Proprietary M"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}

@@ -1,0 +1,186 @@
+{
+  "document": "eval/corpus/2ThemartComInc_19990826_10-12G_EX-10.10_6700288_EX-10.10_Co-Branding Agreement_ Agency Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The term of this Agreement shall continue for one (1) year following the Launch Date, unless earlier terminated as provided herein."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "A party wishing to renew this Agreement shall give the other party notice thereof no less than thirty (30) days before the expiration of the term then in effect"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that either party does not give such notice, the term of this Agreement shall be automatically renewed for another one (1) year."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement will be governed and construed in accordance with the laws of the State of California without giving effect to conflict of laws principles."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "i-Escrow shall not run banner advertisements on the Co-Branded Site for any of 2TheMart's competitors."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If a majority of the equity securities of either 2TheMart or i-Escrow, Inc. (except that i-Escrow may sell all or a majority of its equity securities or voting "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "All rights (under any applicable intellectual property right) granted herein are not sublicenseable,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "After the Launch Date, i-Escrow shall pay 2TheMart advertising fees based on the number of Transaction Inquiries."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This advertising fees shall consist of a per Transaction Inquiry amount calculated by multiplying 0.025% by the amount of the average Transaction from all Custo"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, to the extent that the Domain Name is deemed a combination mark, neither party shall use the Domain Name for any purpose except a"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "joint_ip_ownership",
+      "note": "Joint Ip Ownership"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "i-Escrow hereby grants to 2TheMart a worldwide, non-exclusive right to use, reproduce, distribute, publicly perform, publicly display and digitally perform the "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement: (a) i-Escrow hereby grants to 2TheMart a non-exclusive, nontransferable right to use the i-Escrow Marks ("
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "2TheMart hereby grants to i-Escrow a worldwide, non-exclusive right to use, reproduce, distribute, publicly perform, publicly display and digitally perform the "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, unless this Agreement was terminated for a material breach, all provisions of this Agreement shall survive to the extent necessar"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Such inspection shall be at 2TheMart's expense; however, if the audit reveals overdue payments in excess of ten percent (10%) of the payments owed to date, i-Es"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Once every twelve (12) months, 2TheMart through a CPA may inspect and audit such records to verify reports."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any such inspection will be conducted in a manner that does not unreasonably interfere with i-Escrow's business activities and with no less than fifteen (15) da"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "EXCEPT IN THE EVENT OF A BREACH OF SECTION 11, NEITHER PARTY SHALL BE LIABLE FOR SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES OR LOST PROFITS (HOWEVER ARISING, "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    }
+  ]
+}

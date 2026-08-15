@@ -1,0 +1,326 @@
+{
+  "document": "eval/corpus/AzulSa_20170303_F-1A_EX-10.3_9943903_EX-10.3_Maintenance Agreement1.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Agreement shall end on the End Date without any further action, unless otherwise provided under this Agreement."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"End Date\" means the date on which this Agreement is terminated or expires, and shall be the earlier to occur of the following, as appropriate: (i) the end of t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Agreement enters into force on the Signing Date; it will have a duration of [*****] as from the Start Date (the \"Initial Term\")."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon expiry of the Initial Term, this Agreement [*****] unless a Notice of non-renewal is given by either Party to the other Party [*****] prior to the expiry o"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "renewal_term",
+      "note": "Renewal Term"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "relating to the subject matter of this Agreement or the transactions contemplated hereby or the Company/Repairer relationship being established, shall be govern"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Pursuant to and in accordance with Section 5-1401 of the New York General Obligations Law, the Parties hereto agree that this Agreement in all respects, and any"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Item listed in Exhibit 3 (\"Main Elements covered under this Agreement\") and Exhibit 6 (\"LRUs covered by repair and standardexchange Services\") withdrawn fr"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "the receipt of such Notice by the Repairer or any other lesser period to be granted by the Repairer."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Early termination fee: subject to not being in breach of any of its obligation under the Agreement, the Company may terminate this Agreement for convenience by "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Consequently either this Agreement or any of the respective rights or obligations of the Parties hereunder may be assigned or otherwise transferred, in whole or"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "nothing in this Agreement shall in any way restrict any change in shareholding or control of the Parties or its Affiliates or the Repairer's rights to delegate "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "the Parties may at any time assign or transfer all or part of its rights and obligations under this Agreement to any of its Affiliates provided that such assign"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Company shall provide full access to enable the Repairer to conduct periodic inventory inspection of the Advanced Pool Stock."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Repairer shall give a Notice to the Company no later than [*****] prior to such audit or operational visit."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company's audit: at any time during the Term, the Repairer may: (i) audit the management and the performance of the Company's maintenance activities which are s"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Repairer or its agent shall have the right to inspect the Advanced Pool Stock and to audit any records relating thereto at any reasonable time upon giving p"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Inventory of the Stock: the Repairer or any representative it designates shall have the right to inspect the Stock and to audit any records relating thereto at "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company shall have the right, under EUR OPS or PART M equivalent applicable regulation approval, to audit the management and the performance of the Services pro"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The cost of any such audits by the Company's representative(s) shall be borne by the Company unless if, as a result of that audit, the Repairer is found to be i"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "SUBJECT TO CLAUSE 15.2 BELOW, THE REPAIRER, SHALL NOT BE LIABLE TO THE COMPANY FOR ANY OF THE FOLLOWING TYPES OF LOSS OR DAMAGE ARISING UNDER OR IN RELATION TO "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "For used LRUs and Main Elements repaired and overhauled by the Repairer, the warranty period shall start on the date of Delivery and shall end [*****] thereafte"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "warranty_duration",
+      "note": "Warranty Duration"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In respect of all of the above insurances to contain breach or warranty provisions and confirmation the policies shall not be cancelled or materially changed wi"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Main Elements Service (Exhibit 11): each Spare Main Element to be delivered by the Repairer to the Company shall be insured by the Company, for not less than it"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "reputation reasonably acceptable to the Repairer, insurances in accordance with industry standards with respect to the undertakings of the Company in Clause 15 "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Repairer shall at its own expense procure and maintain in force, with insurers of internationally recognized reputation acceptable to the Company an Aviatio"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In respect of Hull and Spares All Risk Insurances, the Repairer shall be named as additional insured and loss payee for their respective rights and interests, t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Prior to the Delivery Date and upon each renewal of any policy, the Company shall supply the Repairer with certificates of insurancecompliant with the terms and"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon each renewal of the relevant insurance policies, the Company shall on reasonable request provide the Repairer with relevant insurance certificates in order"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At the latest upon the Signing Date, the Company shall provide the Repairer with relevant insurance certificates, in English, evidencing insurance requirements "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Lease of Stock (Exhibit 8 Clause 2.2) and Advanced Pool Service (Exhibit 15): the Items of the Stock shall be insured by theCompany under Spares All Risk Insura"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In respect of Liability Insurance, the Repairer shall be named as additional insured and loss payee, as relevant, to the extent required under Clause 15 (\"Liabi"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without prejudice to any term and condition under this Agreement, the Company shall maintain in force, at all times during the Term and [*****], at its own cost"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    }
+  ]
+}

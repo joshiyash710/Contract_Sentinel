@@ -1,0 +1,136 @@
+{
+  "document": "eval/corpus/BizzingoInc_20120322_8-K_EX-10.17_7504499_EX-10.17_Endorsement Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Unless sooner terminated under the provisions hereof, this Agreement shall commence on the Effective Date and continue for a period of one (1) year (\"Term\"). pr"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, during the term and for a period of one (1) year thereafter, Theismann shall not use, permit the use of, or license to others the"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Theismann represents and warrants that, except as otherwise disclosed herein, he has not granted nor will he grant during the Term and for a period of one (1) y"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Theismann shall have the right to terminate this Agreement at any time upon thirty (30) days' written notice to Bizzingo, such termination to become effective a"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither party may assign this Agreement or the rights and obligations thereunder to any third party without the prior express written approval of the other part"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Royalty payable under the Agreement shall be in the form of one (1) common stock purchase warrant of Bizzingo (as further described herein) for each Activat"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Make four (4) public appearance for the purpose of promoting the Network, which may include autograph sessions, dinner appearances, and/or other appearances not"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Make himself available for four (4) sessions for production of photographs, or radio, television, video or other multi-media programming for use in Bizzingo's a"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "It being understood and agreed that Bizzingo shall have the right to exhibit commercials, infomercials, advertisements and otherwise make use of all Property on"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions set forth herein, Theismann hereby grants to Bizzingo and its affiliates the unlimited right and privilege during the Term ("
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "All books and records relative to Bizzingo's obligations hereunder shall be maintained and made accessible to Theismann for inspection at a location in the Unit"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Theismann or his representatives, at his cost and expense, shall have the right, upon reasonable notice and during normal business hours, to inspect Bizzingo's "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In this regarding, within thirty (30) days from the execution of this Agreement, Bizzingo will secure an insurance policy with limits of $5,000,000 per event an"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    }
+  ]
+}

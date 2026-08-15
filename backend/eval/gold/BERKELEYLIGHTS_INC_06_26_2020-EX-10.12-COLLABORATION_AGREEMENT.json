@@ -1,0 +1,626 @@
+{
+  "document": "eval/corpus/BERKELEYLIGHTS,INC_06_26_2020-EX-10.12-COLLABORATION AGREEMENT.PDF",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "at the expiration of the Intended End of Term, Ginkgo has paid the Minimum Cumulative Purchase Commitment, but will not have paid to BLI the Full Purchase Targe"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall commence on the Effective Date and, unless sooner terminated in accordance with its terms, including by Ginkgo pursuant to Section 7.3 (Buy"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"Intended End of Term\" means the later of (a) the seventh (7th) anniversary of the Effective Date and (b) the date determined to be the \"Intended End of Term\" u"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement will be construed and interpreted in accordance with the laws of the State of Delaware, without regard to any choice of law provision."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(ii) the per unit pricing charged by BLI to Ginkgo at any time shall be no greater than the lowest of the (A) lowest price per unit charged by BLI or its Affili"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "most_favored_nation",
+      "note": "Most Favored Nation"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the Term and for a period of [***] ([***]) months following the Term of this Agreement, other than pursuant to Sections 13.3.2 (Effects of Termination Ba"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Ginkgo under this Agreement (including under Section 6.1 (Headstart Period) and Section 9.1 (Licenses to Ginkgo)), nothing in this Agreement shall otherwise lim"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Except as provided in this Section 6.2.1 (Restrictions on BLI) and the scope of rights granted to"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "([***]) by the non-hiring Party in the immediately prior calendar year and, further, if the individual solicited and then hired in violation of this is a Key Pe"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that a Party solicits and then hires an employee of the other Party in violation of this Section 14.4 (Non-Solicit), the hiring Party shall, [***],"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither Party will, [***], directly or indirectly with or through any Person, solicit for employment any Person who is an employee of the other Party; provided,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "no_solicit_of_employees",
+      "note": "No-Solicit Of Employees"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "With respect to Beacon Optofluidic Machines (including related Hardware and Software), Consumables and Services for which Ginkgo has placed a Purchase Order pur"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "4.1.9 Ginkgo may elect, at any time in its sole discretion, to terminate the Software License Agreement that comprises part of the BLI Terms and Conditions and,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Except as permitted under Sections 9.2.1 and 9.2.2, BLI may not sublicense, assign or otherwise transfer the rights granted to it in this Section 9.2 (Grants to"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Neither Party may assign or otherwise transfer this Agreement or any rights hereunder, without the prior written consent of the other Party; provided that eithe"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Party may only subcontract its activities under this Agreement (including under a Workflow Development Plan) with the other Party's consent; provided that "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each sublicense of any license granted to BLI under this Section 9.2 (Grants to BLI) will (i) be in writing, (ii) be consistent with the terms and conditions of"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "of such subcontracting Party (e.g. [***]) or (b) [***] (e.g. [***]) in order for a Party to [***]."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any purported assignment of this Agreement by a Party in contradiction to this Section 14.4 (Assignment) will be void and of no effect."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that Ginkgo uses any of the BLI Proprietary Workflows identified in Exhibit D to conduct Commercial Services for a Third Party customer and such Co"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "revenue_profit_sharing",
+      "note": "Revenue/Profit Sharing"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "With respect to each Contract Year, by no later than [***], Ginkgo shall have incurred (including all credits and offsets permitted under this Agreement) at lea"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Minimum Cumulative Purchase Commitment Contract Year 1 $ [***] $ [***] $ [***] $ [***] Contract Year 2 $ [***] $ [***] $ [***] $ [***] Contract Year 3 $ [***] $"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "[***], Ginkgo shall purchase [***] ([***]) [***] within [***] ([***]) days of the Effective Date, the cost of which, for clarity, shall be offset by the upfront"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms of this Agreement (including the remainder of this Section 7.2.2 (Contract Year Purchase Targets and Commitments)), for each Contract Year,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to Ginkgo's obligation to satisfy the Minimum Cumulative Purchase Commitment for a Contract Year, with respect to the second [***] Contract Years), Gink"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to this Section 6.2.2(c) (Production Purchase Commitments), unless the Parties otherwise mutually agree in writing, the Production Purchase Target for t"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"Development Purchase Commitment\" and \"Production Purchase Target\" columns respectively in Table 7.2.2 with respect to such Contract Year:"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Minimum Cumulative Purchase Commitments for each of Contract Years [***] are binding commitments."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that Ginkgo has the right to terminate this Agreement under Section 13.2.1 (Material Breach) due to a material breach of BLI to perform its supply-"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to Section 7.2.2(a) (Minimum Cumulative Purchase Commitments), unless the Parties otherwise mutually agree in writing, the Development Purchase Commitme"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If BLI has Substantially Completed at least [***] ([***]) [***] Workflows within the first [***] ([***]) Contract Years, then the Minimum Cumulative Purchase Co"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "[***] shall designate up to [***] ([***]) BLI employees or personnel as key persons (individually, a \"Key Person\" and collectively, \"Key Persons\")."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "BLI shall allocate Beacon Optofluidic Machines (including related Hardware and Software), Consumables and Services in short supply to Ginkgo [***], with such [*"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "BLI shall not be obligated to supply in any [***] (i) a quantity of the [***] in excess of the amount designated in such [***] in the binding portion of the Rol"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In no event shall Ginkgo, and Ginkgo shall cause its Affiliates to not, file any patent applications covering (or support existing patent applications covering)"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Other than as permitted under Section 8.5.2 (Use of Collaboration Data), in no event shall BLI, and BLI shall cause its Affiliates to not, file any patent appli"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "9.2.2 after any applicable Headstart Period, with respect to any [***], a [***] license in, to and under any Ginkgo Licensed IP [***] necessary for the performa"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that termination is the result of Ginkgo exercising the Buy-Down Election (including payment of the Buy-Down Amount), then, as of the effective dat"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, during the Term, Ginkgo hereby grants and shall grant to BLI: 9.2.1 a [***] and this Section 9.2 (Grants "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "With respect to any Intellectual Property developed by BLI or its Affiliates in collaboration or on behalf of a Third Party during the Term of this Agreement th"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "For clarity and without limiting Section 8.8.1 (Non-Exclusive Manufacturing License; Covenant), the licenses granted to Ginkgo in Section 9.1.1 (Scope of Grants"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "To ensure that, [***], BLI shall, and hereby does, automatically grant to Ginkgo, as of the date Ginkgo purchases an aggregate of [***] ([***]) Beacon Optofluid"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, during the Term BLI, on behalf of itself and its Affiliates, hereby grants and shall grant to Ginkgo a [*"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, and in consideration for the payments to BLI under this Agreement, during the Term, BLI, on behalf of its"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event that termination is elected by Ginkgo based upon an Extended Force Majeure Event with respect to BLI pursuant to Section 13.2.1 (Force Majeure), th"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "irrevocable_or_perpetual_license",
+      "note": "Irrevocable Or Perpetual License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(c) the licenses granted to Ginkgo from BLI in Section 9.1.1 (Scope of Grants) and 9.1.2 (License Grant to Exploit [***]) shall survive and become perpetual and"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "irrevocable_or_perpetual_license",
+      "note": "Irrevocable Or Perpetual License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon Expiration of this Agreement: (i) the licenses granted to BLI from Ginkgo pursuant to Section 9.2 (Grants to BLI) and the licenses granted to Ginkgo from B"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "irrevocable_or_perpetual_license",
+      "note": "Irrevocable Or Perpetual License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(c) the licenses granted to Ginkgo from BLI in Section 9.1.1 (Scope of Grants) and 9.1.2 (License Grant to Exploit [***]) shall survive and become perpetual, ir"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "irrevocable_or_perpetual_license",
+      "note": "Irrevocable Or Perpetual License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The insurance policies will be under an occurrence form, but if only a claims-made form is available to a Party, then such Party will continue to maintain such "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Parties hereby acknowledge that, if this Agreement is terminated, then, depending on the manner of termination, Ginkgo may, as more fully set forth in Secti"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Party shall have the right, during normal business hours and upon reasonable notice, to inspect all such records of the other Party, its Affiliates or Perm"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The accounting firm will execute a reasonable written confidentiality agreement with the audited Party and will disclose to the auditing Party only such informa"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Such examinations may not (a) be conducted more than once in any [***] month period (unless a previous audit during such [***] month period revealed an overpaym"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At the request of the other Party, each Party will, and will cause its Affiliates to, permit an independent public accounting firm of nationally recognized stan"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "EXCEPT TO THE EXTENT ARISING (A) FROM A PARTY'S BREACH OF ARTICLE 10 (CONFIDENTIALITY), (B) [***] (E) FROM A PARTY'S FRAUD, GROSS NEGLIGENCE OR WILLFUL MISCONDU"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "TO THE GREATEST EXTENT PERMITTED UNDER APPLICABLE LAW, IN NO EVENT WILL A PARTY'S AGGREGATE LIABILITY (ABOVE AMOUNTS ACTUALLY PAID OR REIMBURSED BY SUCH PARTY'S"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "ANY THEORY OF LIABILITY (WHETHER IN CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY OR OTHERWISE). THE LIMITATIONS SET FORTH IN THIS SECTION WILL APPLY "
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "uncapped_liability",
+      "note": "Uncapped Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The types of insurance, and minimum limits will be: (i) any insurance policy that is required by any Applicable Law, including [***] and [***] policies where ap"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Each Party will obtain and carry in full force and effect the minimum insurance requirements set forth below."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon request by a Party, the other Party will provide Certificates of Insurance evidencing compliance with this Section 12.4 (Insurance). The insurance policies"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Such insurance (i) will be primary insurance with respect to each Party's own participation under this Agreement and (ii) will be issued by a recognized insurer"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "There are no Third Party beneficiaries under this Agreement, except to the extent a Third Party is indemnified pursuant to Article 12 (Indemnification; Insuranc"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "third_party_beneficiary",
+      "note": "Third Party Beneficiary"
+    }
+  ]
+}

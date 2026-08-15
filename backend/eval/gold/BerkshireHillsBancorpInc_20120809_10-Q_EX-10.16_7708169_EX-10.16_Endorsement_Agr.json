@@ -1,0 +1,146 @@
+{
+  "document": "eval/corpus/BerkshireHillsBancorpInc_20120809_10-Q_EX-10.16_7708169_EX-10.16_Endorsement Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "\"CONTRACT PERIOD\" means that period of time commencing upon the full execution of this Agreement by both Parties and terminating on May 31, 2016 unless sooner t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed by and construed in accordance with the laws of the State of Connecticut."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Auriemma will not enter into any arrangement or agreement, which enables any Berkshire Competitor to be endorsed by Auriemma (whether by using the Auriemma Iden"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Auriemma expressly agrees and undertakes that: a) The right to use the Auriemma Identification has not been previously granted nor will it be granted to anyone "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The License Rights are exclusive to Berkshire and may not be assigned or in any way conveyed by Berkshire without Auriemma's express written consent, except in "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Auriemma grants to Berkshire the exclusive right and license (the \"License Rights\") to use the Auriemma Identification during the Contract Period and throughout"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "exclusivity",
+      "note": "Exclusivity"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, it is understood that Auriemma has no control or influence over any decisions by the University of Connecticut to enter into any "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "competitive_restriction_exception",
+      "note": "Competitive Restriction Exception"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Berkshire may terminate this Agreement immediately by giving Auriemma notice if"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "(iii) Auriemma publicly disparages Berkshire and/ or its products."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the case of reorganization, merger, consolidation, or sale of all or substantially all of its assets, any attempt to assign this Agreement other than as perm"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Berkshire may not assign this Agreement, in whole or in part, without Auriemma's written consent."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Auriemma will participate in one (1) recording session annually during the Services Period of not more than two (2) hours, not including travel time, to record "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Unless otherwise agreed to in advance, no appearance shall exceed a total of two (2) hours in duration."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "volume_restriction",
+      "note": "Volume Restriction"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, if the Agreement is terminated for any reason other than Berkshire's material breach, then for thirty (30) days following such te"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    }
+  ]
+}
