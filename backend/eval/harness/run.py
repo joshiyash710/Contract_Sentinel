@@ -69,7 +69,8 @@ def run(gold_dir: str, runs_root: str) -> str:
             "ingest_error": bool(result.ingest_error or report.get("ingest_error")),
         }
         _write(manifest_path, manifest)
-        print(f"  ✓ {len(report.get('findings', []))} findings, {len(sidecar)} clauses cached")
+        # ASCII-only marker: a raw U+2713 here crashes the default Windows console (cp1252) mid-run.
+        print(f"  [ok] {len(report.get('findings', []))} findings, {len(sidecar)} clauses cached")
 
     print(f"\nRun cached at {run_dir}\n  score with:  python -m eval.harness.score {run_dir}")
     return str(run_dir)

@@ -57,8 +57,8 @@ It behaves like a real multi-tenant SaaS — landing page, authentication, per-u
 | | |
 |---|---|
 | 🧠 **Agentic pipeline** | A fixed 7-node LangGraph state machine with exactly 2 conditional edges — ingest → split → retrieve → validate → score → redline → report. |
-| 🔎 **Corrective RAG (CRAG)** | Per-clause retrieval over a local **FAISS** legal knowledge base, with an automatic **live web-search fallback** when confidence drops below `0.73`. |
-| ✅ **Self-RAG validation** | Relevance / support checks discard false alarms — with a **recall floor** that lifted measured recall from **~64% → 100%** on the eval set. |
+| 🔎 **Corrective RAG (CRAG)** | Per-clause retrieval over a local **FAISS** knowledge base of **1,400+ real contract clauses** (Bonterms + **CUAD**, CC BY 4.0) across 39 clause types, with an automatic **live web-search fallback** when confidence drops below `0.73`. |
+| ✅ **Self-RAG validation** | Relevance / support checks discard false alarms; a **recall floor** protects genuinely high-risk clause types from being dropped. Accuracy is measured by an offline harness reporting precision / recall / F1 **per clause type, each with a 95% bootstrap confidence interval** — numbers are best-effort-labeled, not lawyer-reviewed. |
 | ✍️ **Automatic redlining** | High-risk clauses get a suggested safer rewrite plus a rationale. |
 | 🔒 **Private by construction** | 100% local inference; uploaded contracts **encrypted at rest** (Fernet). |
 | 🛡️ **Production-grade security** | bcrypt + JWT auth, session hardening, rate-limiting + lockout, prompt-injection defense, security headers, upload magic-byte validation. |
@@ -310,7 +310,7 @@ spec.md  →  plan.md  →  tasks.md  →  implementation
 - [x] **Full Next.js frontend** — landing, auth, upload, live processing, report workspace, dashboard, history, settings, integrations
 - [x] **Multi-tenant isolation** + **per-user Google Drive** (per-user OAuth)
 - [x] **Security hardening** — encryption at rest, session/auth hardening, rate-limiting + lockout, prompt-injection defense, security headers, upload validation
-- [x] **Offline evaluation harness** + Self-RAG recall floor (recall ~64% → 100%)
+- [x] **Offline evaluation harness** — per-clause-type precision/recall/F1 with 95% bootstrap confidence intervals — + Self-RAG recall floor
 - [x] **Professional PDF report** + branded HTML email + MCP Drive/Gmail delivery
 - [x] **Real end-to-end smoke tests passed** on local Qwen3:8b + BGE-M3
 
@@ -319,7 +319,7 @@ spec.md  →  plan.md  →  tasks.md  →  implementation
 - TLS termination at the edge and publishing the Google OAuth app to production
 - Encryption at rest for generated reports / parsed text (contract files & OAuth tokens already encrypted)
 - Dependency-scan remediation wired into CI
-- Growing the legal knowledge base and evaluating accuracy on a larger corpus
+- Expert (lawyer-confirmed) gold labels + the full-corpus accuracy run — the corpus (CUAD, 1,400+ clauses) and the CI-bounded per-type harness are in place; the committed gold labels are heuristic candidates pending human confirmation
 
 ---
 
