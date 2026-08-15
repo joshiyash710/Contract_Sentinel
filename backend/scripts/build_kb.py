@@ -38,6 +38,7 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 from app import config  # noqa: E402
+from eval.harness.corpus_check import CorpusError, load_corpus_records  # noqa: E402
 
 CORPUS_PATH = BACKEND_DIR / "data" / "kb" / "clauses_corpus.jsonl"
 INDEX_PATH = BACKEND_DIR / config.CRAG_KB_INDEX_PATH
@@ -62,15 +63,14 @@ def _load_corpus() -> List[dict]:
             f"Corpus not found: {CORPUS_PATH}\n"
             "Run `python scripts/build_corpus.py` first."
         )
-    records: List[dict] = []
-    for line_no, line in enumerate(CORPUS_PATH.read_text(encoding="utf-8").splitlines(), 1):
-        line = line.strip()
-        if not line:
-            continue
-        rec = json.loads(line)
-        if not rec.get("snippet_text") or not rec.get("source_reference"):
-            raise SystemExit(f"Corpus line {line_no} missing required keys: {rec!r}")
-        records.append({"snippet_text": rec["snippet_text"], "source_reference": rec["source_reference"]})
+    # Feature 041: load full records via the shared pure loader so ADDITIVE metadata keys
+    # (clause_type / source_license / jurisdiction) are PRESERVED into clauses_meta.jsonl below.
+    # (Previously this reconstructed each record as only {snippet_text, source_reference}, silently
+    # dropping the additive keys the per-clause-type eval needs.)
+    try:
+        records = load_corpus_records(CORPUS_PATH.read_text(encoding="utf-8"))
+    except CorpusError as exc:
+        raise SystemExit(str(exc))
     if not records:
         raise SystemExit("Corpus is empty — nothing to index.")
     return records

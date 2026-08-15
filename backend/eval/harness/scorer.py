@@ -7,11 +7,19 @@ Sidecar `final_status`/`path_taken` are compared against the enum VALUE strings.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from statistics import median
 from typing import List, Optional
 
-from eval.harness.config import CONFIDENCE_BUCKETS, EVAL_MATCH_MIN_OVERLAP, SEVERITY_RANK
+from eval.harness.config import (
+    CONFIDENCE_BUCKETS,
+    EVAL_BOOTSTRAP_ITERATIONS,
+    EVAL_BOOTSTRAP_SEED,
+    EVAL_CI_LEVEL,
+    EVAL_MATCH_MIN_OVERLAP,
+    SEVERITY_RANK,
+)
 from eval.harness.matcher import match, overlap
 from eval.harness.schema import GoldDoc
 
@@ -31,6 +39,12 @@ def _safe_div(n: float, d: float) -> Optional[float]:
     return (n / d) if d else None
 
 
+def _blank_type() -> dict:
+    """Per-clause_type detection + severity tally accumulator (feature 041)."""
+    return {"tp": 0, "fn": 0, "fp_clean": 0, "tn": 0,
+            "sev_exact": 0, "sev_within": 0, "sev_n": 0}
+
+
 def _percentile(values: List[float], q: float) -> float:
     if not values:
         return 0.0
@@ -44,6 +58,90 @@ def _percentile(values: List[float], q: float) -> float:
     return xs[lo] + (xs[hi] - xs[lo]) * frac
 
 
+def _doc_detection(doc: DocInput) -> tuple:
+    """Per-document detection tallies (tp, fn, fp_clean, tn, unlabeled) — the same tallying score()
+    does inline, factored so the bootstrap can resample per-doc tuples without re-matching each draw.
+    Callers must exclude ingest_error docs first (bootstrap does)."""
+    findings = doc.report.get("findings", [])
+    res = match(findings, doc.gold.clauses)
+    matched_gold = {id(g) for _f, g in res.matches}
+    tp = fn = fp_clean = tn = 0
+    for g in doc.gold.clauses:
+        flagged = id(g) in matched_gold
+        if g.should_flag and flagged:
+            tp += 1
+        elif g.should_flag and not flagged:
+            fn += 1
+        elif (not g.should_flag) and flagged:
+            fp_clean += 1
+        else:
+            tn += 1
+    return tp, fn, fp_clean, tn, len(res.unmatched_findings)
+
+
+def _detection_rates(tp: int, fn: int, fp_clean: int, tn: int, unlabeled: int) -> dict:
+    """Detection rates from aggregate tallies — identical formulas to score()'s inline block."""
+    precision = _safe_div(tp, tp + fp_clean + unlabeled)
+    recall = _safe_div(tp, tp + fn)
+    f1 = _safe_div(2 * precision * recall, precision + recall) if (precision and recall) else (
+        None if precision is None or recall is None else 0.0
+    )
+    return {
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "miss_rate": _safe_div(fn, tp + fn),
+        "false_flag_rate": _safe_div(fp_clean, fp_clean + tn),
+    }
+
+
+_CI_METRICS = ("precision", "recall", "f1", "miss_rate", "false_flag_rate")
+
+
+def bootstrap_detection_ci(
+    docs: List[DocInput],
+    iterations: int = EVAL_BOOTSTRAP_ITERATIONS,
+    seed: int = EVAL_BOOTSTRAP_SEED,
+    ci_level: float = EVAL_CI_LEVEL,
+) -> dict:
+    """Two-sided percentile confidence intervals for the detection rates (feature 041, AC-8).
+
+    Resamples DOCUMENTS with replacement (clauses within a contract are correlated, so the document
+    is the independent unit). Deterministic under `seed` (stdlib random only — no new dependency).
+    ingest_error docs are excluded (as in score()). Returns
+    `{"n_docs": <resampled doc count>, <metric>: [lo, hi] | None}`. A metric undefined on the full
+    corpus, or with no defined resample draws, → None; a degenerate all-correct/single-doc corpus →
+    a valid [x, x] interval (no error)."""
+    valid = [d for d in docs if not d.report.get("ingest_error")]
+    per_doc = [_doc_detection(d) for d in valid]
+    n_docs = len(per_doc)
+    if n_docs == 0:
+        return {"n_docs": 0, **{m: None for m in _CI_METRICS}}
+
+    # Full-corpus point estimate decides whether a metric is defined at all.
+    full = _detection_rates(*(sum(s[i] for s in per_doc) for i in range(5)))
+
+    rng = random.Random(seed)
+    dists: dict = {m: [] for m in _CI_METRICS}
+    for _ in range(iterations):
+        sample = [per_doc[rng.randrange(n_docs)] for _ in range(n_docs)]
+        agg = [sum(s[i] for s in sample) for i in range(5)]
+        rates = _detection_rates(*agg)
+        for m in _CI_METRICS:
+            if rates[m] is not None:
+                dists[m].append(rates[m])
+
+    lo_q = (1 - ci_level) / 2
+    hi_q = 1 - lo_q
+    out: dict = {"n_docs": n_docs}
+    for m in _CI_METRICS:
+        if full[m] is None or not dists[m]:
+            out[m] = None
+        else:
+            out[m] = [_percentile(dists[m], lo_q), _percentile(dists[m], hi_q)]
+    return out
+
+
 def score(docs: List[DocInput]) -> dict:
     tp = fn = fp_clean = tn = unlabeled = 0
     sev_exact = sev_within = sev_n = 0
@@ -54,6 +152,7 @@ def score(docs: List[DocInput]) -> dict:
     rewrite_total = rewrite_yes = 0
     node_times: dict = {}
     errors: List[str] = []
+    by_type: dict = {}  # clause_type (raw label, None→"unspecified") → _blank_type() tallies (041)
 
     for d in docs:
         if d.report.get("ingest_error"):
@@ -65,17 +164,22 @@ def score(docs: List[DocInput]) -> dict:
         res = match(findings, gold)
 
         matched_gold = {id(g) for _f, g in res.matches}
-        # Detection tallies over gold clauses.
+        # Detection tallies over gold clauses (global + per raw clause_type — 041).
         for g in gold:
             flagged = id(g) in matched_gold
+            bt = by_type.setdefault(g.clause_type or "unspecified", _blank_type())
             if g.should_flag and flagged:
                 tp += 1
+                bt["tp"] += 1
             elif g.should_flag and not flagged:
                 fn += 1
+                bt["fn"] += 1
             elif (not g.should_flag) and flagged:
                 fp_clean += 1
+                bt["fp_clean"] += 1
             else:
                 tn += 1
+                bt["tn"] += 1
         unlabeled += len(res.unmatched_findings)
 
         # Severity + calibration over matched findings.
@@ -87,10 +191,14 @@ def score(docs: List[DocInput]) -> dict:
                 gr = SEVERITY_RANK.get(g.expected_severity)
                 if pr is not None and gr is not None:
                     sev_n += 1
+                    btg = by_type.setdefault(g.clause_type or "unspecified", _blank_type())
+                    btg["sev_n"] += 1
                     if pr == gr:
                         sev_exact += 1
+                        btg["sev_exact"] += 1
                     if abs(pr - gr) <= 1:
                         sev_within += 1
+                        btg["sev_within"] += 1
                     confusion.setdefault(g.expected_severity, {}).setdefault(str(f["risk_level"]).lower(), 0)
                     confusion[g.expected_severity][str(f["risk_level"]).lower()] += 1
         # Unmatched findings count toward calibration as incorrect flags.
@@ -129,6 +237,22 @@ def score(docs: List[DocInput]) -> dict:
         None if precision is None or recall is None else 0.0
     )
 
+    # Per-clause_type breakdown (041): gold-anchored rates only. Global PRECISION is deliberately NOT
+    # reported per type — its denominator (tp+fp_clean+unlabeled) includes `unlabeled` unmatched findings
+    # which carry no gold clause_type; typing them would fabricate a number. recall/miss/false_flag/severity
+    # are all gold-clause-anchored (every gold clause has a type), so they are well-defined per type.
+    detection_by_type = {}
+    for key, t in sorted(by_type.items()):
+        detection_by_type[key] = {
+            "tp": t["tp"], "fn": t["fn"], "fp_clean": t["fp_clean"], "tn": t["tn"],
+            "n": t["tp"] + t["fn"] + t["fp_clean"] + t["tn"],
+            "recall": _safe_div(t["tp"], t["tp"] + t["fn"]),
+            "miss_rate": _safe_div(t["fn"], t["tp"] + t["fn"]),
+            "false_flag_rate": _safe_div(t["fp_clean"], t["fp_clean"] + t["tn"]),
+            "severity_exact": _safe_div(t["sev_exact"], t["sev_n"]),
+            "severity_within": _safe_div(t["sev_within"], t["sev_n"]),
+        }
+
     return {
         "corpus": {"docs": len(docs) - len(errors), "errors": errors},
         "detection": {
@@ -136,7 +260,17 @@ def score(docs: List[DocInput]) -> dict:
             "precision": precision, "recall": recall, "f1": f1,
             "miss_rate": _safe_div(fn, tp + fn),
             "false_flag_rate": _safe_div(fp_clean, fp_clean + tn),
+            # Clause-level denominators (the `n` shown next to each rate) — distinct from the
+            # bootstrap's document-resample count `detection_ci["n_docs"]` (041, two notions of n).
+            "recall_n": tp + fn,
+            "miss_n": tp + fn,
+            "precision_n": tp + fp_clean + unlabeled,
+            "false_flag_n": fp_clean + tn,
         },
+        "detection_by_type": detection_by_type,
+        "detection_ci": bootstrap_detection_ci(
+            docs, EVAL_BOOTSTRAP_ITERATIONS, EVAL_BOOTSTRAP_SEED, EVAL_CI_LEVEL
+        ),
         "severity": {
             "n": sev_n,
             "exact_accuracy": _safe_div(sev_exact, sev_n),

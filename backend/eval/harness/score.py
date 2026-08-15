@@ -14,8 +14,9 @@ from eval.harness.schema import load_gold, read_manifest
 from eval.harness.scorer import DocInput, score
 
 _CAVEAT = (
-    "NOTE: these numbers are only as meaningful as the gold corpus. The seed set is INDICATIVE, "
-    "not authoritative — trustworthy accuracy needs a larger, expert-labeled corpus."
+    "NOTE: these numbers are only as meaningful as the gold corpus. Labels are best-effort, NOT "
+    "lawyer-reviewed; trustworthy accuracy needs a larger, expert-labeled corpus. Every rate is shown "
+    "with its sample size n and a 95% bootstrap confidence interval."
 )
 
 
@@ -41,18 +42,45 @@ def _pct(x):
     return "N/A" if x is None else f"{x * 100:.1f}%"
 
 
+def _ci_str(est, ci, n) -> str:
+    """Render a rate as 'est (95% CI lo–hi) [n=…]'. `n` is the CLAUSE-level denominator (distinct from
+    the bootstrap's document-resample count, printed separately)."""
+    if est is None:
+        return "N/A"
+    s = _pct(est)
+    if ci is not None:
+        lo, hi = ci
+        s += f" (95% CI {_pct(lo)}–{_pct(hi)})"
+    if n is not None:
+        s += f" [n={n}]"
+    return s
+
+
 def print_summary(m: dict) -> None:
     print("\n" + "=" * 64)
     print("ContractSentinel — evaluation metrics")
     print(_CAVEAT)
     print("=" * 64)
     c, det, sev, dia = m["corpus"], m["detection"], m["severity"], m["diagnostics"]
+    ci = m.get("detection_ci", {})
     print(f"docs scored: {c['docs']}   errors: {c['errors'] or 'none'}")
-    print("\nDetection (risk flagging):")
-    print(f"  precision {_pct(det['precision'])}  recall {_pct(det['recall'])}  F1 {_pct(det['f1'])}")
-    print(f"  MISS rate {_pct(det['miss_rate'])}   FALSE-FLAG rate {_pct(det['false_flag_rate'])}")
+    print("\nDetection (risk flagging) — each rate with its clause-level n + 95% bootstrap CI:")
+    print(f"  precision       {_ci_str(det['precision'], ci.get('precision'), det.get('precision_n'))}")
+    print(f"  recall          {_ci_str(det['recall'], ci.get('recall'), det.get('recall_n'))}")
+    print(f"  F1              {_ci_str(det['f1'], ci.get('f1'), None)}")
+    print(f"  MISS rate       {_ci_str(det['miss_rate'], ci.get('miss_rate'), det.get('miss_n'))}")
+    print(f"  FALSE-FLAG rate {_ci_str(det['false_flag_rate'], ci.get('false_flag_rate'), det.get('false_flag_n'))}")
+    print(f"  (CIs bootstrapped over {ci.get('n_docs', 0)} resampled documents — the independent unit)")
     print(f"  tp={det['tp']} fn={det['fn']} fp_clean={det['fp_clean']} tn={det['tn']} "
           f"unlabeled_flags={det['unlabeled_flags']}")
+
+    bt = m.get("detection_by_type", {})
+    if bt:
+        print("\nBy clause_type (recall · miss · false-flag · severity-exact · n):")
+        for ctype, t in bt.items():
+            print(f"  {ctype:26s} recall {_pct(t['recall']):>6}  miss {_pct(t['miss_rate']):>6}  "
+                  f"ff {_pct(t['false_flag_rate']):>6}  sev {_pct(t['severity_exact']):>6}  n={t['n']}")
+
     print(f"\nSeverity (n={sev['n']}): exact {_pct(sev['exact_accuracy'])}  "
           f"within-one {_pct(sev['within_one_accuracy'])}")
     print(f"\nSelf-RAG misses: seen-but-discarded={dia['self_rag_miss']['seen_but_discarded']}  "

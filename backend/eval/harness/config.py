@@ -17,3 +17,11 @@ CONFIDENCE_BUCKETS: list = [0.0, 0.5, 0.7, 0.85, 1.01]
 # corpus to measure metric variance. N>=3 recommended in the summary; each cycle is multiple minutes
 # on the local 8B/6GB box (spec 028 OQ-3). Indicative, not authoritative (026 corpus caveat).
 EVAL_VARIANCE_RUNS: int = 5
+
+# ── Feature 041: bootstrap confidence intervals for the detection rates ──────────────────────────
+# The scorer resamples DOCUMENTS with replacement (clauses within one contract are correlated, so the
+# document is the independent unit) and reports a two-sided percentile interval per detection rate.
+# Seeded so the interval is reproducible (spec AC-8); stdlib random only (no new dependency).
+EVAL_BOOTSTRAP_ITERATIONS: int = 2000
+EVAL_BOOTSTRAP_SEED: int = 12345
+EVAL_CI_LEVEL: float = 0.95
