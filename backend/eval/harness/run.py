@@ -28,19 +28,32 @@ def _resolve(doc: str) -> Path:
     return p if p.is_absolute() else (_BACKEND / p)
 
 
-def run(gold_dir: str, runs_root: str) -> str:
+def run(gold_dir: str, runs_root: str, resume_dir: str | None = None) -> str:
     golds = load_gold_dir(gold_dir)
     if not golds:
         print(f"No gold files in {gold_dir}. Nothing to run.")
         return ""
 
-    run_dir = Path(runs_root) / time.strftime("%Y%m%d-%H%M%S")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    manifest_path = run_dir / "manifest.json"
-    manifest: dict = {}
+    # Resume into an existing run dir (skip docs already cached), or start a fresh timestamped run.
+    if resume_dir:
+        run_dir = Path(resume_dir)
+        if not run_dir.exists():
+            raise SystemExit(f"--resume dir not found: {run_dir}")
+        manifest_path = run_dir / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+        done = sum(1 for v in manifest.values() if "report" in v)
+        print(f"[resume] {run_dir}: {done} docs already cached — skipping those, running the rest.")
+    else:
+        run_dir = Path(runs_root) / time.strftime("%Y%m%d-%H%M%S")
+        run_dir.mkdir(parents=True, exist_ok=True)
+        manifest_path = run_dir / "manifest.json"
+        manifest = {}
 
     for gd in golds:
         gid = gd.gold_id
+        # Skip docs already completed (have a cached report) — enables --resume; error-only entries retry.
+        if gid in manifest and "report" in manifest[gid]:
+            continue
         doc_path = _resolve(gd.document)
         out_dir = run_dir / gid
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -84,8 +97,10 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Run the pipeline over the gold corpus (delivery off).")
     ap.add_argument("--gold", default="eval/gold", help="gold label dir (default: eval/gold)")
     ap.add_argument("--runs", default="eval/runs", help="runs cache root (default: eval/runs)")
+    ap.add_argument("--resume", default=None,
+                    help="resume into an existing run dir (e.g. eval/runs/<ts>): skip already-cached docs")
     args = ap.parse_args()
-    run(args.gold, args.runs)
+    run(args.gold, args.runs, resume_dir=args.resume)
 
 
 if __name__ == "__main__":
