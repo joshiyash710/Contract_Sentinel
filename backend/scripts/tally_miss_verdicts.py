@@ -57,12 +57,17 @@ def tally(csv_path: Path) -> dict:
     overall = Counter()
     by_type: dict = defaultdict(Counter)
     by_disp: dict = defaultdict(Counter)
+    by_sig: dict = defaultdict(Counter)
+    has_sig = "signature" in rows[0]
     for r in rows:
         v = normalize_verdict(r.get("verdict", ""))
         overall[v] += 1
         by_type[r.get("clause_type", "?")][v] += 1
         by_disp[r.get("disposition", "?")][v] += 1
-    return {"n": len(rows), "overall": overall, "by_type": by_type, "by_disp": by_disp}
+        if has_sig:
+            by_sig[r.get("signature", "?")][v] += 1
+    return {"n": len(rows), "overall": overall, "by_type": by_type,
+            "by_disp": by_disp, "by_sig": by_sig}
 
 
 def _recommend(overall: Counter) -> str:
@@ -110,6 +115,11 @@ def main() -> None:
     print("\nBy disposition (real_miss / label_overflag / blank):")
     for disp, cnt in sorted(res["by_disp"].items(), key=lambda kv: -sum(kv[1].values())):
         print(f"  {disp:22s} {_bar(cnt, (_REAL, _OVERFLAG, _BLANK))}")
+
+    if res["by_sig"]:
+        print("\nBy signature (real_miss / label_overflag / blank):")
+        for sig, cnt in sorted(res["by_sig"].items(), key=lambda kv: -sum(kv[1].values())):
+            print(f"  {sig:28s} {_bar(cnt, (_REAL, _OVERFLAG, _BLANK))}")
 
     print("\nBy clause_type (decided rows only, real / overflag — sorted by real):")
     typ = sorted(

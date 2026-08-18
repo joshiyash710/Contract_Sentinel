@@ -15,9 +15,15 @@ It also mines the run's CRAG retrieval-confidence distribution (finding `confide
 0.73 `CRAG_CONFIDENCE_THRESHOLD`, split by `path_taken`) — an independent free win to gauge whether
 0.73 is too high for real-query clauses (the run went 85% web-fallback).
 
+Each miss also gets a `signature` (how far the clause got through Self-RAG before being dropped —
+A_discarded_after_isrel / A_discarded_after_relevance / B_never_scored / validated_unmatched /
+no_overlapping_clause); `--only A` writes just the A_* real-recall-bug candidates (the summary is
+always computed over ALL misses).
+
 Run from backend/ (offline):
     python -X utf8 scripts/build_miss_triage.py eval/runs/20260817-190549
     python -X utf8 scripts/build_miss_triage.py eval/runs/20260817-190549 --sample 40
+    python -X utf8 scripts/build_miss_triage.py eval/runs/20260817-190549 --only A
 """
 
 from __future__ import annotations
@@ -30,7 +36,7 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean, median
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 if str(BACKEND_DIR) not in sys.path:
@@ -50,7 +56,7 @@ _MIN_OVERLAP = 0.6             # EVAL_MATCH_MIN_OVERLAP (kept local to _best_sid
 
 # Columns emitted for each missed gold clause (blank `verdict` last, for the reviewer).
 _CSV_FIELDS = [
-    "contract", "clause_type", "expected_severity", "gold_section", "disposition",
+    "contract", "clause_type", "expected_severity", "gold_section", "disposition", "signature",
     "final_status", "relevance_verdict", "isrel_verdict", "issup_verdict", "retry_count",
     "path_taken", "best_overlap", "gold_snippet", "best_sidecar_text", "gold_note",
     "verdict",  # blank: reviewer marks real_miss | label_overflag
@@ -68,9 +74,51 @@ _DISCARDED = "discarded_self_rag"
 _VALIDATED_UNMATCHED = "validated_unmatched"
 _NO_CLAUSE = "no_overlapping_clause"
 
+# Finer "signature" of a miss, read off how far the clause got through Self-RAG before being dropped
+# (the actionable axis — see the eyeball cross-section). Deepest discard first:
+#   A_discarded_after_isrel     — relevance=True AND isrel=True, but not validated: the pipeline judged
+#                                 both the clause AND its evidence relevant, then dropped it at/before
+#                                 the support check (Branch-B). STRONGEST real-recall-bug candidate.
+#   A_discarded_after_relevance — relevance=True but isrel not True (isrel=False: evidence judged NOT
+#                                 relevant; or isrel never reached): passed the relevance gate, dropped
+#                                 at/after the isrel evidence-check.
+#   B_never_scored              — relevance not True (relevance=None: grader never ran; or the rare
+#                                 relevance=False): dropped at/before the relevance gate. Mixed: real
+#                                 clauses never given a chance OR mislocated fragment gold snippets.
+#   validated_unmatched / no_overlapping_clause — NOT real misses (flagged-but-unmatched / segmentation gap).
+_SIG_AFTER_ISREL = "A_discarded_after_isrel"
+_SIG_AFTER_REL = "A_discarded_after_relevance"
+_SIG_NEVER = "B_never_scored"
+_SIG_VALIDATED = "validated_unmatched"
+_SIG_NO_CLAUSE = "no_overlapping_clause"
+# Fixed display order (deepest discard → not-a-miss) and the real-recall-bug candidate set.
+_SIG_ORDER = [_SIG_AFTER_ISREL, _SIG_AFTER_REL, _SIG_NEVER, _SIG_VALIDATED, _SIG_NO_CLAUSE]
+_SIG_REALBUG = (_SIG_AFTER_ISREL, _SIG_AFTER_REL)
 
-def _best_sidecar(snippet: str, sidecar: List[dict]) -> Optional[dict]:
-    """Best-overlapping raw clause record — identical semantics to scorer._best_sidecar."""
+
+def _truthy(v) -> bool:
+    """Sidecar verdicts are JSON booleans/None (both this and _fmt_verdict assume that); tolerate a
+    stringified 'true' too, consistent with _fmt_verdict rendering a stringified 'false' as falsy."""
+    return v is True or (isinstance(v, str) and v.strip().lower() == "true")
+
+
+def _signature(disposition: str, best: Optional[dict]) -> str:
+    if disposition == _VALIDATED_UNMATCHED:
+        return _SIG_VALIDATED
+    if disposition == _NO_CLAUSE:
+        return _SIG_NO_CLAUSE
+    rel = _truthy((best or {}).get("relevance_verdict"))
+    isr = _truthy((best or {}).get("isrel_verdict"))
+    if rel and isr:
+        return _SIG_AFTER_ISREL
+    if rel:
+        return _SIG_AFTER_REL
+    return _SIG_NEVER
+
+
+def _best_sidecar(snippet: str, sidecar: List[dict]) -> Tuple[Optional[dict], float]:
+    """Best-overlapping raw clause record + its overlap — identical SELECTION to
+    scorer._best_sidecar (which returns only the record)."""
     best, best_ov = None, 0.0
     for rec in sidecar:
         ov = overlap(rec.get("text"), snippet)
@@ -83,6 +131,17 @@ def _snip(text: Optional[str], n: int = 240) -> str:
     """One-line, whitespace-collapsed, truncated snippet for CSV/JSON readability."""
     s = " ".join((text or "").split())
     return s if len(s) <= n else s[: n - 1] + "…"
+
+
+def _fmt_verdict(v) -> str:
+    """Render a Self-RAG verdict for the CSV, keeping the three states DISTINCT: an explicit
+    `False` (scored → judged NOT relevant/supported) must not collapse to the same blank as
+    `None`/absent (that step never ran). `True`→"true", `False`→"false", `None`/absent→"" (blank)."""
+    if v is True:
+        return "true"
+    if v is False:
+        return "false"
+    return "" if v is None else str(v)
 
 
 def _disposition(best: Optional[dict]) -> str:
@@ -115,16 +174,18 @@ def build_rows(run_dir: Path) -> tuple:
             if not g.should_flag:
                 continue
             best, best_ov = _best_sidecar(g.text_snippet, sidecar)
+            disposition = _disposition(best)
             rows.append({
                 "contract": gold.gold_id,
                 "clause_type": g.clause_type or "unspecified",
                 "expected_severity": g.expected_severity or "",
                 "gold_section": g.section_number or "",
-                "disposition": _disposition(best),
+                "disposition": disposition,
+                "signature": _signature(disposition, best),
                 "final_status": (best or {}).get("final_status") or "",
-                "relevance_verdict": (best or {}).get("relevance_verdict") or "",
-                "isrel_verdict": (best or {}).get("isrel_verdict") or "",
-                "issup_verdict": (best or {}).get("issup_verdict") or "",
+                "relevance_verdict": _fmt_verdict((best or {}).get("relevance_verdict")),
+                "isrel_verdict": _fmt_verdict((best or {}).get("isrel_verdict")),
+                "issup_verdict": _fmt_verdict((best or {}).get("issup_verdict")),
                 "retry_count": (best or {}).get("retry_count") if best else "",
                 "path_taken": (best or {}).get("path_taken") or "",
                 "best_overlap": round(best_ov, 3),
@@ -219,9 +280,12 @@ def summarize(rows: List[dict], crag: dict) -> dict:
     isrel = Counter(r["isrel_verdict"] or "∅" for r in disc)
     relv = Counter(r["relevance_verdict"] or "∅" for r in disc)
     status = Counter(r["final_status"] or "∅" for r in disc)
+    sig = Counter(r["signature"] for r in rows)
     return {
         "total_misses": len(rows),
         "by_disposition": dict(disp),
+        "by_signature": [(s, sig.get(s, 0)) for s in _SIG_ORDER if sig.get(s, 0)],
+        "realbug_candidates": sum(sig.get(s, 0) for s in _SIG_REALBUG),
         "by_clause_type": by_type.most_common(),
         "by_contract": by_contract.most_common(),
         "discard_final_status": status.most_common(),
@@ -237,7 +301,8 @@ def summarize(rows: List[dict], crag: dict) -> dict:
     }
 
 
-def print_report(summary: dict, out_all: Path, out_sample: Path, sample_n: int) -> None:
+def print_report(summary: dict, out_all: Path, out_sample: Path, sample_n: int,
+                 emitted_n: int, only: Optional[str]) -> None:
     print("\n" + "=" * 72)
     print("Feature 041 — MISS TRIAGE (offline analysis of a cached run)")
     print("Splits the 'misses' into pipeline dispositions so a reviewer can mark each")
@@ -251,6 +316,14 @@ def print_report(summary: dict, out_all: Path, out_sample: Path, sample_n: int) 
     print("\n  discarded_self_rag = candidate REAL misses OR correct declines (the triage target).")
     print("  validated_unmatched = clause WAS validated; matcher/text divergence, NOT a miss of judgment.")
     print("  no_overlapping_clause = segmentation gap or mislocated gold snippet.")
+
+    rb = summary["realbug_candidates"]
+    print("\nBy signature (how far the clause got before being dropped — deepest first):")
+    for s, c in summary["by_signature"]:
+        tag = "  <- real-recall-bug candidate" if s in _SIG_REALBUG else ""
+        print(f"  {s:28s} {c:4d}  ({_pct(c, tot)}){tag}")
+    print(f"  → {rb} real-recall-bug candidates (relevance judged True, then discarded pre-validate).")
+    print("    Filter to just these with:  --only A   (or --only B / a full signature name).")
 
     print("\nMisses by clause_type (raw CUAD label — top 15):")
     for t, c in summary["by_clause_type"][:15]:
@@ -276,7 +349,8 @@ def print_report(summary: dict, out_all: Path, out_sample: Path, sample_n: int) 
     print("  sample. A threshold re-tune is a runtime change → needs its own spec.")
 
     print("\n" + "-" * 72)
-    print(f"Wrote ALL {tot} miss rows → {out_all}")
+    scope = f"{emitted_n} rows matching --only {only!r}" if only else f"ALL {tot} miss rows"
+    print(f"Wrote {scope} → {out_all}")
     print(f"Wrote stratified sample (~{sample_n}) → {out_sample}")
     print("Fill the blank `verdict` column with: real_miss | label_overflag")
     print("=" * 72)
@@ -288,6 +362,9 @@ def main() -> None:
     ap.add_argument("--out", default=None, help="output dir (default: <run_dir>/miss_triage)")
     ap.add_argument("--sample", type=int, default=40, help="stratified reviewer-sample size (default 40)")
     ap.add_argument("--seed", type=int, default=12345, help="deterministic sample seed")
+    ap.add_argument("--only", default=None, metavar="SIGNATURE",
+                    help="write only rows whose `signature` starts with this (e.g. A, B, "
+                         "A_discarded_after_isrel). Summary still reflects ALL misses.")
     args = ap.parse_args()
 
     run_dir = Path(args.run_dir)
@@ -295,19 +372,26 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
 
     rows, crag = build_rows(run_dir)
-    summary = summarize(rows, crag)
-    sample = _stratified_sample(rows, args.sample, args.seed)
+    summary = summarize(rows, crag)  # computed over ALL misses, before any --only filter
+    emitted = rows
+    if args.only:
+        emitted = [r for r in rows if r["signature"].startswith(args.only)]
+        if not emitted:
+            raise SystemExit(f"--only {args.only!r} matched 0 of {len(rows)} rows; "
+                             f"signatures present: {sorted({r['signature'] for r in rows})}")
+    sample = _stratified_sample(emitted, args.sample, args.seed)
 
-    out_all = out_dir / "misses_all.csv"
-    out_sample = out_dir / "misses_sample.csv"
-    _write_csv(out_all, rows)
+    suffix = f"_{args.only}" if args.only else ""
+    out_all = out_dir / f"misses_all{suffix}.csv"
+    out_sample = out_dir / f"misses_sample{suffix}.csv"
+    _write_csv(out_all, emitted)
     _write_csv(out_sample, sample)
     (out_dir / "summary.json").write_text(
         json.dumps({"run_dir": str(run_dir), **summary}, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
-    print_report(summary, out_all, out_sample, len(sample))
+    print_report(summary, out_all, out_sample, len(sample), len(emitted), args.only)
 
 
 if __name__ == "__main__":
