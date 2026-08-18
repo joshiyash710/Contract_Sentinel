@@ -379,6 +379,11 @@ def main() -> None:
         if not emitted:
             raise SystemExit(f"--only {args.only!r} matched 0 of {len(rows)} rows; "
                              f"signatures present: {sorted({r['signature'] for r in rows})}")
+    # Group the review sheet by clause_type so a reviewer works one type at a time (then contract,
+    # then signature). Deterministic; the summary is unaffected (computed over `rows` above). The
+    # stratified sample keeps identical PER-TYPE quotas, but because it draws by index into each
+    # (now-reordered) group its specific rows are re-drawn — still deterministic under the seed.
+    emitted = sorted(emitted, key=lambda r: (r["clause_type"], r["contract"], r["signature"]))
     sample = _stratified_sample(emitted, args.sample, args.seed)
 
     suffix = f"_{args.only}" if args.only else ""
