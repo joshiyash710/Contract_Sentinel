@@ -7,12 +7,20 @@ of clauses because feature 025 Lever A skips the ClauseSplitter LLM refinement w
 None, the feature-027 recall floor (which gates on clause_type) never fires, so material clauses
 (e.g. cap_on_liability → ClauseType.liability, already in the floor) are discarded.
 
-This script A/B-proves the chain end-to-end on a FEW docs (it does NOT propose a config — raising the
-gate reintroduces 025's latency; the point is only to confirm cause→effect before designing the fix):
+This script A/B-tests, on a FEW docs, ONE half of the chain — whether simply raising the Lever-A gate
+restores typing and rescues misses (it does NOT propose a config; raising the gate reintroduces 025's
+latency). It does NOT prove the positive half ("typing, WHEN it succeeds, revives the floor") — that
+needs a successful-typing run and is left to the feature-042 spec's validation step.
   TREATMENT = re-run the real pipeline with the Lever-A gate raised (LLM typing forced on).
   BASELINE  = the cached run (gate at 40); only the gate differs, so the cached artifacts are a valid A.
 Per doc it reports: clause_type non-None coverage (treatment), detection tp/fn vs baseline (harness
 matcher + gold), and — crucially — which specific gold clauses flip fn→tp.
+
+RESULT (2026-08-18, n=2): raising the gate did NOT restore typing — the LLM grouping call went
+OFF-SCHEMA on both docs (Cybergy 117cl: emitted a document-summary tree re-emitting full text →
+truncated at num_predict=1024; Arconic 45cl: valid but wrong shape, "missing 'clauses' list"). Both
+fell back to regex → clause_type=None → 0 rescued. So the naive gate-raise is falsified; the real
+issue is schema-adherence of the grouping call on large inputs, not merely token budget.
 
 Needs live Ollama (qwen3:8b + bge-m3). Delivery is DISABLED (import-bound). Slow on large docs by
 design. Run from backend/:
@@ -218,8 +226,9 @@ def main() -> None:
     print("\n" + "=" * 64)
     print(f"TOTAL rescued (fn->tp): {tot_rescued}   regressions (tp->fn): {tot_lost}   over {len(ok)} docs")
     print(f"clause_type coverage (treatment): {sum(r['typed'] for r in ok)}/{sum(r['n_clauses'] for r in ok)}")
-    print("If coverage jumps from ~0 and material clauses are rescued with few/no regressions, the")
-    print("root-cause chain (025 gate -> None type -> inert floor -> miss) is CONFIRMED end-to-end.")
+    print("Coverage still ~0 + 0 rescued ⇒ raising the gate does NOT restore typing (naive fix falsified);")
+    print("the LLM grouping call went off-schema. NOTE: this shows the NEGATIVE half only — the positive")
+    print("'typing→floor rescue' half needs a successful-typing run (feature-042 validation).")
     print(f"Artifacts + summary.json under {out_root}")
     print("=" * 64)
 
