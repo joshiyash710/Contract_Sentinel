@@ -9,12 +9,12 @@ import {
   ArrowUpRight,
   ChevronLeft,
   ChevronRight,
-  ChevronDown,
 } from "lucide-react";
 import { useJobs } from "@/lib/useJobs";
 import type { JobListItem } from "@/lib/api/types";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
+import { Dropdown } from "@/components/ui/Dropdown";
 import { SearchInput } from "@/components/ui/SearchInput";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
 import { DataTable, type Column } from "@/components/ui/DataTable";
@@ -318,25 +318,16 @@ function FilterSelect({
   options: { value: string; label: string }[];
   onChange: (v: string) => void;
 }) {
+  // Custom glass Dropdown (not a native <select>) so the open panel matches the app theme
+  // instead of the browser's opaque white/blue OS popup.
   return (
-    <div className="relative inline-flex items-center">
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none rounded-input border border-white/10 bg-white/[0.06] backdrop-blur-md py-2.5 pl-3 pr-9 text-body text-text-primary outline-none transition focus:border-border-focus"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        size={16}
-        className="pointer-events-none absolute right-3 text-text-tertiary"
-      />
-    </div>
+    <Dropdown
+      ariaLabel={label}
+      value={value}
+      options={options}
+      onSelect={onChange}
+      className="w-full sm:w-40"
+    />
   );
 }
 

@@ -134,7 +134,9 @@ describe("ReportHistoryView (spec 021)", () => {
     render(<ReportHistoryView />);
     await screen.findByText("MSA_AcmeCorp.pdf");
 
-    fireEvent.change(screen.getByLabelText(/filter by risk/i), { target: { value: "high" } });
+    // Custom glass Dropdown: open the trigger, then pick the option.
+    fireEvent.click(screen.getByLabelText(/filter by risk/i));
+    fireEvent.click(screen.getByRole("option", { name: "High" }));
     expect(screen.getByText("MSA_AcmeCorp.pdf")).toBeInTheDocument(); // high
     expect(screen.queryByText("NDA_draft.docx")).toBeNull(); // running, no band
     expect(screen.queryByText("vendor_terms.pdf")).toBeNull(); // failed, no band
@@ -145,10 +147,30 @@ describe("ReportHistoryView (spec 021)", () => {
     render(<ReportHistoryView />);
     await screen.findByText("MSA_AcmeCorp.pdf");
 
-    fireEvent.change(screen.getByLabelText(/filter by status/i), { target: { value: "failed" } });
+    // Custom glass Dropdown: open the trigger, then pick the option.
+    fireEvent.click(screen.getByLabelText(/filter by status/i));
+    fireEvent.click(screen.getByRole("option", { name: "Failed" }));
     expect(screen.getByText("vendor_terms.pdf")).toBeInTheDocument();
     expect(screen.queryByText("MSA_AcmeCorp.pdf")).toBeNull();
     expect(screen.queryByText("NDA_draft.docx")).toBeNull();
+  });
+
+  test("AC-5: open filter menu closes on Escape and on outside pointer-down", async () => {
+    vi.mocked(getApiClient).mockReturnValue(makeFakeClient({}));
+    render(<ReportHistoryView />);
+    await screen.findByText("MSA_AcmeCorp.pdf");
+
+    // Escape closes the open menu (parity with the native <select> it replaced).
+    fireEvent.click(screen.getByLabelText(/filter by risk/i));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("listbox")).toBeNull();
+
+    // Outside pointer-down closes it too (the component listens on `pointerdown`).
+    fireEvent.click(screen.getByLabelText(/filter by status/i));
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("listbox")).toBeNull();
   });
 
   test("AC-3: Upload New Contract links to /upload", async () => {
