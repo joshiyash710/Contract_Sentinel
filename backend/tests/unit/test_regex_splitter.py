@@ -5,8 +5,8 @@ No mocks, no Ollama, no network — pure regex logic only.
 Written BEFORE the implementation (TDD red phase).
 
 Run: python -m pytest tests/unit/test_regex_splitter.py -v
-Expected before Task 5: FAIL (ImportError)
-Expected after Task 5:  all 16 PASS
+(feature 040 added the spelled-out clause/article/section heading cases — AC-1…AC-10 — to the
+original suite; all tests in this file PASS with the current regex_splitter.)
 """
 
 import re
@@ -238,3 +238,143 @@ def test_split_deterministic():
         assert a.position == b.position
         assert a.section_number == b.section_number
         assert a.clause_type == b.clause_type
+
+
+# ── Feature 040 — spelled-out ordinal / word clause headings ─────────────────────
+# The regex pre-pass previously recognized only digit-numbered / Article N / Section N / §N /
+# (a) / a. markers. Contracts using "CLAUSE ONE", "ARTICLE ONE", etc. matched NOTHING and fell
+# through to paragraph splitting, catastrophically under-segmenting. These cover the fix.
+
+# The 8 clauses of the observed Student Loan Agreement (SSN replaced with a placeholder — no PII).
+_STUDENT_LOAN_CLAUSES = (
+    "CLAUSE ONE - PURPOSE: This agreement grants financing to the BORROWER.\n"
+    "CLAUSE TWO - TERM: The financing period shall be up to 60 months.\n"
+    "CLAUSE THREE - PAYMENT: The BORROWER shall pay monthly installments with 1.2% interest.\n"
+    "CLAUSE FOUR - GUARANTEES: The financed asset remains under fiduciary lien until settlement.\n"
+    "CLAUSE FIVE - INSURANCE: The BORROWER must contract mandatory insurance.\n"
+    "CLAUSE SIX - DEFAULT: Payment delay results in a 2% penalty and 1% monthly late interest.\n"
+    "CLAUSE SEVEN - TERMINATION: Breach results in termination regardless of notification.\n"
+    "CLAUSE EIGHT - JURISDICTION: The parties elect the courts of New York, NY.\n"
+)
+_STUDENT_LOAN_PREAMBLE = (
+    "STUDENT LOAN AGREEMENT\n"
+    "BORROWER: Richard Taylor, SSN no XXX-XX-XXXX.\n"
+    "FINANCED AMOUNT: $56,424.00.\n"
+)
+
+
+def test_clause_word_headings_split():
+    """AC-1: eight 'CLAUSE <WORD>' headings produce eight boundaries."""
+    clauses = split_by_regex(_STUDENT_LOAN_CLAUSES)
+    _assert_valid_boundaries(clauses)
+    assert len(clauses) == 8
+
+
+def test_clause_word_section_number_captured():
+    """AC-2: section_number is the verbatim heading, original casing preserved."""
+    clauses = split_by_regex(_STUDENT_LOAN_CLAUSES)
+    section_numbers = [c.section_number for c in clauses]
+    assert all(sn is not None for sn in section_numbers), section_numbers
+    assert section_numbers[0] == "CLAUSE ONE"
+    assert section_numbers[5] == "CLAUSE SIX"
+
+
+def test_article_word_headings_split():
+    """AC-3: 'ARTICLE <WORD>' and 'SECTION <WORD>' headings segment symmetrically."""
+    article_text = (
+        "ARTICLE ONE Definitions\nTerms.\n"
+        "ARTICLE TWO Obligations\nDuties.\n"
+        "ARTICLE THREE Termination\nExit."
+    )
+    assert len(split_by_regex(article_text)) == 3
+    section_text = (
+        "SECTION ONE Scope\nScope text.\n"
+        "SECTION TWO Payment\nPayment text.\n"
+    )
+    assert len(split_by_regex(section_text)) == 2
+
+
+def test_clause_article_digit_forms():
+    """AC-4: digit-numbered CLAUSE/ARTICLE also match (not only spelled-out)."""
+    text = (
+        "CLAUSE 1 Purpose\nGrant financing.\n"
+        "Clause 1.2 Interpretation\nBroad reading.\n"
+        "ARTICLE 4 Guarantees\nFiduciary lien."
+    )
+    clauses = split_by_regex(text)
+    _assert_valid_boundaries(clauses)
+    assert len(clauses) == 3
+
+
+def test_clause_heading_case_insensitive():
+    """AC-5: 'clause one' / 'Clause One' / 'CLAUSE ONE' behave identically."""
+    for variant in ("clause one", "Clause One", "CLAUSE ONE"):
+        text = f"{variant} First heading\nBody.\nclause two Second heading\nBody two."
+        assert len(split_by_regex(text)) == 2, variant
+
+
+def test_ordinal_vocabulary_spot_check():
+    """spec §8 decision 1: ordinals resolve, and 'twentieth' is not truncated to 'twenty'."""
+    # NB: body lines deliberately avoid recital keywords (WHEREAS/RECITALS/BACKGROUND/…) so the
+    # only boundaries are the two ordinal headings under test.
+    text = (
+        "ARTICLE FIRST Preliminary\nIntroductory provisions apply.\n"
+        "CLAUSE TWENTIETH Miscellaneous\nGeneral boilerplate follows."
+    )
+    clauses = split_by_regex(text)
+    assert len(clauses) == 2
+    assert clauses[0].section_number == "ARTICLE FIRST"
+    assert clauses[1].section_number == "CLAUSE TWENTIETH"
+
+
+def test_existing_markers_no_regression():
+    """AC-6: pre-existing marker types still segment exactly as before."""
+    text = (
+        "1. Definitions\nTerms defined.\n"
+        "Article 5 Obligations\nDuties.\n"
+        "Section 1.2 Scope\nScope text.\n"
+        "§3 Confidentiality\nSecret.\n"
+        "(a) First item\nItem text.\n"
+        "a. Lettered item\nMore text.\n"
+        "WHEREAS the parties agree to terms herein."
+    )
+    clauses = split_by_regex(text)
+    _assert_valid_boundaries(clauses)
+    # 7 distinct pre-existing markers → 7 boundaries, unchanged by feature 040.
+    assert len(clauses) == 7
+
+
+def test_first_match_wins_no_double_count():
+    """AC-9: 'SECTION 1.2' is captured once (by the pre-existing digit pattern), not doubled."""
+    text = "SECTION 1.2 Scope\nScope of the agreement follows here."
+    clauses = split_by_regex(text)
+    assert len(clauses) == 1
+    assert clauses[0].section_number == "Section 1.2" or "1.2" in clauses[0].section_number
+
+
+def test_clause_prose_no_false_boundary():
+    """AC-10: 'Clause' in prose (no number/ordinal) and 'CLAUSEONE' (no space) do NOT split."""
+    prose = (
+        "Clause headings are for convenience only and shall not affect interpretation. "
+        "The word CLAUSEONE is not a heading either."
+    )
+    clauses = split_by_regex(prose)
+    # No new-pattern boundary: single unbroken block → one clause with no section_number.
+    assert len(clauses) == 1
+    assert clauses[0].section_number is None
+
+
+def test_clause_twenty_first_partial_match():
+    """Reviewer note / spec §5: 'CLAUSE TWENTY-FIRST' matches at 'CLAUSE TWENTY' (documented, not a bug)."""
+    text = "CLAUSE TWENTY-FIRST Special\nAn unusual heading beyond the vocabulary."
+    clauses = split_by_regex(text)
+    assert len(clauses) == 1
+    assert clauses[0].section_number == "CLAUSE TWENTY"
+
+
+def test_student_loan_fixture_24_clauses():
+    """AC-7: the 8-clause agreement repeated 3x → 24 boundaries (previously collapsed to 3)."""
+    text = _STUDENT_LOAN_PREAMBLE + (_STUDENT_LOAN_CLAUSES * 3)
+    clauses = split_by_regex(text)
+    _assert_valid_boundaries(clauses)
+    assert len(clauses) == 24

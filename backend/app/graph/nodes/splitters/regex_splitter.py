@@ -7,6 +7,18 @@ No LLM dependency — independently testable. Windows line-ending safe.
 import re
 from app.graph.nodes.splitters import ClauseBoundary
 
+# Spelled-out clause ordinals (feature 040) — a fixed English linguistic vocabulary (NOT a tunable
+# threshold, so per constitution §3 it stays inline like the recital-keyword list below). Longer
+# forms precede the bare cardinals they contain as a prefix so the trailing \b never truncates
+# (e.g. "twentieth" before "twenty"). Covers cardinals ONE–TWENTY and ordinals FIRST–TWENTIETH.
+_ORDINAL_WORDS = (
+    "first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|"
+    "eleventh|twelfth|thirteenth|fourteenth|fifteenth|sixteenth|seventeenth|"
+    "eighteenth|nineteenth|twentieth|"
+    "eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|"
+    "one|two|three|four|five|six|seven|eight|nine|ten"
+)
+
 # Each pattern is compiled separately (inline flags like (?mi) must be at
 # the start of each sub-expression — joining them with | breaks that).
 _COMPILED_PATTERNS = [
@@ -19,6 +31,12 @@ _COMPILED_PATTERNS = [
     re.compile(
         r"(?mi)^[ \t]*(WHEREAS|NOW\s+THEREFORE|IN\s+WITNESS\s+WHEREOF|RECITALS?|BACKGROUND)"
     ),
+    # feature 040: "CLAUSE 1" / "CLAUSE 1.2" / "CLAUSE ONE" / "Clause First". CLAUSE had no prior
+    # pattern; here it accepts a digit OR a spelled-out ordinal. \b blocks prose ("Clause headings").
+    re.compile(rf"(?mi)^[ \t]*(clause\s+(?:\d+(?:\.\d+)*|(?:{_ORDINAL_WORDS})))\b"),
+    # feature 040: spelled-out ARTICLE/SECTION — "ARTICLE ONE" / "SECTION FIRST". Digit forms of
+    # article/section are already matched by the pre-existing patterns above (which win by order).
+    re.compile(rf"(?mi)^[ \t]*((?:article|section)\s+(?:{_ORDINAL_WORDS}))\b"),
 ]
 
 _PARAGRAPH_PATTERN = re.compile(r"\n\s*\n")
