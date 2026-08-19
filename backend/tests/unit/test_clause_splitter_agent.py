@@ -342,3 +342,68 @@ def test_splitter_grouping_mode_end_to_end(monkeypatch):
     assert joined == "\n".join(s.text for s in [seg1, seg2, seg3])  # text preserved
     assert clauses["clause_001"]["clause_type"] == ClauseType.LIABILITY
     assert clauses["clause_002"]["clause_type"] == ClauseType.PAYMENT
+
+
+# ── Feature 042: deterministic clause-type fallback (AC-3 / AC-4) ────────────
+
+_LIABILITY_TEXT = (
+    "In no event shall either party be liable for any consequential damages, and the total "
+    "limitation of liability shall not exceed the fees paid under this Agreement."
+)
+
+
+def test_splitter_042_fills_none_with_deterministic_type(monkeypatch):
+    """AC-3: on a regex-only (LLM-skipped) clause set with all clause_type=None, a clause
+    carrying clear liability language is typed `liability` (so the 027 floor would fire),
+    while a neutral clause stays None. Flag shipped OFF by default (AC-7 gate) → enable it here."""
+    monkeypatch.setattr(
+        clause_splitter_agent_module, "DETERMINISTIC_CLAUSE_TYPING_ENABLED", True
+    )
+    regex_only = [
+        make_boundary(1, _LIABILITY_TEXT, "1", None),
+        make_boundary(2, "All notices shall be delivered in writing to the addresses below.", "2", None),
+    ]
+    monkeypatch.setattr(clause_splitter_agent_module, "split_by_regex", lambda t: regex_only)
+    # Simulate the large-doc LLM-skip path: refine returns the regex clauses unchanged.
+    monkeypatch.setattr(clause_splitter_agent_module, "refine_with_llm", lambda c, t, m: c)
+
+    result = clause_splitter_agent(make_state(LONG_TEXT))
+
+    assert result["clauses"]["clause_001"]["clause_type"] == ClauseType.LIABILITY
+    assert result["clauses"]["clause_002"]["clause_type"] is None
+
+
+def test_splitter_042_does_not_overwrite_llm_type(monkeypatch):
+    """AC-2/AC-3 precedence: a clause the LLM already typed is NOT re-typed by the tagger,
+    while a sibling None clause with floor language IS filled (fill-None-only, D4).
+    Flag shipped OFF by default (AC-7 gate) → enable it here."""
+    monkeypatch.setattr(
+        clause_splitter_agent_module, "DETERMINISTIC_CLAUSE_TYPING_ENABLED", True
+    )
+    clauses = [
+        # LLM assigned `payment` even though the text has liability language → must be kept.
+        make_boundary(1, _LIABILITY_TEXT, "1", "payment"),
+        make_boundary(2, _LIABILITY_TEXT, "2", None),
+    ]
+    monkeypatch.setattr(clause_splitter_agent_module, "split_by_regex", lambda t: clauses)
+    monkeypatch.setattr(clause_splitter_agent_module, "refine_with_llm", lambda c, t, m: c)
+
+    result = clause_splitter_agent(make_state(LONG_TEXT))
+
+    assert result["clauses"]["clause_001"]["clause_type"] == ClauseType.PAYMENT  # LLM wins
+    assert result["clauses"]["clause_002"]["clause_type"] == ClauseType.LIABILITY  # filled
+
+
+def test_splitter_042_reversibility_flag_off(monkeypatch):
+    """AC-4: with DETERMINISTIC_CLAUSE_TYPING_ENABLED=False, previously-None clauses stay
+    None (byte-for-byte today's behavior)."""
+    monkeypatch.setattr(
+        clause_splitter_agent_module, "DETERMINISTIC_CLAUSE_TYPING_ENABLED", False
+    )
+    regex_only = [make_boundary(1, _LIABILITY_TEXT, "1", None)]
+    monkeypatch.setattr(clause_splitter_agent_module, "split_by_regex", lambda t: regex_only)
+    monkeypatch.setattr(clause_splitter_agent_module, "refine_with_llm", lambda c, t, m: c)
+
+    result = clause_splitter_agent(make_state(LONG_TEXT))
+
+    assert result["clauses"]["clause_001"]["clause_type"] is None

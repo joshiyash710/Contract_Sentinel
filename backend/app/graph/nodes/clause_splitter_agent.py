@@ -30,6 +30,7 @@ import app.config as _config  # import module, not names, to allow monkeypatchin
 from app.graph.state import ContractState, ClauseType
 from app.graph.nodes.splitters.regex_splitter import split_by_regex
 from app.graph.nodes.splitters.llm_refiner import refine_with_llm
+from app.graph.nodes.splitters.clause_typer import infer_clause_type
 from app.graph.nodes.splitters import ClauseBoundary
 
 logger = logging.getLogger("contractsentinel.clause_splitter")
@@ -41,6 +42,7 @@ CLAUSE_SPLITTER_TIMEOUT_SECONDS = _config.CLAUSE_SPLITTER_TIMEOUT_SECONDS
 MIN_CLAUSE_LENGTH = _config.MIN_CLAUSE_LENGTH
 MAX_CLAUSES_LIMIT = _config.MAX_CLAUSES_LIMIT
 CLAUSE_SPLITTER_LLM_MAX_CLAUSES = _config.CLAUSE_SPLITTER_LLM_MAX_CLAUSES
+DETERMINISTIC_CLAUSE_TYPING_ENABLED = _config.DETERMINISTIC_CLAUSE_TYPING_ENABLED
 
 
 def clause_splitter_agent(state: ContractState) -> dict:
@@ -166,6 +168,12 @@ def _build_return(
 
     for c in clauses:
         converted_type = _to_clause_type(c.clause_type)
+        # Feature 042: deterministic fallback typing. Fill clause_type ONLY when the LLM
+        # refinement left it None (025 Lever-A skip on large docs, or an LLM failure); an
+        # LLM-assigned type always wins (fill-None-only, D4). Reviving the 027 recall floor
+        # on large docs. Reversible via DETERMINISTIC_CLAUSE_TYPING_ENABLED.
+        if converted_type is None and DETERMINISTIC_CLAUSE_TYPING_ENABLED:
+            converted_type = infer_clause_type(c.text)
         clauses_dict[c.clause_id] = {
             "text": c.text,
             "position": c.position,

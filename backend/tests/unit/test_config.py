@@ -208,6 +208,37 @@ def test_self_rag_recall_floor_types_are_valid_clause_types():
     assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
 
 
+def test_deterministic_clause_typing_config_is_valid():
+    """Feature 042 (AC-4): the tagger flag is a bool and every pattern-map key is a real
+    ClauseType.value that is a subset of the recall-floor types (typing a non-floor type
+    has no floor effect, D2). Mirrors test_self_rag_recall_floor_types_are_valid_clause_types."""
+    from app.config import (
+        DETERMINISTIC_CLAUSE_TYPING_ENABLED,
+        DETERMINISTIC_CLAUSE_TYPE_PATTERNS,
+        SELF_RAG_RECALL_FLOOR_TYPES,
+    )
+    from app.graph.state import ClauseType
+
+    assert isinstance(DETERMINISTIC_CLAUSE_TYPING_ENABLED, bool)
+    # Shipped OFF by default (AC-7 merge gate, 2026-08-19): the mechanism works (027 floor-rescues
+    # 0→66, recall +17.4pp) but the false-flag cost (+17.5pp) failed the plan §6 precision gate.
+    # Feature is present + reversible, pending phrase-map tightening. Guards against silent re-enable.
+    assert DETERMINISTIC_CLAUSE_TYPING_ENABLED is False
+
+    valid = {ct.value for ct in ClauseType}
+    keys = {ctype for ctype, _phrases in DETERMINISTIC_CLAUSE_TYPE_PATTERNS}
+    # Every key is a real ClauseType.value (guards typos / enum drift)...
+    assert keys <= valid
+    # ...and only floor types (typing a non-floor type would not change floor behavior, D2).
+    assert keys <= SELF_RAG_RECALL_FLOOR_TYPES
+
+    # Each phrase group is a non-empty tuple/list of lowercase phrases (an upper-case phrase
+    # could never match the lowercased clause text — guards a silent no-op pattern).
+    for _ctype, phrases in DETERMINISTIC_CLAUSE_TYPE_PATTERNS:
+        assert isinstance(phrases, (tuple, list)) and len(phrases) > 0
+        assert all(isinstance(p, str) and p == p.lower() for p in phrases)
+
+
 def test_self_rag_lever_c_constants_match_spec():
     """Feature 029 Lever C (§3): merge-judgments toggle + combined-call token cap (AC-18)."""
     from app.config import (

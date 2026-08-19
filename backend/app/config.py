@@ -109,6 +109,43 @@ CLAUSE_SPLITTER_LLM_MAX_CLAUSES: int = 40
 # quality for normal contracts while gating only the large-doc outliers where the refine call is
 # slowest. Tunable against real node_timings.
 
+DETERMINISTIC_CLAUSE_TYPING_ENABLED: bool = False
+# Master switch (feature 042). When True, ClauseSplitter fills clause_type from a deterministic
+# keyword tagger for any clause the LLM refinement left None (025 Lever-A skip on >40-clause docs,
+# or an off-schema LLM failure). Revives the 027 recall floor on large docs with NO LLM dependence.
+# False ⇒ byte-for-byte today's behavior (previously-None clauses stay None). Reversible (D5).
+#
+# SHIPPED DEFAULT False (AC-7 merge gate, 2026-08-19). The mechanism works — a 6-doc large-subset
+# measure showed 027 floor-rescues 0→66 (all 6 docs) and recall 15.2%→32.6% (+17.4pp). But the
+# precision cost FAILED the plan §6 gate: false-flag 15.0%→32.5% (+17.5pp ≫ the +5pp cap, and the
+# recall gain did not exceed the false-flag gain) — a ~1:1 trade, not a net win. Over-broad phrases
+# (IP terms hitting clean license-grants; termination terms hitting clean renewal/expiration) are the
+# main culprits. Feature ships present + OFF, pending phrase-map tightening + a re-measure.
+
+# Ordered map: ClauseType.value -> tuple of lowercase phrase patterns. ONLY the recall-floor types
+# (SELF_RAG_RECALL_FLOOR_TYPES) — typing a non-floor type has no floor effect (D2). CONSERVATIVE,
+# high-precision multi-word legal phrases (a floor-typed clause is VALIDATED even if ISSUP would
+# discard, so over-matching = false flags, D3). Order = tie-break for a multi-match clause (EC-1).
+DETERMINISTIC_CLAUSE_TYPE_PATTERNS: tuple = (
+    ("confidentiality", ("confidential information", "non-disclosure", "shall not disclose",
+                          "keep confidential", "proprietary information")),
+    ("liability",       ("limitation of liability", "shall not be liable", "in no event shall",
+                         "indemnif", "hold harmless", "consequential damages", "liquidated damages")),
+    ("intellectual_property", ("intellectual property rights", "proprietary rights", "hereby assigns",
+                               "assignment of intellectual property",
+                               "ownership of the intellectual property",
+                               "all right, title and interest in and to the intellectual property",
+                               "work product")),
+    ("termination",     ("termination of this agreement", "terminate this agreement",
+                         "survive termination", "expiration or termination", "right to terminate")),
+)
+# ALL patterns are CONSERVATIVE MULTI-WORD LEGAL PHRASES (D3). Deliberately NO bare single words like
+# "patent"/"copyright"/"trademark" (they appear in definitions/representations/license/notices clauses
+# that are NOT IP-ownership risks → would be floor-VALIDATED as false flags). Deliberately NO generic
+# fragments like "assignment of" (matches "assignment of this Agreement" = anti_assignment boilerplate)
+# or "ownership of the" — each IP phrase carries its own IP context. NOTE: the four keys are exactly
+# SELF_RAG_RECALL_FLOOR_TYPES; the tagger emits only these four ClauseType.value keys.
+
 CLAUSE_SPLITTER_LLM_EMIT_TEXT: bool = False
 # §3 latency lever F (feature 029): when False (default), the ClauseSplitter refinement LLM returns
 # index-grouping + clause_type metadata ONLY (no full clause text), and the refiner reassembles each
