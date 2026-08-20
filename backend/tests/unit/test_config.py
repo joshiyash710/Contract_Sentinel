@@ -208,6 +208,13 @@ def test_self_rag_recall_floor_types_are_valid_clause_types():
     assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
 
 
+def test_ingest_strip_document_chrome_flag_is_bool():
+    """Feature 044 (AC-5): the document-chrome strip flag is a bool (reversible master switch)."""
+    from app.config import INGEST_STRIP_DOCUMENT_CHROME_ENABLED
+
+    assert isinstance(INGEST_STRIP_DOCUMENT_CHROME_ENABLED, bool)
+
+
 def test_deterministic_clause_typing_config_is_valid():
     """Feature 042 (AC-4): the tagger flag is a bool and every pattern-map key is a real
     ClauseType.value that is a subset of the recall-floor types (typing a non-floor type

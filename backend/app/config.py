@@ -41,6 +41,11 @@ OCR_LOW_CONFIDENCE_THRESHOLD: float = (
 )
 INGEST_TIMEOUT_SECONDS: int = 60  # wall-clock seconds for parse_pdf / parse_docx
 
+INGEST_STRIP_DOCUMENT_CHROME_ENABLED: bool = True
+# Master switch (feature 044). When True, IngestAgent removes recognizable EDGAR page-footer chrome
+# (`Source: <COMPANY>, <FORM>, <DATE>` + an immediately-adjacent bare page-number line) from
+# extracted_text before clause segmentation. False ⇒ byte-for-byte today's extracted_text. Reversible.
+
 # ── ClauseSplitterAgent thresholds ─────────────────────────────────────────────
 # Source: specs/004-clause-splitter-agent/spec.md §6
 

@@ -264,3 +264,47 @@ def test_ingest_flag_off_parses_in_place(sample_pdf_path, tmp_path, monkeypatch)
     result = ingest_agent({"document_path": sample_pdf_path})
     assert result.get("ingest_error") is None
     assert len(result["extracted_text"]) > 100
+
+
+# ─── Feature 044: document-chrome stripping (AC-5) ─────────────────────────────
+
+import app.graph.nodes.ingest_agent as ingest_agent_module  # noqa: E402
+from types import SimpleNamespace  # noqa: E402
+
+
+def _fake_parse_with_footer(*args, **kwargs):
+    """A parse result whose text carries an EDGAR page footer + a clean clause."""
+    return SimpleNamespace(
+        text=(
+            "1. Definitions. The parties agree to the following terms.\n"
+            "Source: ARCONIC ROLLED PRODUCTS CORP, 10-12B, 12/17/2019\n"
+            "2. Payment. Net thirty (30) days from invoice."
+        ),
+        ocr_used=False,
+        ocr_confidence=None,
+        page_count=1,
+    )
+
+
+def test_ingest_strips_edgar_footer_when_enabled(monkeypatch, sample_pdf_path):
+    """AC-5: with the flag ON, the EDGAR footer is removed from extracted_text."""
+    monkeypatch.setattr(ingest_agent_module, "INGEST_STRIP_DOCUMENT_CHROME_ENABLED", True)
+    monkeypatch.setattr(ingest_agent_module, "parse_pdf", _fake_parse_with_footer)
+
+    result = ingest_agent({"document_path": sample_pdf_path})
+
+    assert result["ingest_error"] is None
+    assert "Source: ARCONIC" not in result["extracted_text"]
+    assert "1. Definitions." in result["extracted_text"]
+    assert "2. Payment." in result["extracted_text"]
+
+
+def test_ingest_strip_reversible_when_disabled(monkeypatch, sample_pdf_path):
+    """AC-5 reversibility: flag OFF ⇒ extracted_text is the raw parser text (footer intact)."""
+    monkeypatch.setattr(ingest_agent_module, "INGEST_STRIP_DOCUMENT_CHROME_ENABLED", False)
+    monkeypatch.setattr(ingest_agent_module, "parse_pdf", _fake_parse_with_footer)
+
+    result = ingest_agent({"document_path": sample_pdf_path})
+
+    assert result["ingest_error"] is None
+    assert result["extracted_text"] == _fake_parse_with_footer().text  # byte-identical to today
