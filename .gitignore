@@ -53,6 +53,13 @@ backend/eval/runs/
 # scripts/fetch_cuad.py; never committed. Only the curated corpus slice under data/kb/ is tracked.)
 backend/data/kb/sources/cuad_raw/
 
+# Environment files with secrets (API keys, etc.) — NEVER commit. .env.example is the tracked template.
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+
 # Frontend (feature 013 — Next.js + node)
 frontend/node_modules/
 frontend/.next/
