@@ -13,7 +13,8 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-import ollama
+
+from app.llm.chat_client import get_chat_client  # feature 046: provider seam (ollama default | groq)
 
 from app.graph.state import RiskLevel
 from app.graph.nodes.validators import format_evidence
@@ -198,7 +199,7 @@ def _call_ollama(
     messages: list, timeout_seconds: int, model_name: str
 ) -> Optional[Tuple[RiskLevel, str]]:
     """Perform the Ollama chat call and parse the score. Raises on any error."""
-    client = ollama.Client(timeout=timeout_seconds)
+    client = get_chat_client(timeout_seconds)
     response = client.chat(
         model=model_name,
         messages=messages,

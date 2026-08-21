@@ -13,7 +13,8 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import httpx
-import ollama
+
+from app.llm.chat_client import get_chat_client  # feature 046: provider seam (ollama default | groq)
 
 from app.graph.nodes.validators import format_evidence
 from app.llm import prompt_guard
@@ -207,7 +208,7 @@ def _run_drafting(messages: list, timeout_seconds: int, model_name: str) -> Opti
 
 def _call_ollama(messages: list, timeout_seconds: int, model_name: str) -> Optional[str]:
     """Perform the Ollama chat call and parse the rewrite. Raises on any error."""
-    client = ollama.Client(timeout=timeout_seconds)
+    client = get_chat_client(timeout_seconds)
     response = client.chat(
         model=model_name,
         messages=messages,

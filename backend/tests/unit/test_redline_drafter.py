@@ -42,7 +42,7 @@ _DEFAULT_KWARGS = dict(
 
 def test_returns_rewrite_string():
     """Valid JSON with suggested_rewrite → returns the string."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = _make_client(_ok_response("safer text"))
         result = draft_rewrite(
             "The vendor bears unlimited liability.", **_DEFAULT_KWARGS
@@ -54,7 +54,7 @@ def test_timeout_returns_none(caplog):
     """Simulated timeout → returns None, warning logged."""
     import concurrent.futures
 
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value.chat.side_effect = concurrent.futures.TimeoutError()
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
             result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -64,7 +64,7 @@ def test_timeout_returns_none(caplog):
 
 def test_connection_error_returns_none(caplog):
     """Ollama unreachable → returns None, warning logged."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value.chat.side_effect = ConnectionError("refused")
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
             result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -73,7 +73,7 @@ def test_connection_error_returns_none(caplog):
 
 def test_malformed_json_returns_none(caplog):
     """Non-JSON body → None, warning logged."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = _make_client("not json at all")
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
             result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -83,7 +83,7 @@ def test_malformed_json_returns_none(caplog):
 
 def test_missing_field_returns_none(caplog):
     """JSON without suggested_rewrite key → None, warning logged."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = _make_client(json.dumps({"other_key": "value"}))
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
             result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -92,7 +92,7 @@ def test_missing_field_returns_none(caplog):
 
 def test_empty_rewrite_returns_none(caplog):
     """Empty/whitespace suggested_rewrite is a drafting failure (AC-19)."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = _make_client(json.dumps({"suggested_rewrite": "   "}))
         with caplog.at_level("WARNING", logger="contractsentinel.redline.drafter"):
             result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -104,7 +104,7 @@ def test_non_string_rewrite_returns_none():
     """Non-str suggested_rewrite (int, null) → None."""
     for bad_value in [5, None, [], {}]:
         with patch(
-            "app.graph.nodes.drafters.redline_drafter.ollama.Client"
+            "app.llm.chat_client.ollama.Client"
         ) as MockClient:
             MockClient.return_value = _make_client(
                 json.dumps({"suggested_rewrite": bad_value})
@@ -115,7 +115,7 @@ def test_non_string_rewrite_returns_none():
 
 def test_uses_generative_model_only():
     """chat called with OLLAMA_MODEL_NAME; OLLAMA_EMBED_MODEL_NAME never referenced (AC-12)."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         mock_client = _make_client(_ok_response())
         MockClient.return_value = mock_client
         draft_rewrite("clause text", **_DEFAULT_KWARGS)
@@ -217,7 +217,7 @@ def test_empty_evidence_drafts_on_text():
     """evidence_snippets=None/[] uses the text-only prompt variant; no crash (AC-26)."""
     for evidence in [None, []]:
         with patch(
-            "app.graph.nodes.drafters.redline_drafter.ollama.Client"
+            "app.llm.chat_client.ollama.Client"
         ) as MockClient:
             MockClient.return_value = _make_client(_ok_response("safer clause"))
             result = draft_rewrite(
@@ -293,7 +293,7 @@ def test_clause_type_included_in_prompt():
 
 def test_drafter_never_raises():
     """Any injected exception inside the call → None, nothing propagates."""
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.side_effect = RuntimeError("unexpected boom")
         result = draft_rewrite("clause text", **_DEFAULT_KWARGS)
     assert result is None
@@ -302,7 +302,7 @@ def test_drafter_never_raises():
 def test_rewrite_returned_untruncated():
     """The drafter returns the full rewrite string; the NODE applies REDLINE_REWRITE_MAX_CHARS."""
     long_rewrite = "X" * 5000  # longer than REDLINE_REWRITE_MAX_CHARS=4000
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = _make_client(
             json.dumps({"suggested_rewrite": long_rewrite})
         )
@@ -314,7 +314,7 @@ def test_rewrite_returned_untruncated():
 # ── Determinism sampling options (feature 028, AC-2/3/4) ────────────────────────
 def _rd_options():
     client = _make_client(_ok_response("safer text"))
-    with patch("app.graph.nodes.drafters.redline_drafter.ollama.Client") as MockClient:
+    with patch("app.llm.chat_client.ollama.Client") as MockClient:
         MockClient.return_value = client
         draft_rewrite("The vendor bears unlimited liability.", **_DEFAULT_KWARGS)
     return client.chat.call_args.kwargs["options"]

@@ -12,7 +12,8 @@ import logging
 from typing import List, Dict, Any, Optional
 
 import httpx
-import ollama
+
+from app.llm.chat_client import get_chat_client  # feature 046: provider seam (ollama default | groq)
 
 from app.graph.nodes.validators import format_evidence
 from app.llm import prompt_guard
@@ -338,7 +339,7 @@ def check_combined(
 def _call_combined(messages: list, timeout_seconds: int, model_name: str) -> Optional[dict]:
     """Perform the combined Ollama chat call and parse the 3-verdict object. Raises on
     transport error so the caller's except block returns None (whole-call failure)."""
-    client = ollama.Client(timeout=timeout_seconds)
+    client = get_chat_client(timeout_seconds)
     response = client.chat(
         model=model_name,
         messages=messages,
@@ -407,7 +408,7 @@ def _run_judgment(messages: list, timeout_seconds: int, model_name: str) -> Opti
 
 def _call_ollama(messages: list, timeout_seconds: int, model_name: str) -> Optional[bool]:
     """Perform the Ollama chat call and parse the verdict. Raises on any error."""
-    client = ollama.Client(timeout=timeout_seconds)
+    client = get_chat_client(timeout_seconds)
     response = client.chat(
         model=model_name,
         messages=messages,

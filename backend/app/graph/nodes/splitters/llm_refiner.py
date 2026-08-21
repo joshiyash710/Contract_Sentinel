@@ -10,7 +10,8 @@ import json
 import logging
 
 import httpx
-import ollama
+
+from app.llm.chat_client import get_chat_client  # feature 046: provider seam (ollama default | groq)
 
 from app.graph.nodes.splitters import ClauseBoundary
 from app.graph.state import ClauseType
@@ -224,7 +225,7 @@ def _call_ollama(regex_clauses: list, model_name: str, timeout_seconds: int) -> 
     )
     messages = prompt_guard.build_messages(system, user_body, legacy)
 
-    client = ollama.Client(timeout=timeout_seconds)
+    client = get_chat_client(timeout_seconds)
     response = client.chat(
         model=model_name,
         messages=messages,

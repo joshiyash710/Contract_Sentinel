@@ -74,7 +74,7 @@ def test_verdict_true_parsed():
     """{"verdict": true} → True."""
     check_relevance, _, _ = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_relevance("A clause text.", 10, "qwen3:14b", 6000)
     assert result is True
 
@@ -83,7 +83,7 @@ def test_verdict_false_parsed():
     """{"verdict": false} → False."""
     check_relevance, _, _ = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(False)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_relevance("A clause text.", 10, "qwen3:14b", 6000)
     assert result is False
 
@@ -92,7 +92,7 @@ def test_malformed_json_returns_none():
     """Non-JSON content → None (fail-open trigger)."""
     check_relevance, _, _ = _import_reflectors()
     mock_cls, _ = _make_client_mock_raw("not json at all")
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_relevance("A clause.", 10, "qwen3:14b", 6000)
     assert result is None
 
@@ -101,7 +101,7 @@ def test_missing_verdict_key_returns_none():
     """JSON without a 'verdict' key → None."""
     check_relevance, _, _ = _import_reflectors()
     mock_cls, _ = _make_client_mock_raw(json.dumps({"reason": "something"}))
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_relevance("A clause.", 10, "qwen3:14b", 6000)
     assert result is None
 
@@ -113,7 +113,7 @@ def test_non_bool_verdict_returns_none():
         mock_cls, _ = _make_client_mock_raw(
             json.dumps({"verdict": bad_val, "reason": "x"})
         )
-        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        with patch("app.llm.chat_client.ollama.Client", mock_cls):
             result = check_relevance("A clause.", 10, "qwen3:14b", 6000)
         assert result is None, f"Expected None for verdict={bad_val!r}, got {result!r}"
 
@@ -127,7 +127,7 @@ def test_timeout_returns_none(caplog):
     mock_cls = MagicMock()
     mock_cls.return_value.chat.side_effect = concurrent.futures.TimeoutError()
     with caplog.at_level("WARNING"):
-        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        with patch("app.llm.chat_client.ollama.Client", mock_cls):
             result = check_relevance("A clause.", 10, "qwen3:14b", 6000)
     assert result is None
     assert any(
@@ -143,7 +143,7 @@ def test_connection_error_returns_none():
     check_relevance, _, _ = _import_reflectors()
     mock_cls = MagicMock()
     mock_cls.return_value.chat.side_effect = ConnectionError("refused")
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_relevance("A clause.", 10, "qwen3:14b", 6000)
     assert result is None
 
@@ -155,7 +155,7 @@ def test_reflector_never_raises():
     for exc in [RuntimeError("boom"), ValueError("bad"), MemoryError("oom")]:
         mock_cls = MagicMock()
         mock_cls.return_value.chat.side_effect = exc
-        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        with patch("app.llm.chat_client.ollama.Client", mock_cls):
             assert check_relevance("A clause.", 10, "qwen3:14b", 6000) is None
             assert check_isrel("A clause.", snippets, 10, "qwen3:14b", 6000) is None
             assert check_issup("A clause.", snippets, 10, "qwen3:14b", 6000) is None
@@ -171,7 +171,7 @@ def test_uses_generative_model_only():
     check_relevance, check_isrel, check_issup = _import_reflectors()
     snippets = [{"snippet_text": "evidence", "source_reference": "r"}]
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_relevance("clause", 10, OLLAMA_MODEL_NAME, 6000)
         check_isrel("clause", snippets, 10, OLLAMA_MODEL_NAME, 6000)
         check_issup("clause", snippets, 10, OLLAMA_MODEL_NAME, 6000)
@@ -197,7 +197,7 @@ def test_relevance_prompt_excludes_evidence():
     check_relevance, _, _ = _import_reflectors()
     evidence_marker = "THIS_IS_EVIDENCE_TEXT_12345"
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_relevance("clause text here", 10, "qwen3:14b", 6000)
     # Negative-assert against the JOINED content so it cannot pass trivially (035 tasks §C).
     assert evidence_marker not in _joined(mock_inst)
@@ -207,7 +207,7 @@ def test_issup_empty_evidence_uses_text_only_prompt():
     """With evidence_snippets=None/[], the ISSUP prompt instructs judging on clause text alone."""
     _, _, check_issup = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_issup("clause text", None, 10, "qwen3:14b", 6000)
     # This asserts TRUSTED instruction wording, which lives in the system message (messages[0]).
     prompt_sent = mock_inst.chat.call_args.kwargs["messages"][0]["content"]
@@ -226,7 +226,7 @@ def test_prompt_truncated_to_max_chars():
     big_clause = "C" * 200
     big_evidence = [{"snippet_text": "E" * 200, "source_reference": "r"}]
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_issup(big_clause, big_evidence, 10, "qwen3:14b", prompt_max_chars)
     # Untrusted clause text lives in the user message → assert against the JOINED content (035).
     prompt_sent = _joined(mock_inst)
@@ -243,7 +243,7 @@ def test_prompt_truncated_to_max_chars():
 def _rf_options():
     check_relevance, _, _ = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_relevance("A clause text.", 10, "qwen3:14b", 6000)
     return mock_inst.chat.call_args.kwargs["options"]
 
@@ -296,7 +296,7 @@ def test_combined_happy_path_returns_three_bools_one_call():
     mock_cls, mock_inst = _make_client_mock_raw(
         json.dumps({"relevance": True, "isrel": True, "issup": True, "reason": "x"})
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     assert result == {"relevance": True, "isrel": True, "issup": True}
     assert mock_inst.chat.call_count == 1
@@ -308,7 +308,7 @@ def test_combined_mixed_bools_preserved():
     mock_cls, _ = _make_client_mock_raw(
         json.dumps({"relevance": True, "isrel": False, "issup": True})
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     assert result == {"relevance": True, "isrel": False, "issup": True}
 
@@ -317,7 +317,7 @@ def test_combined_non_json_returns_none():
     """AC-6: non-JSON content → None (whole-call failure → caller fail-opens)."""
     check_combined = _import_combined()
     mock_cls, _ = _make_client_mock_raw("not json at all")
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     assert result is None
 
@@ -327,7 +327,7 @@ def test_combined_non_object_json_returns_none():
     check_combined = _import_combined()
     for raw in ["[1, 2, 3]", "true", "42", '"a string"']:
         mock_cls, _ = _make_client_mock_raw(raw)
-        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        with patch("app.llm.chat_client.ollama.Client", mock_cls):
             result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
         assert result is None, f"expected None for raw={raw!r}, got {result!r}"
 
@@ -338,7 +338,7 @@ def test_combined_exception_and_timeout_return_none():
     for exc in [concurrent.futures.TimeoutError(), ConnectionError("refused"), RuntimeError("boom")]:
         mock_cls = MagicMock()
         mock_cls.return_value.chat.side_effect = exc
-        with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+        with patch("app.llm.chat_client.ollama.Client", mock_cls):
             result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
         assert result is None
 
@@ -349,7 +349,7 @@ def test_combined_missing_key_is_per_key_none():
     mock_cls, _ = _make_client_mock_raw(
         json.dumps({"relevance": True, "isrel": True})  # issup missing
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     assert result == {"relevance": True, "isrel": True, "issup": None}
 
@@ -360,7 +360,7 @@ def test_combined_non_bool_key_is_per_key_none():
     mock_cls, _ = _make_client_mock_raw(
         json.dumps({"relevance": "yes", "isrel": 1, "issup": False})
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         result = check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     assert result == {"relevance": None, "isrel": None, "issup": False}
 
@@ -373,7 +373,7 @@ def test_combined_num_predict_uses_merged_cap():
     mock_cls, mock_inst = _make_client_mock_raw(
         json.dumps({"relevance": True, "isrel": True, "issup": True})
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_combined("A clause.", _SNIPPETS, 10, "qwen3:14b", 6000)
     opts = mock_inst.chat.call_args.kwargs["options"]
     assert opts["num_predict"] == SELF_RAG_MERGED_NUM_PREDICT
@@ -388,7 +388,7 @@ def test_combined_uses_generative_model_and_evidence_in_prompt():
     mock_cls, mock_inst = _make_client_mock_raw(
         json.dumps({"relevance": True, "isrel": True, "issup": True})
     )
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_combined("A clause.", _SNIPPETS, 10, OLLAMA_MODEL_NAME, 6000)
     kwargs = mock_inst.chat.call_args.kwargs
     assert kwargs["model"] == OLLAMA_MODEL_NAME
@@ -408,7 +408,7 @@ def test_035_off_path_byte_identical_relevance(monkeypatch):
     monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
     check_relevance, _, _ = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_relevance("hello clause", 10, "qwen3:8b", 6000)
     msgs = mock_inst.chat.call_args.kwargs["messages"]
     assert msgs == [{"role": "user", "content": _RELEVANCE_PROMPT.format(clause_text="hello clause")}]
@@ -422,7 +422,7 @@ def test_035_on_path_wraps_clause_in_user_message(monkeypatch):
     monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
     check_relevance, _, _ = _import_reflectors()
     mock_cls, mock_inst = _make_client_mock(True)
-    with patch("app.graph.nodes.validators.reflectors.ollama.Client", mock_cls):
+    with patch("app.llm.chat_client.ollama.Client", mock_cls):
         check_relevance("UNIQUE_CLAUSE_MARKER_777", 10, "qwen3:8b", 6000)
     msgs = mock_inst.chat.call_args.kwargs["messages"]
     assert len(msgs) == 2 and msgs[0]["role"] == "system" and msgs[1]["role"] == "user"

@@ -11,6 +11,12 @@ Future nodes (CRAG, Self-RAG, etc.) will add their own constants here.
 import os
 from typing import Optional
 
+from dotenv import load_dotenv
+
+# Feature 046: load backend/.env (GROQ_API_KEY etc.) BEFORE any os.getenv read below. Idempotent;
+# no-op if .env is absent. Real process env vars still take precedence (load_dotenv does not override).
+load_dotenv()
+
 from app.graph.state import RiskLevel
 
 
@@ -81,6 +87,17 @@ OLLAMA_SEED: Optional[int] = 42
 # sampling (belt-and-braces at temperature 0). None ⇒ the "seed" key is OMITTED (Ollama picks a
 # random seed) — the escape hatch the 028 variance driver uses (with a raised temperature) to probe
 # true model wobble.
+
+# ── LLM provider seam (feature 046) — generation via Groq, embeddings stay on Ollama (§8) ─────────
+# When LLM_PROVIDER="groq", the 5 generative chat call sites route to Groq's API; bge-m3 embeddings
+# ALWAYS stay on local Ollama (constitution §8). Default "ollama" ⇒ byte-for-byte today's behavior.
+# GROQ_* are env-read so the deploy sets them without a code change. NEVER log GROQ_API_KEY.
+# See specs/046 (incl. the data-egress privacy posture) and docs/DEPLOYMENT.md.
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "ollama").strip().lower()  # "ollama" | "groq"
+GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL: str = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
+GROQ_REASONING_EFFORT: str = os.getenv("GROQ_REASONING_EFFORT", "low")
+GROQ_MAX_RETRIES: int = _env_int("GROQ_MAX_RETRIES", 2)
 
 # ── Prompt-injection defense (feature 035, Security Tier 2) ──────────────────────
 # Source: specs/035-prompt-injection-defense/{spec,plan}.md. Within-node prompt hardening across the

@@ -208,6 +208,26 @@ def test_self_rag_recall_floor_types_are_valid_clause_types():
     assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
 
 
+def test_llm_provider_and_groq_config_valid():
+    """Feature 046 (AC-7): the provider seam config is well-formed and defaults to local ollama."""
+    from app.config import (
+        LLM_PROVIDER,
+        GROQ_MODEL,
+        GROQ_REASONING_EFFORT,
+        GROQ_MAX_RETRIES,
+    )
+
+    assert LLM_PROVIDER in {"ollama", "groq"}
+    # Default is the fully-local path (env may override in a deploy, but the shipped default is ollama).
+    import os
+
+    if not os.getenv("LLM_PROVIDER"):
+        assert LLM_PROVIDER == "ollama"
+    assert isinstance(GROQ_MODEL, str) and GROQ_MODEL.strip()
+    assert isinstance(GROQ_REASONING_EFFORT, str) and GROQ_REASONING_EFFORT.strip()
+    assert isinstance(GROQ_MAX_RETRIES, int)
+
+
 def test_sublist_split_marker_flag_is_bool():
     """Feature 045 (AC-3): the sub-list-split flag is a bool (reversible master switch)."""
     from app.config import CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS

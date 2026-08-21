@@ -38,7 +38,7 @@ def _capture_risk_messages(clause: str):
 
     client = MagicMock()
     client.chat.side_effect = fake_chat
-    with patch("app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=client):
+    with patch("app.llm.chat_client.ollama.Client", return_value=client):
         score_risk(clause, None, "liability", 30, OLLAMA_MODEL_NAME, 6000)
     return captured["messages"]
 

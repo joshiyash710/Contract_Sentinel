@@ -49,7 +49,7 @@ def test_parses_high_medium_low(level_str, expected):
 
     mock_client = _make_mock_client(level_str)
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is not None
@@ -66,7 +66,7 @@ def test_level_case_and_whitespace_insensitive():
         "message": {"content": json.dumps({"risk_level": " HIGH ", "rationale": "r"})}
     }
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is not None
@@ -80,7 +80,7 @@ def test_returns_rationale():
 
     mock_client = _make_mock_client("medium", "This is a medium risk clause.")
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is not None
@@ -99,7 +99,7 @@ def test_timeout_returns_none(caplog):
     mock_client = MagicMock()
     mock_client.chat.side_effect = concurrent.futures.TimeoutError()
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         with caplog.at_level("WARNING"):
             result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
@@ -113,7 +113,7 @@ def test_connection_error_returns_none():
     mock_client = MagicMock()
     mock_client.chat.side_effect = ConnectionError("refused")
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -126,7 +126,7 @@ def test_malformed_json_returns_none():
     mock_client = MagicMock()
     mock_client.chat.return_value = {"message": {"content": "not json at all"}}
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -141,7 +141,7 @@ def test_missing_risk_level_returns_none():
         "message": {"content": json.dumps({"rationale": "some rationale"})}
     }
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -156,7 +156,7 @@ def test_invalid_level_string_returns_none():
         "message": {"content": json.dumps({"risk_level": "critical", "rationale": "r"})}
     }
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -177,7 +177,7 @@ def test_empty_rationale_returns_none():
             }
         }
         with patch(
-            "app.graph.nodes.scorers.risk_scorer.ollama.Client",
+            "app.llm.chat_client.ollama.Client",
             return_value=mock_client,
         ):
             result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
@@ -193,7 +193,7 @@ def test_missing_rationale_key_returns_none():
         "message": {"content": json.dumps({"risk_level": "medium"})}
     }
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -208,7 +208,7 @@ def test_non_string_level_returns_none():
         "message": {"content": json.dumps({"risk_level": 3, "rationale": "r"})}
     }
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -221,7 +221,7 @@ def test_scorer_never_raises():
     mock_client = MagicMock()
     mock_client.chat.side_effect = RuntimeError("unexpected boom")
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is None
@@ -237,7 +237,7 @@ def test_uses_generative_model_only():
 
     mock_client = _make_mock_client("high")
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, OLLAMA_MODEL_NAME, 6000)
 
@@ -277,7 +277,7 @@ def test_prompt_truncated_to_max_chars():
     mock_client.chat.side_effect = fake_chat
 
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk(long_clause, evidence, None, 30, "qwen3:14b", prompt_max)
 
@@ -300,7 +300,7 @@ def test_empty_evidence_scores_on_text():
     for evidence in [None, []]:
         mock_client = _make_mock_client("low")
         with patch(
-            "app.graph.nodes.scorers.risk_scorer.ollama.Client",
+            "app.llm.chat_client.ollama.Client",
             return_value=mock_client,
         ):
             result = score_risk(
@@ -326,7 +326,7 @@ def test_clause_type_included_in_prompt():
 
     # With clause_type
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         score_risk("clause text", None, "liability", 30, "qwen3:14b", 6000)
     assert "liability" in captured_prompts[-1]
@@ -336,7 +336,7 @@ def test_clause_type_included_in_prompt():
     mock_client2 = MagicMock()
     mock_client2.chat.side_effect = fake_chat
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client2
+        "app.llm.chat_client.ollama.Client", return_value=mock_client2
     ):
         score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert "unspecified" in captured_prompts[-1]
@@ -350,7 +350,7 @@ def test_rationale_returned_untruncated():
     mock_client = MagicMock()
     mock_client.chat.return_value = _make_ollama_response("medium", long_rationale)
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         result = score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     assert result is not None
@@ -363,7 +363,7 @@ def _rs_options(mock_client):
     from app.graph.nodes.scorers.risk_scorer import score_risk
 
     with patch(
-        "app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client
+        "app.llm.chat_client.ollama.Client", return_value=mock_client
     ):
         score_risk("clause text", None, None, 30, "qwen3:14b", 6000)
     return mock_client.chat.call_args.kwargs["options"]
@@ -418,7 +418,7 @@ def test_035_off_path_byte_identical(monkeypatch):
 
     mock_client = MagicMock()
     mock_client.chat.side_effect = fake_chat
-    with patch("app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client):
+    with patch("app.llm.chat_client.ollama.Client", return_value=mock_client):
         score_risk("a clause", None, "liability", 30, "qwen3:8b", 6000)
 
     expected = _SCORING_TEXT_ONLY_PROMPT.format(clause_type="liability", clause_text="a clause")
@@ -440,7 +440,7 @@ def test_035_on_path_wraps_clause_keeps_clause_type_in_system(monkeypatch):
 
     mock_client = MagicMock()
     mock_client.chat.side_effect = fake_chat
-    with patch("app.graph.nodes.scorers.risk_scorer.ollama.Client", return_value=mock_client):
+    with patch("app.llm.chat_client.ollama.Client", return_value=mock_client):
         score_risk("UNIQUE_CLAUSE_MARK_555", None, "liability", 30, "qwen3:8b", 6000)
 
     msgs = captured["messages"]

@@ -541,7 +541,7 @@ def test_035_off_path_byte_identical(monkeypatch, two_clauses):
     monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", False)
     monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
     client = _mock_client({"clauses": []})
-    with patch("app.graph.nodes.splitters.llm_refiner.ollama.Client", return_value=client):
+    with patch("app.llm.chat_client.ollama.Client", return_value=client):
         node.refine_with_llm(two_clauses, 30, "qwen3:8b")
 
     msgs = client.chat.call_args.kwargs["messages"]
@@ -561,7 +561,7 @@ def test_035_on_path_wraps_segments(monkeypatch, two_clauses):
     monkeypatch.setattr(prompt_guard, "PROMPT_INJECTION_DEFENSE_ENABLED", True)
     monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_EMIT_TEXT", True)
     client = _mock_client({"clauses": []})
-    with patch("app.graph.nodes.splitters.llm_refiner.ollama.Client", return_value=client):
+    with patch("app.llm.chat_client.ollama.Client", return_value=client):
         node.refine_with_llm(two_clauses, 30, "qwen3:8b")
 
     msgs = client.chat.call_args.kwargs["messages"]
