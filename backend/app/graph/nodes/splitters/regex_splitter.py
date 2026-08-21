@@ -5,7 +5,13 @@ No LLM dependency — independently testable. Windows line-ending safe.
 """
 
 import re
+
+import app.config as _config  # import module, not names, to allow monkeypatching in tests
 from app.graph.nodes.splitters import ClauseBoundary
+
+# Re-exposed as a bare module-level name so tests can monkeypatch it (feature 045). Read at CALL time
+# inside split_by_regex — do not capture it in a default arg.
+CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS = _config.CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS
 
 # Spelled-out clause ordinals (feature 040) — a fixed English linguistic vocabulary (NOT a tunable
 # threshold, so per constitution §3 it stays inline like the recital-keyword list below). Longer
@@ -26,8 +32,6 @@ _COMPILED_PATTERNS = [
     re.compile(r"(?mi)^[ \t]*(article\s+\d+)"),  # "Article N"
     re.compile(r"(?mi)^[ \t]*(section\s+\d+(?:\.\d+)*)"),  # "Section N"
     re.compile(r"(?m)^[ \t]*(§\s*\d+(?:\.\d+)*)"),  # "§N"
-    re.compile(r"(?m)^[ \t]*(\([a-z]+\)|\([ivxlcdm]+\))\s"),  # "(a)", "(ii)"
-    re.compile(r"(?m)^[ \t]*([a-z])\.[ \t]"),  # "a.", "b."
     re.compile(
         r"(?mi)^[ \t]*(WHEREAS|NOW\s+THEREFORE|IN\s+WITNESS\s+WHEREOF|RECITALS?|BACKGROUND)"
     ),
@@ -38,6 +42,14 @@ _COMPILED_PATTERNS = [
     # article/section are already matched by the pre-existing patterns above (which win by order).
     re.compile(rf"(?mi)^[ \t]*((?:article|section)\s+(?:{_ORDINAL_WORDS}))\b"),
 ]
+
+# Feature 045: enumerated sub-list markers. Applied ONLY when CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS is
+# True. By default (False) they are omitted so "(a)"/"(ii)"/"a." sub-items stay attached to their
+# governing clause (the higher-level markers above still bound clauses). See specs/045.
+_SUBLIST_PATTERNS = (
+    re.compile(r"(?m)^[ \t]*(\([a-z]+\)|\([ivxlcdm]+\))\s"),  # "(a)", "(ii)"
+    re.compile(r"(?m)^[ \t]*([a-z])\.[ \t]"),  # "a.", "b."
+)
 
 _PARAGRAPH_PATTERN = re.compile(r"\n\s*\n")
 
@@ -55,10 +67,16 @@ def split_by_regex(text: str) -> list:
     if not text.strip():
         return []
 
+    # Feature 045: sub-list markers ("(a)"/"a.") only split when the flag is on (default off keeps
+    # enumerated sub-items with their governing clause). Read the flag at call time (monkeypatchable).
+    patterns = list(_COMPILED_PATTERNS)
+    if CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS:
+        patterns = patterns + list(_SUBLIST_PATTERNS)
+
     # Collect all marker matches across all patterns, keyed by start position.
     # If multiple patterns match at the same position, the first one wins.
     marker_map: dict = {}
-    for pattern in _COMPILED_PATTERNS:
+    for pattern in patterns:
         for match in pattern.finditer(text):
             pos = match.start()
             if pos not in marker_map:

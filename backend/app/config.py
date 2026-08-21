@@ -107,6 +107,13 @@ MAX_CLAUSES_LIMIT: int = 500
 # Documents exceeding this are truncated with a logged warning.
 # Safety valve against pathological regex matches on unusual formatting.
 
+CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS: bool = False
+# Feature 045. When False (default), the regex splitter does NOT split on enumerated sub-list markers
+# "(a)"/"(ii)"/"a." — those sub-items stay attached to their governing clause (measured: recovers
+# material obligations buried in sub-items, e.g. a non-compete in item (f) of a "shall not:" list, and
+# yields healthier segmentation — 187→117 clauses on a real doc, short fragments halved). True ⇒
+# byte-for-byte today's segmentation (sub-lists split as before). Reversible.
+
 CLAUSE_SPLITTER_LLM_MAX_CLAUSES: int = 40
 # §3 latency lever A: above this regex-clause count, ClauseSplitter skips the LLM refinement
 # (refine_with_llm) and uses the regex splitter output directly. The real corpus clusters into

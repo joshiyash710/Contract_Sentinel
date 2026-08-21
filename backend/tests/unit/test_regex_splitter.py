@@ -91,16 +91,23 @@ def test_split_section_symbol():
     assert len(clauses) == 3
 
 
-def test_split_lettered_sections():
-    """(a), (b) lettered sections produce correct boundaries."""
+def test_split_lettered_sections(monkeypatch):
+    """(a), (b), (c) lettered sub-items. Re-pinned for feature 045: with the flag ON these split into
+    3 (today's behavior); with the flag OFF (default) a bare sub-list with no higher-level marker above
+    it falls to the single-block fallback (EC-1) rather than fragmenting into one clause per item."""
     text = (
         "(a) First obligation\nThe first party shall.\n"
         "(b) Second obligation\nThe second party shall.\n"
         "(c) Third obligation\nThe third party shall."
     )
+    # Flag on: legacy behavior — one clause per (a)/(b)/(c).
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", True)
     clauses = split_by_regex(text)
     _assert_valid_boundaries(clauses)
     assert len(clauses) == 3
+    # Flag off (default): no higher marker → kept together via the fallback (EC-1), not fragmented.
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", False)
+    assert len(split_by_regex(text)) == 1
 
 
 def test_split_contract_headers():
@@ -327,8 +334,10 @@ def test_ordinal_vocabulary_spot_check():
     assert clauses[1].section_number == "CLAUSE TWENTIETH"
 
 
-def test_existing_markers_no_regression():
-    """AC-6: pre-existing marker types still segment exactly as before."""
+def test_existing_markers_no_regression(monkeypatch):
+    """AC-6 (feature 040), re-pinned for feature 045: the 5 higher-level markers
+    (1./Article/Section/§/WHEREAS) still segment as before; the 2 sub-list markers ((a)/a.) now attach
+    to their parent by default and only split when CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS is True."""
     text = (
         "1. Definitions\nTerms defined.\n"
         "Article 5 Obligations\nDuties.\n"
@@ -338,10 +347,13 @@ def test_existing_markers_no_regression():
         "a. Lettered item\nMore text.\n"
         "WHEREAS the parties agree to terms herein."
     )
+    # Default (045 flag off): the (a)/a. sub-items merge into the preceding "§3" clause → 5 boundaries.
     clauses = split_by_regex(text)
     _assert_valid_boundaries(clauses)
-    # 7 distinct pre-existing markers → 7 boundaries, unchanged by feature 040.
-    assert len(clauses) == 7
+    assert len(clauses) == 5
+    # Flag on reproduces the pre-045 behavior byte-for-byte: 7 boundaries.
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", True)
+    assert len(split_by_regex(text)) == 7
 
 
 def test_first_match_wins_no_double_count():
@@ -378,3 +390,73 @@ def test_student_loan_fixture_24_clauses():
     clauses = split_by_regex(text)
     _assert_valid_boundaries(clauses)
     assert len(clauses) == 24
+
+
+# ── Feature 045 — enumerated sub-list items stay with their governing clause ─────
+import app.graph.nodes.splitters.regex_splitter as regex_splitter  # noqa: E402
+
+_SUBLIST_FIXTURE = (
+    "2.4 The Distributor shall not:\n"
+    "(a) represent itself as an agent; or\n"
+    "(b) pledge the Supplier's credit; or\n"
+    "(f) act as the agent or the buying agent, for any goods which are competitive with the Product; or\n"
+    "2.5 Next obligation. The Distributor shall keep records."
+)
+
+
+def test_sublist_items_merge_with_stem_by_default():
+    """AC-1/AC-2: with the flag at its default (False), the (a)/(b)/(f) sub-items stay attached to
+    the '2.4 ... shall not:' stem → exactly 2 clauses (2.4 incl. all sub-items, 2.5)."""
+    clauses = split_by_regex(_SUBLIST_FIXTURE)
+    _assert_valid_boundaries(clauses)
+    assert len(clauses) == 2
+    first = clauses[0].text.lower()
+    assert "shall not" in first and "competitive with the product" in first  # (f) kept with its stem
+    assert "next obligation" in clauses[1].text.lower()
+
+
+def test_sublist_reversible_flag_on_splits_each_item(monkeypatch):
+    """AC-3: with CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS=True (today's behavior), each (a)/(b)/(f)
+    opens its own clause and (f) becomes a stem-less fragment."""
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", True)
+    clauses = split_by_regex(_SUBLIST_FIXTURE)
+    _assert_valid_boundaries(clauses)
+    # 2.4, (a), (b), (f), 2.5 → 5 boundaries.
+    assert len(clauses) == 5
+    frag = [c for c in clauses if "competitive with the product" in c.text.lower()][0]
+    assert "shall not" not in frag.text.lower()  # the (f) fragment lost its governing stem
+
+
+def test_sublist_no_regression_on_non_sublist_doc(monkeypatch):
+    """AC-4: a doc with only 1./Article/§/WHEREAS markers segments identically flag on vs off
+    (the removed sub-list patterns never matched it)."""
+    text = (
+        "1. Definitions\nTerms defined here in detail.\n"
+        "Article 5 Obligations\nDuties apply to the parties.\n"
+        "§3 Confidentiality\nKeep it secret.\n"
+        "WHEREAS the parties agree to these terms herein."
+    )
+    off = split_by_regex(text)
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", True)
+    on = split_by_regex(text)
+    assert [c.section_number for c in off] == [c.section_number for c in on]
+    assert [c.text for c in off] == [c.text for c in on]
+
+
+def test_sublist_alpha_dot_block(monkeypatch):
+    """AC-5: an 'a. / b.' enumerated block under a '1.' stem is one clause when False, split when True."""
+    text = (
+        "1. Restrictions apply as follows.\n"
+        "a. do not copy the software; and\n"
+        "b. do not reverse engineer the product."
+    )
+    assert len(split_by_regex(text)) == 1  # default: a./b. absorbed into the "1." clause
+    monkeypatch.setattr(regex_splitter, "CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS", True)
+    assert len(split_by_regex(text)) == 3  # 1., a., b.
+
+
+def test_sublist_deterministic_repeated_calls():
+    """AC-7: repeated calls on the same input + flag are identical."""
+    first = [c.text for c in split_by_regex(_SUBLIST_FIXTURE)]
+    for _ in range(5):
+        assert [c.text for c in split_by_regex(_SUBLIST_FIXTURE)] == first

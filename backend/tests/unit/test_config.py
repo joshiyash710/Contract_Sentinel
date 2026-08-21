@@ -208,6 +208,13 @@ def test_self_rag_recall_floor_types_are_valid_clause_types():
     assert "dispute_resolution" not in SELF_RAG_RECALL_FLOOR_TYPES
 
 
+def test_sublist_split_marker_flag_is_bool():
+    """Feature 045 (AC-3): the sub-list-split flag is a bool (reversible master switch)."""
+    from app.config import CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS
+
+    assert isinstance(CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS, bool)
+
+
 def test_ingest_strip_document_chrome_flag_is_bool():
     """Feature 044 (AC-5): the document-chrome strip flag is a bool (reversible master switch)."""
     from app.config import INGEST_STRIP_DOCUMENT_CHROME_ENABLED
