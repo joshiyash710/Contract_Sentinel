@@ -65,14 +65,30 @@ triage exposed:
   non-compete going from a stem-less 113-char fragment to a 915-char clause *with* its
   `"The Distributor shall not:"` stem. Fixed (reversible flag, default on).
 
-## 5. The biggest remaining lever
+## 5. The biggest remaining lever — MEASURED, and it is *not* the model
 
-The genuine misses (liability limitations found-then-dropped) are a **model-judgment** limitation of
-the local `qwen3:8b`. The single highest-value improvement is a **stronger model** — the free-tier
-**Groq Llama-3.3-70B** used by the deployment adapter (`docs/DEPLOYMENT.md`). Because it also fixes the
-support-check calls the current model fumbles, the model upgrade is *both* the top accuracy lever and
-the deployment prerequisite. **Note:** switching models invalidates the qwen3 numbers — the eval
-harness must be re-run on the new model for honest figures.
+We hypothesized the genuine misses were a **model-judgment** limitation of local `qwen3:8b`, and that a
+**stronger model** would be the top lever. **We tested this** (feature 046, `specs/046-groq-llm-provider/RESULTS.md`,
+2026-08-22) by routing generation to Groq's **`openai/gpt-oss-120b`** (embeddings stayed local) and
+re-running the eval. Result on the 4 clean docs (2 were lost to Groq's free-tier daily token cap):
+
+| Metric | qwen3:8b | gpt-oss-120b | Δ |
+|---|---|---|---|
+| Recall | 17.9% | 17.9% | **tie** |
+| Precision | 26.3% | 26.3% | **tie** |
+| Severity exact | 20.0% | 80.0% | **+60pp** |
+
+**Conclusion: a stronger generative model did NOT move recall or precision** — they were identical
+(tp=5, fn=23 on both). The accuracy ceiling on this corpus is **bottlenecked upstream of generation**:
+the Self-RAG relevance filter discards ~22 candidate clauses before scoring, and `clause_type=None`
+(deterministic typing shipped OFF after 042's precision-cost finding) leaves the 027 recall floor
+inert. A better generator can only judge clauses that survive those stages — it cannot recover clauses
+already dropped. The model's one genuine win was **severity grading (80% vs 20% exact)**.
+
+So the real levers are, in order: (1) **a lawyer-labeled corpus** (the current candidate labels are the
+dominant source of apparent error — see §6); (2) **loosening the upstream segmentation / relevance
+drop** without the ~1:1 precision cost that 042 hit; the generative model is *not* the constraint.
+**Note:** switching models invalidates the qwen3 numbers — the eval harness must be re-run per model.
 
 ## 6. Why we did NOT "clean" the gold labels
 
@@ -87,7 +103,8 @@ ContractSentinel is a sophisticated, working AI contract-analysis product with a
 retrieval pipeline and honest failure surfacing. It is **not a substitute for legal advice** and its
 accuracy is **not yet validated to a standard a lawyer should rely on for decisions.** Present it as a
 review *aid* with a clear "not legal advice — consult a qualified attorney" disclaimer. Decision-grade
-trust requires (a) a lawyer-labeled corpus, (b) the stronger model, and (c) real-user validation.
+trust requires (a) a lawyer-labeled corpus, (b) fixing the upstream recall bottleneck (§5 — a stronger
+model was measured *not* to help), and (c) real-user validation.
 
 *Evidence sources: `scripts/build_miss_triage.py` over cached run `eval/runs/BEFORE_042subset`; the
 offline splitter A/B in `specs/045-…`; gold set `eval/gold/` (32 files, 695 clauses). All figures are

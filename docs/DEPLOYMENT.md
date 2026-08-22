@@ -15,7 +15,13 @@
 > **Honest caveats before you start:**
 > - Oracle needs a **credit card for identity verification** (not charged on Always Free) and may be
 >   hard to provision in busy regions (retry until an ARM instance is available).
-> - Groq's free tier has **rate limits**; fine for a few users, not for scale.
+> - Groq's free tier has **rate limits**; fine for a few users, not for scale. Concretely, the free
+>   tier caps **~200,000 tokens/day (TPD)** per org for `openai/gpt-oss-120b` — enough for only a
+>   handful of full contract analyses per day. Beyond that you get `429 tokens-per-day` errors (which
+>   the adapter's backoff cannot clear, since a daily cap does not reset within retries) and reports
+>   fall back to **degraded/failsafe**. For steady use, either upgrade to Groq's paid Dev tier, pick a
+>   smaller model, or keep `LLM_PROVIDER=ollama` (local, no cap). Measured 2026-08-22: a single 6-doc
+>   eval run nearly exhausted the daily budget — see `specs/046-groq-llm-provider/RESULTS.md`.
 > - Vercel Hobby is technically **non-commercial** — if that worries you, use Cloudflare Pages.
 > - A **custom domain is ~$12/yr** (the only non-$0 item). Use the free `*.vercel.app` subdomain to
 >   stay at exactly $0.
@@ -30,7 +36,7 @@ Today every generative call uses `ollama.Client(...)` pointed at a local qwen3. 
 **generation** must go to Groq while **embeddings** stay on local `bge-m3`. This is a real feature —
 build it on a branch through the normal spec → plan → tasks → reviewer-gate flow.
 
-**What changes (6 generative sites → Groq; 1 embedding site stays Ollama):**
+**What changes (5 generative sites across 4 files → Groq; `reflectors.py` has 2; 1 embedding site stays Ollama):**
 - Generative call sites (route to Groq): `app/graph/nodes/splitters/llm_refiner.py`,
   `app/graph/nodes/validators/reflectors.py`, `app/graph/nodes/scorers/risk_scorer.py`,
   `app/graph/nodes/drafters/redline_drafter.py` (and any other `ollama.Client` chat site).
@@ -39,7 +45,7 @@ build it on a branch through the normal spec → plan → tasks → reviewer-gat
 **Design:**
 1. Add config (§3 constants, env-overridable): `LLM_PROVIDER` (`"ollama"` | `"groq"`, default
    `"ollama"` so local dev is unchanged), `GROQ_API_KEY` (from env), `GROQ_MODEL`
-   (e.g. `"llama-3.3-70b-versatile"`).
+   (e.g. `"openai/gpt-oss-120b"`).
 2. Add a thin adapter (e.g. `app/llm/chat_client.py`) exposing the same `chat(messages, format=...)`
    shape the nodes already call. When `LLM_PROVIDER=="groq"`, call Groq's **OpenAI-compatible** endpoint
    (`https://api.groq.com/openai/v1/chat/completions`) with `response_format={"type":"json_object"}`
@@ -50,8 +56,12 @@ build it on a branch through the normal spec → plan → tasks → reviewer-gat
 5. **Re-run the eval harness** (`eval.harness.run` + `score`) against the Groq model to get honest new
    accuracy numbers — the qwen3 numbers do **not** carry over.
 
-> Groq free models to consider: `llama-3.3-70b-versatile` (strongest), `llama-3.1-8b-instant` (fastest).
-> Both support JSON mode. Pick based on the re-eval.
+> Groq free models to consider: `openai/gpt-oss-120b` (strongest, what we validated), `openai/gpt-oss-20b`
+> (lighter, higher token budget). Both support JSON mode + `reasoning_effort`. Pick based on the re-eval.
+> **Note (measured 2026-08-22, `specs/046-groq-llm-provider/RESULTS.md`):** on our corpus gpt-oss-120b
+> **tied** local qwen3:8b on recall/precision — accuracy is bottlenecked upstream (segmentation +
+> relevance filtering), not by generative model strength. Groq's only clear win was severity grading
+> (80% vs 20% exact). So the adapter is worth it for latency/ops, not for a recall/precision boost.
 
 ---
 
@@ -115,7 +125,7 @@ ollama pull bge-m3
    - `AUTH_SECRET=<64+ random bytes>`
    - `CONTRACT_ENCRYPTION_KEY` / the Fernet key(s) your `crypto` module reads
    - `AUTH_COOKIE_SECURE=True` (you're behind TLS now)
-   - `LLM_PROVIDER=groq`, `GROQ_API_KEY=<key>`, `GROQ_MODEL=llama-3.3-70b-versatile`
+   - `LLM_PROVIDER=groq`, `GROQ_API_KEY=<key>`, `GROQ_MODEL=openai/gpt-oss-120b`
    - `OLLAMA_HOST=http://127.0.0.1:11434` (for local `bge-m3` embeddings)
    - `OLLAMA_EMBED_MODEL_NAME=bge-m3`
    - Google OAuth creds/paths (see §6), delivery toggles as desired
@@ -189,7 +199,7 @@ use a free hostname (e.g. DuckDNS) pointed at the VM IP, or Cloudflare's free pr
 | `AUTH_COOKIE_SECURE` | backend | `True` in prod (needs TLS) |
 | `LLM_PROVIDER` | backend | `groq` in prod, `ollama` local |
 | `GROQ_API_KEY` | backend | from console.groq.com |
-| `GROQ_MODEL` | backend | `llama-3.3-70b-versatile` |
+| `GROQ_MODEL` | backend | `openai/gpt-oss-120b` |
 | `OLLAMA_HOST` | backend | `http://127.0.0.1:11434` (local bge-m3) |
 | `OLLAMA_EMBED_MODEL_NAME` | backend | `bge-m3` |
 | `NEXT_PUBLIC_API_PROVIDER` | frontend | `real` |
