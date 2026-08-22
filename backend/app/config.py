@@ -184,10 +184,19 @@ CLAUSE_SPLITTER_LLM_EMIT_TEXT: bool = False
 # grouping mode (no intra-segment splitting); any grouping that is not an exact partition of the
 # input segments falls back to regex output.
 
-CLAUSE_SPLITTER_LLM_NUM_PREDICT: int = 1024
+CLAUSE_SPLITTER_LLM_NUM_PREDICT: int = 4096
 # §3: output-token cap for the refinement call when EMIT_TEXT is False (metadata is small). Replaces
 # the previously hardcoded 4096; the emit-text path reverts to 4096. Tunable — raise if a real doc's
-# grouping JSON truncates (which would trigger the regex fallback).
+# grouping JSON truncates (which would trigger the regex fallback). Feature 047: raised 1024→4096 so
+# large-doc index-only grouping output (and, on Groq reasoning models, shared reasoning tokens) is not
+# truncated; index-only JSON stays compact so the higher cap is cheap.
+
+CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING: bool = True
+# §3 feature 047: when True (default), the grouping-mode parser applies the model's VALID partial output
+# — its merges + clause_type — and fills any un-referenced/out-of-range/duplicate index with a passthrough
+# regex singleton, instead of discarding the whole response on a non-exact partition. Reviving the
+# model's clause_type on large docs re-arms the 027 recall floor. False ⇒ byte-for-byte today's strict
+# exact-partition behavior (a non-partition response → ValueError → regex fallback).
 
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
 # Source: specs/005-crag-retrieval/spec.md §6

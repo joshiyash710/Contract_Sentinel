@@ -78,7 +78,7 @@ def test_clause_splitter_lever_f_constants_match_spec():
     )
 
     assert CLAUSE_SPLITTER_LLM_EMIT_TEXT is False  # default: grouping mode, no text re-emit
-    assert CLAUSE_SPLITTER_LLM_NUM_PREDICT == 1024
+    assert CLAUSE_SPLITTER_LLM_NUM_PREDICT == 4096  # feature 047: raised 1024→4096 (large-doc grouping)
 
 
 def test_clause_splitter_lever_f_constants_correct_types():
@@ -87,6 +87,14 @@ def test_clause_splitter_lever_f_constants_correct_types():
 
     assert isinstance(config.CLAUSE_SPLITTER_LLM_EMIT_TEXT, bool)
     assert isinstance(config.CLAUSE_SPLITTER_LLM_NUM_PREDICT, int)
+
+
+def test_clause_splitter_tolerant_grouping_flag_is_bool():
+    """Feature 047 (§3): tolerant-grouping toggle default True, bool type (AC-5)."""
+    from app import config
+
+    assert isinstance(config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING, bool)
+    assert config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING is True
 
 
 def test_ollama_sampling_constants_match_spec():

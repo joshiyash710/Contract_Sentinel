@@ -25,6 +25,7 @@ OLLAMA_TEMPERATURE = _config.OLLAMA_TEMPERATURE
 OLLAMA_SEED = _config.OLLAMA_SEED
 CLAUSE_SPLITTER_LLM_EMIT_TEXT = _config.CLAUSE_SPLITTER_LLM_EMIT_TEXT  # feature 029 Lever F
 CLAUSE_SPLITTER_LLM_NUM_PREDICT = _config.CLAUSE_SPLITTER_LLM_NUM_PREDICT  # feature 029 Lever F
+CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING = _config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING  # feature 047
 
 logger = logging.getLogger("contractsentinel.clause_splitter.llm_refiner")
 
@@ -301,14 +302,56 @@ def _parse_response(raw_content: str, regex_clauses: list) -> list:
     return refined
 
 
+def _build_grouped_clause(position: int, indices: list, item, by_index: dict) -> ClauseBoundary:
+    """Assemble one output ClauseBoundary from a group of regex-segment indices.
+
+    Shared by the strict and tolerant grouping paths so validation is identical: text is the
+    "\\n".join of the referenced segments (in the order given), section_number falls back to the
+    first segment's, and clause_type is validated against _VALID_CLAUSE_TYPES (else None). When
+    `item` is None (a tolerant passthrough singleton), the segment's own section/type are kept.
+    """
+    segments = [by_index[idx] for idx in indices]
+    text = "\n".join(s.text for s in segments)
+    if item is None:
+        section_number = segments[0].section_number
+        validated_type = segments[0].clause_type
+    else:
+        raw_section = item.get("section_number")
+        section_number = (
+            raw_section
+            if isinstance(raw_section, str) and raw_section.strip()
+            else segments[0].section_number
+        )
+        raw_type = item.get("clause_type")
+        validated_type = (
+            raw_type
+            if (raw_type is not None and raw_type in _VALID_CLAUSE_TYPES)
+            else None
+        )
+    return ClauseBoundary(
+        clause_id=f"clause_{position:03d}",
+        text=text,
+        position=position,
+        section_number=section_number,
+        clause_type=validated_type,
+    )
+
+
 def _parse_grouping_response(raw_content: str, regex_clauses: list) -> list:
     """Parse the Lever F grouping response (index-grouping + type, NO text) and
     reassemble each clause's text locally from the regex segments.
 
-    Raises ValueError on any validation failure so the caller falls back to regex output.
-    The text-preservation guarantee is structural: the flattened output indices must be an
-    exact ordered partition of [1..N] (every input segment used once, ascending), so
-    reassembling by joining the referenced segments reproduces every segment exactly.
+    Raises ValueError on any unusable response so the caller falls back to regex output.
+
+    Two paths (feature 047), selected by CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING:
+    - strict (flag False): the flattened indices must be an exact ordered partition of [1..N]
+      (every input segment used once, ascending) or it raises → regex fallback. Byte-identical
+      to the pre-047 behavior.
+    - tolerant (flag True, default): apply the model's VALID groups (in-range int indices,
+      first-claim-wins) and fill every un-referenced index with a passthrough regex singleton,
+      so the model's merges + clause_type are used without discarding the whole response on an
+      imperfect partition. Index coverage (every index 1..N in exactly one output clause) holds
+      by construction, preserving all segment text.
     """
     try:
         data = json.loads(raw_content)
@@ -327,6 +370,50 @@ def _parse_grouping_response(raw_content: str, regex_clauses: list) -> list:
     n = len(regex_clauses)
     by_index = {c.position: c for c in regex_clauses}
 
+    if not CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING:
+        return _parse_grouping_strict(data, regex_clauses, n, by_index)
+
+    # Tolerant path: keep valid, in-range, not-yet-claimed int indices (first claim wins);
+    # bool is an int subclass so exclude it explicitly. Skip groups that end up empty.
+    claimed: set = set()
+    groups: list = []  # (sorted_indices, item)
+    for item in data["clauses"]:
+        if not isinstance(item, dict):
+            continue
+        indices = item.get("indices")
+        if not isinstance(indices, list):
+            continue
+        keep = []
+        for x in indices:
+            if isinstance(x, bool):
+                continue
+            if isinstance(x, int) and 1 <= x <= n and x not in claimed:
+                claimed.add(x)
+                keep.append(x)
+        if keep:
+            groups.append((sorted(keep), item))
+
+    # Passthrough singleton for every un-referenced index (carries its regex segment as-is).
+    for x in range(1, n + 1):
+        if x not in claimed:
+            groups.append(([x], None))
+
+    if not groups:  # only possible when n == 0 (regex always yields >= 1 clause in practice)
+        raise ValueError("grouping produced no clauses, falling back to regex output")
+
+    # Document order = ascending minimum claimed index.
+    groups.sort(key=lambda g: g[0][0])
+    return [
+        _build_grouped_clause(k, indices, item, by_index)
+        for k, (indices, item) in enumerate(groups, start=1)
+    ]
+
+
+def _parse_grouping_strict(data: dict, regex_clauses: list, n: int, by_index: dict) -> list:
+    """Pre-047 strict grouping: flattened indices must be an exact ordered partition of [1..N].
+
+    Raises ValueError otherwise (→ regex fallback). Output is byte-identical to the pre-047 path.
+    """
     flat: list = []
     groups: list = []
     for i, item in enumerate(data["clauses"], start=1):
@@ -344,30 +431,7 @@ def _parse_grouping_response(raw_content: str, regex_clauses: list) -> list:
             f"grouping indices are not an exact ordered partition of 1..{n}: {flat!r}"
         )
 
-    refined = []
-    for k, (indices, item) in enumerate(groups, start=1):
-        segments = [by_index[idx] for idx in indices]
-        text = "\n".join(s.text for s in segments)
-        raw_section = item.get("section_number")
-        section_number = (
-            raw_section
-            if isinstance(raw_section, str) and raw_section.strip()
-            else segments[0].section_number
-        )
-        raw_type = item.get("clause_type")
-        validated_type = (
-            raw_type
-            if (raw_type is not None and raw_type in _VALID_CLAUSE_TYPES)
-            else None
-        )
-        refined.append(
-            ClauseBoundary(
-                clause_id=f"clause_{k:03d}",
-                text=text,
-                position=k,
-                section_number=section_number,
-                clause_type=validated_type,
-            )
-        )
-
-    return refined
+    return [
+        _build_grouped_clause(k, indices, item, by_index)
+        for k, (indices, item) in enumerate(groups, start=1)
+    ]

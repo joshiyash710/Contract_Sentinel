@@ -16,7 +16,10 @@ import httpx
 import pytest
 
 from app.graph.nodes.splitters import ClauseBoundary
-from app.graph.nodes.splitters.llm_refiner import refine_with_llm
+from app.graph.nodes.splitters.llm_refiner import (
+    _parse_grouping_response,
+    refine_with_llm,
+)
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -488,10 +491,15 @@ def test_grouping_section_number_falls_back_to_first_segment(_grouping_mode, thr
     ],
 )
 def test_grouping_bad_partition_falls_back_to_regex(
-    _grouping_mode, three_clauses, bad_indices_response
+    _grouping_mode, three_clauses, bad_indices_response, monkeypatch
 ):
-    """AC-15: any grouping that is not an exact ordered partition of [1..N] → regex
-    fallback (returns the original list); never raises."""
+    """AC-15 (strict path, pinned): any grouping that is not an exact ordered partition of
+    [1..N] → regex fallback (returns the original list); never raises. Feature 047 pins the
+    STRICT behavior with CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING=False (the new default True is
+    covered by the tolerant tests below)."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING", False)
     with patch("ollama.Client", return_value=_mock_client(bad_indices_response)):
         result = refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
     assert result is three_clauses
@@ -506,6 +514,162 @@ def test_grouping_num_predict_uses_config(_grouping_mode, three_clauses):
     with patch("ollama.Client", return_value=client):
         refine_with_llm(three_clauses, timeout_seconds=10, model_name="qwen3:14b")
     assert client.chat.call_args.kwargs["options"]["num_predict"] == CLAUSE_SPLITTER_LLM_NUM_PREDICT
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Feature 047 — Tolerant grouping: apply the model's VALID partial output (merges +
+#   clause_type) and fill un-referenced/out-of-range/duplicate indices with passthrough
+#   regex singletons, instead of the strict all-or-nothing partition → regex fallback.
+#   These tests call the pure _parse_grouping_response directly (no client).
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+@pytest.fixture
+def six_clauses():
+    """Six ClauseBoundary with distinct single-line texts (so AC-6 \\n-split is exact)."""
+    return [
+        make_boundary(f"clause_{i:03d}", f"Segment number {i} unique text.", i, str(i))
+        for i in range(1, 7)
+    ]
+
+
+@pytest.fixture
+def _tolerant_grouping(monkeypatch):
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING", True)
+
+
+def _grp(response: dict) -> str:
+    return json.dumps(response)
+
+
+def test_tolerant_partial_fills_gaps_with_singletons(_tolerant_grouping, six_clauses):
+    """AC-1: model groups [1,2]+[3] and omits 4,5,6 → 4 clauses: merged[1,2], [3],
+    then passthrough singletons 4,5,6 in document order."""
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "section_number": "1", "clause_type": "liability"},
+            {"indices": [3], "section_number": "3", "clause_type": "confidentiality"},
+        ]
+    }
+    result = _parse_grouping_response(_grp(response), six_clauses)
+    assert len(result) == 5  # merged[1,2], [3], + singletons 4, 5, 6
+    assert result[0].text == six_clauses[0].text + "\n" + six_clauses[1].text
+    assert result[0].clause_type == "liability"
+    assert result[1].text == six_clauses[2].text
+    assert result[1].clause_type == "confidentiality"
+    # passthrough singletons carry the regex segment's own text/section, in document order
+    assert result[2].text == six_clauses[3].text
+    assert result[3].text == six_clauses[4].text
+    assert result[4].text == six_clauses[5].text
+    # renumbered sequentially
+    assert [c.position for c in result] == [1, 2, 3, 4, 5]
+    assert [c.clause_id for c in result] == [
+        "clause_001",
+        "clause_002",
+        "clause_003",
+        "clause_004",
+        "clause_005",
+    ]
+
+
+def test_tolerant_perfect_partition_matches_strict(six_clauses, monkeypatch):
+    """AC-2: a full valid partition yields the same result under tolerant True and strict False."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "section_number": "1", "clause_type": "payment"},
+            {"indices": [3], "section_number": None, "clause_type": None},
+            {"indices": [4], "section_number": None, "clause_type": None},
+            {"indices": [5], "section_number": None, "clause_type": None},
+            {"indices": [6], "section_number": None, "clause_type": None},
+        ]
+    }
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING", True)
+    tolerant = _parse_grouping_response(_grp(response), six_clauses)
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING", False)
+    strict = _parse_grouping_response(_grp(response), six_clauses)
+    assert [c.text for c in tolerant] == [c.text for c in strict]
+    assert [c.clause_type for c in tolerant] == [c.clause_type for c in strict]
+    assert [c.position for c in tolerant] == [c.position for c in strict]
+
+
+def test_tolerant_dup_out_of_range_non_int(_tolerant_grouping):
+    """AC-3: duplicate / out-of-range / non-int indices handled without raising;
+    first-claim-wins; unclaimed → singleton; deterministic."""
+    clauses = [
+        make_boundary(f"clause_{i:03d}", f"Seg {i} text.", i, str(i)) for i in range(1, 5)
+    ]  # N=4
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "clause_type": "liability"},
+            {"indices": [2, 7], "clause_type": "termination"},  # 2 dup (dropped), 7 out-of-range
+            {"indices": ["x", 3], "clause_type": None},  # "x" non-int ignored, 3 kept
+            {"indices": [], "clause_type": None},  # empty group skipped
+        ]
+    }
+    result = _parse_grouping_response(_grp(response), clauses)
+    # groups: [1,2]->liability ; [3] (from the "x",3 group) ; [4] unclaimed singleton
+    assert len(result) == 3
+    assert result[0].text == clauses[0].text + "\n" + clauses[1].text
+    assert result[0].clause_type == "liability"
+    assert result[1].text == clauses[2].text
+    assert result[2].text == clauses[3].text
+    # deterministic on repeat
+    again = _parse_grouping_response(_grp(response), clauses)
+    assert [c.text for c in again] == [c.text for c in result]
+
+
+def test_tolerant_clause_type_validated(_tolerant_grouping, six_clauses):
+    """AC-4: valid floor type flows through; unknown type → None."""
+    response = {
+        "clauses": [
+            {"indices": [1], "clause_type": "liability"},
+            {"indices": [2], "clause_type": "nonsense"},
+            {"indices": [3], "clause_type": None},
+            {"indices": [4], "clause_type": "intellectual_property"},
+            {"indices": [5], "clause_type": None},
+            {"indices": [6], "clause_type": None},
+        ]
+    }
+    result = _parse_grouping_response(_grp(response), six_clauses)
+    assert result[0].clause_type == "liability"
+    assert result[1].clause_type is None  # "nonsense" not in _VALID_CLAUSE_TYPES
+    assert result[3].clause_type == "intellectual_property"
+
+
+def test_tolerant_index_coverage_invariant(_tolerant_grouping, six_clauses):
+    """AC-6: every input segment text appears exactly once across outputs (index coverage)."""
+    response = {
+        "clauses": [
+            {"indices": [1, 2], "clause_type": "liability"},
+            {"indices": [4, 3], "clause_type": None},  # non-contiguous, reordered
+        ]
+    }  # 5,6 omitted
+    result = _parse_grouping_response(_grp(response), six_clauses)
+    pieces = []
+    for c in result:
+        pieces.extend(c.text.split("\n"))
+    assert sorted(pieces) == sorted(c.text for c in six_clauses)
+    assert len(pieces) == len(six_clauses)  # no drop, no duplication
+
+
+@pytest.mark.parametrize(
+    "flag_value", [True, False]
+)
+@pytest.mark.parametrize(
+    "garbage",
+    ["{}", '{"clauses": []}', "not json at all", '{"clauses": "x"}'],
+)
+def test_tolerant_and_strict_garbage_raises(six_clauses, monkeypatch, flag_value, garbage):
+    """AC-7: unusable responses raise ValueError under BOTH flag values (→ regex fallback)."""
+    import app.graph.nodes.splitters.llm_refiner as node
+
+    monkeypatch.setattr(node, "CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING", flag_value)
+    with pytest.raises(ValueError):
+        _parse_grouping_response(garbage, six_clauses)
 
 
 def test_emit_text_mode_num_predict_is_4096(three_clauses):
