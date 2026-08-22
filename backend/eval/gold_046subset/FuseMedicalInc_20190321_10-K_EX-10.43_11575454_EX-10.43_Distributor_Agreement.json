@@ -1,0 +1,146 @@
+{
+  "document": "eval/corpus/FuseMedicalInc_20190321_10-K_EX-10.43_11575454_EX-10.43_Distributor Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement begins on the Commencement Date and, subject to clause 11.2, shall continue for an initial term of one (1) years (Initial Term) and indefinitely "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement and any dispute or claim arising out of or in connection with it or its subject matter or formation (including non-contractual disputes or claims"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "act as the agent or the buying agent, for any person for any goods which are competitive with the Product; or"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "non_compete",
+      "note": "Non-Compete"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Distributor shall not assign, transfer, mortgage, charge, declare a trust of or deal in any other manner with this agreement or any of its rights and obliga"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without affecting any other rights that it may be entitled to, the Supplier may give notice in writing to the Distributor terminating this agreement immediately"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Distributor shall not sub-contract or delegate in any manner any or all of its obligations under this agreement to any third party or agent."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Distributor shall not sub-license, transfer or otherwise deal with the rights of use of the Trade Marks granted under this agreement."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Supplier hereby grants to the Distributor the non-exclusive right, in the Territory, to use the Trade Marks in the promotion, advertisement and sale of the "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "At the Supplier's option, on termination of this agreement: (a) the Supplier may buy from the Distributor all or any stocks of Products for the current market v"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "allow the Supplier, on reasonable notice, access to its accounts and records relating to the sale or distribution of the Products for inspection but not more th"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Distributor undertakes and agrees with the Supplier that at all times during the Term it will:"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the Term, the Supplier shall maintain product liability insurance with a reputable insurer of no less than AU$10 million for any one occurrence for any a"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Supplier shall add the distributor to their current insurance certificate."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Distributor shall not do, or omit to do, anything in its use of the Trade Marks that could adversely affect their validity or the goodwill of the Supplier."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}

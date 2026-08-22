@@ -1,0 +1,166 @@
+{
+  "document": "eval/corpus/CybergyHoldingsInc_20140520_10-Q_EX-10.27_8605784_EX-10.27_Affiliate Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement shall begin upon the date of its execution by MA and acceptance in writing by Company"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "effective_date",
+      "note": "Effective Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This agreement shall begin upon the date of its execution by MA and acceptance in writing by Company and shall remain in effect until the end of the current cal"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement may be terminated by either party at the expiration of its term or any renewal term upon thirty (30) days written notice to the other party."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "notice_period_to_terminate_renewal",
+      "note": "Notice Period To Terminate Renewal"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement is accepted by Company in the State of Nevada and shall be governed by and construed in accordance with the laws thereof, which laws shall prevai"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company shall not specify the business practices of MA, nor regulate the manner in which MA shall operate its business, provided that MA (a) conducts business i"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "MA may not assign, sell, lease or otherwise transfer in whole or in party any of the rights granted pursuant to this Agreement without prior written approval of"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "INITIAL ORDER COMMITMENT - MA commits to purchase a minimum of 100 Units in aggregate within the Territory within the first six months of term of this Agreement"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, Company hereby grants to MA the right to advertise, market and sell to corporate users, government agenci"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company hereby grants MA, during the term of this Agreement, the right to use Company and/or Company trade names, trademarks or service marks on Technology or i"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "MA is authorized to resell Technology within the following territory according to the terms of the Agreement: Worldwide"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "MA shall keep accurate records of the sales of the Technology and Maintenance, including Client Registration Cards and shall make these records available for re"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company's liability shall not exceed the fees that MA has paid under this Agreement."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "IN NO EVENT SHALL COMPANY BE LIABLE TO \"MA\", ITS CLIENTS, OR ANY THIRD PARTY FOR ANY TORT OR CONTRACT DAMAGES OR INDIRECT, SPECIAL, GENERAL, INCIDENTAL OR CONSE"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "COMPANY'S SOLE AND EXCLUSIVE LIABILITY FOR THE WARRANTY PROVIDED IN SUBPARAGRAH (A) HEREOF SHALL BE TO CORRECT THE TECHNOLOGY TO OPERATE IN SUBSTANTIAL ACCORDAN"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Company is not liable for incidental, special or consequential damages for any reason (including loss of data or other business or property damage), even if for"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The foregoing states the entire liability of Company with respect to infringement of intellectual property rights."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    }
+  ]
+}

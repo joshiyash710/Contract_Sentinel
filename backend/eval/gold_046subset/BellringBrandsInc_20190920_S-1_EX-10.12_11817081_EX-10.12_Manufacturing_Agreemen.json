@@ -1,0 +1,156 @@
+{
+  "document": "eval/corpus/BellringBrandsInc_20190920_S-1_EX-10.12_11817081_EX-10.12_Manufacturing Agreement1.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The term of this Agreement will commence on the Commencement Date and will continue through December 31, 2022 or until this Agreement is otherwise terminated in"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall commence on the Effective Date and shall terminate automatically without notice on December 31, 2022, unless the Parties agree in writing t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "All matters relating to this Agreement, the rights of the Parties hereunder and the construction of the terms hereof shall be governed by the laws of the State "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement is not assignable or transferable by either Party, in whole or in part, without the prior written consent of the other Party; provided, however t"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If the vendor's minimum order quantity for a particular material exceeds a [***] supply, then Heritage shall obtain permission from Premier to order such quanti"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "If the final production quantity for any accepted PO is less than [***] of the PO quantity ordered, or if the quantity of production released for shipment withi"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "During the Term of this Agreement, Premier shall be required to purchase a Minimum Annual Order Volume (\"MAOV\") of [***] (\"Units\") for each twelve-month period "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In addition, Premier shall purchase all Products and ingredients, packaging and material Heritage has on hand and not previously billed to Premier at the time o"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "post_termination_services",
+      "note": "Post-Termination Services"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon reasonable notice, and during normal operating hours, Heritage shall permit Premier or its representatives reasonable access to portions of the Heritage Fa"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Premier, shall have the right, directly or through its representative, to inspect, copy, and audit all such records upon reasonable request and during normal bu"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Upon reasonable notice, Heritage shall allow, and Heritage shall ensure that Japer allows, Premier access to such records during normal working hours."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "audit_rights",
+      "note": "Audit Rights"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Said certificate of insurance shall require Heritage's and Jasper's insurance carrier to give Premier [***] written notice of any cancellation or change in cove"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Heritage and Jasper shall maintain insurance of the following kinds and in the following amounts during the Term of this Agreement: i. Commercial General Liabil"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Premier shall remain as an additional insured on the Heritage's policies, for [***]."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "iii. Workers' Compensation Coverage plus Occupational Disease Insurance if Occupational Disease coverage is required by the laws of the state where the Facility"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "insurance",
+      "note": "Insurance"
+    }
+  ]
+}

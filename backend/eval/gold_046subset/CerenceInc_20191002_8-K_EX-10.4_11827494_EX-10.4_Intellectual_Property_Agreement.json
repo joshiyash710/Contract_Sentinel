@@ -1,0 +1,166 @@
+{
+  "document": "eval/corpus/CerenceInc_20191002_8-K_EX-10.4_11827494_EX-10.4_Intellectual Property Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement may be executed in one or more counterparts, all of which counterparts shall be considered one and the same agreement, and shall become effective"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "effective_date",
+      "note": "Effective Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any disputes relating to, arising out of or resulting from this Agreement, including to its execution, performance, or enforcement, shall be governed by, and co"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement may be terminated by Nuance at any time, in its sole discretion, prior to the Distribution; provided, however, that this Agreement shall automati"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "termination_for_convenience",
+      "note": "Termination For Convenience"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the foregoing, if any Party to this Agreement (or any of its successors or permitted assigns) (a) shall enter into a consolidation or merger tra"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "change_of_control",
+      "note": "Change Of Control"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any purported assignment without such consent shall be void."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Except as expressly set forth in this Agreement, neither this Agreement nor any of the rights, interests or obligations under this Agreement, including the lice"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In order to carry out the intent of the Parties with respect to the recordation of the transfers of any registrations or applications of Nuance IP or SpinCo IP,"
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "shall retain those licenses granted to it under this Agreement, provided that the license shall be limited to the business, products or services (as applicable)"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, as of the Distribution Date, Nuance hereby grants to SpinCo and the members of the SpinCo Group a worldwi"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, as of the Distribution Date, SpinCo hereby grants to Nuance and the members of the Nuance Group a worldwi"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "In the event a Party divests a line of business or line of products or services by (a) spinning off a member of its Group by its sale or other disposition to a "
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The licenses granted in Sections 4.01(a), (b) and (c) to the Nuance Group include the right to grant sublicenses within the scope of such licenses only to membe"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "non_transferable_license",
+      "note": "Non-Transferable License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Notwithstanding the forgoing, subject to Section 4.02(b) and ARTICLE VI, members of the Nuance Group may only sublicense the SpinCo Shared Technology Assets pur"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "non_transferable_license",
+      "note": "Non-Transferable License"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without limiting the terms set forth in Section 6.09 of the Separation Agreement, none of Nuance, SpinCo or any other member of either Group shall in any event "
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "cap_on_liability",
+      "note": "Cap On Liability"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "SpinCo agrees that it will not (i) oppose, challenge, petition to cancel, contest or threaten in any way, or assist another party in opposing, challenging, peti"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Nuance agrees that it will not (i) oppose, challenge, petition to cancel, contest or threaten in any way, or assist another party in opposing, challenging, peti"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}

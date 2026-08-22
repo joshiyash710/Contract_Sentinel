@@ -1,0 +1,156 @@
+{
+  "document": "eval/corpus/ArmstrongFlooringInc_20190107_8-K_EX-10.2_11471795_EX-10.2_Intellectual Property Agreement.pdf",
+  "notes": "CANDIDATE labels auto-selected from CUAD expert annotations via a heuristic risk mapping (feature 041). NOT independently lawyer-confirmed — a human reviewer must confirm/correct should_flag and expected_severity before these numbers are treated as authoritative.",
+  "clauses": [
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Unless earlier terminated pursuant to the provisions hereof, the term of this Agreement and the licenses and other grants of rights (and related obligations) un"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "expiration_date",
+      "note": "Expiration Date"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "This Agreement shall be governed by the laws of the State of Delaware, its rules of conflict of laws notwithstanding."
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "governing_law",
+      "note": "Governing Law"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "The Company shall not tarnish or bring into disrepute the reputation of or goodwill associated with the Seller Licensed Trademarks or Arizona."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "non_disparagement",
+      "note": "Non-Disparagement"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Any assignment or other disposition in violation of the preceding sentence shall be void."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Except as otherwise provided in this Agreement, including under Section 7.1, neither this Agreement nor any of the rights, interests or obligations of any Party"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "anti_assignment",
+      "note": "Anti-Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Logo Size: The minimum logo size is 1\" or 25mm. In digital formats, the minimum width is 100 pixels at 72 dpi."
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "minimum_commitment",
+      "note": "Minimum Commitment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Arizona agrees to assign and hereby assigns its entire right, title and interest in and to the Arizona Assigned IP to the Company."
+      },
+      "should_flag": true,
+      "expected_severity": "high",
+      "clause_type": "ip_ownership_assignment",
+      "note": "Ip Ownership Assignment"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, Arizona hereby grants to the Company a perpetual, non- exclusive, royalty-free license in, to and under t"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, the license set forth in Section 6.1 shall include the right of the Company to use the Arizona Domain Nam"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, Arizona hereby grants to the Company a limited, non- exclusive, royalty-free, non-sublicensable (except a"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, the Company hereby grants to Seller a perpetual, non- exclusive, royalty-free license in, to and under th"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, Arizona hereby grants to the Company a perpetual, non-exclusive, royalty-free license in, to and under th"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Subject to the terms and conditions of this Agreement, the Company hereby grants to Seller a perpetual, non-exclusive, royalty-free license in, to and under the"
+      },
+      "should_flag": false,
+      "expected_severity": null,
+      "clause_type": "license_grant",
+      "note": "License Grant"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without limitation to the foregoing, Arizona shall not file applications to register any Company Licensed IP or assist any person in doing the same, or contest,"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    },
+    {
+      "locator": {
+        "section_number": null,
+        "text_snippet": "Without limitation to the foregoing, the Company shall not file applications to register any Arizona Licensed IP or assist any person in doing the same, or cont"
+      },
+      "should_flag": true,
+      "expected_severity": "medium",
+      "clause_type": "covenant_not_to_sue",
+      "note": "Covenant Not To Sue"
+    }
+  ]
+}
