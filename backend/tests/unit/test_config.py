@@ -90,11 +90,12 @@ def test_clause_splitter_lever_f_constants_correct_types():
 
 
 def test_clause_splitter_tolerant_grouping_flag_is_bool():
-    """Feature 047 (§3): tolerant-grouping toggle default True, bool type (AC-5)."""
+    """Feature 047 (§3): tolerant-grouping toggle, bool type (AC-5). Shipped default False after AC-10
+    (no measured recall gain; mechanism proven but target case token-capped) — see 047 RESULTS.md."""
     from app import config
 
     assert isinstance(config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING, bool)
-    assert config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING is True
+    assert config.CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING is False
 
 
 def test_ollama_sampling_constants_match_spec():

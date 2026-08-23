@@ -191,12 +191,17 @@ CLAUSE_SPLITTER_LLM_NUM_PREDICT: int = 4096
 # large-doc index-only grouping output (and, on Groq reasoning models, shared reasoning tokens) is not
 # truncated; index-only JSON stays compact so the higher cap is cheap.
 
-CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING: bool = True
-# §3 feature 047: when True (default), the grouping-mode parser applies the model's VALID partial output
-# — its merges + clause_type — and fills any un-referenced/out-of-range/duplicate index with a passthrough
-# regex singleton, instead of discarding the whole response on a non-exact partition. Reviving the
-# model's clause_type on large docs re-arms the 027 recall floor. False ⇒ byte-for-byte today's strict
-# exact-partition behavior (a non-partition response → ValueError → regex fallback).
+CLAUSE_SPLITTER_LLM_TOLERANT_GROUPING: bool = False
+# §3 feature 047. When True, the grouping-mode parser applies the model's VALID partial output — its
+# merges + clause_type — and fills any un-referenced/out-of-range/duplicate index with a passthrough
+# regex singleton, instead of discarding the whole response on a non-exact partition; reviving the
+# model's clause_type on large docs re-arms the 027 recall floor. False (default) ⇒ byte-for-byte the
+# strict exact-partition behavior (a non-partition response → ValueError → regex fallback).
+# SHIPPED DEFAULT False (AC-10, specs/047-.../RESULTS.md): the mechanism is proven (probe: gpt-oss types
+# floor-types correctly on partial groupings) but NO end-to-end recall gain was measurable — the target
+# case (gpt-oss partial partitions on large docs) is starved by Groq's 200K-tok/day cap, and the local
+# qwen3:4b A/B produced exact partitions (tolerant = strict, no delta). 042 gate unmet → ship OFF,
+# reversible; flip True once a gpt-oss large-doc run confirms the recall gain.
 
 # ── CRAG thresholds ───────────────────────────────────────────────────────────
 # Source: specs/005-crag-retrieval/spec.md §6
