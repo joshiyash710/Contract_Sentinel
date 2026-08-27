@@ -1,0 +1,23 @@
+# Keep the build context small + never bake secrets/data/venv into the image.
+.venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets + local data — MUST NOT be copied into the image (passed at runtime via --env-file / volume).
+.env
+.env.*
+!.env.example
+data/
+
+# Tests, eval harness, and dev-only assets are not needed in the prod image.
+tests/
+eval/
+scripts/
+
+# VCS / editor noise
+.git/
+.gitignore
+*.md

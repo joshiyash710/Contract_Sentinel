@@ -1,0 +1,6 @@
+# Force LF for files that MUST have Unix line endings when checked out on any platform.
+# A shell script or Docker entrypoint with CRLF fails on Linux ("/usr/bin/env sh\r: not found").
+*.sh            text eol=lf
+docker-entrypoint.sh text eol=lf
+Dockerfile      text eol=lf
+*.dockerignore  text eol=lf
