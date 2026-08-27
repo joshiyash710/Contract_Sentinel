@@ -700,3 +700,37 @@ def test_validate_samesite_secure_guard():
         c._validate_samesite_secure("none", secure=False)
     assert c._validate_samesite_secure("none", secure=True) is None
     assert c._validate_samesite_secure("lax", secure=False) is None
+
+
+# ── Feature 049: prod URL config (env-overridable OAuth redirect + frontend URL) ──
+# Helpers tested directly (no importlib.reload) — same precedent as 048 above.
+
+
+def test_env_str_reads_override(monkeypatch):
+    """AC-3/AC-4: a set, non-blank env value is returned (trimmed)."""
+    from app import config as c
+    monkeypatch.setenv("CS_TEST_REDIRECT", "https://api.example.com/api/integrations/google/callback")
+    assert (
+        c._env_str("CS_TEST_REDIRECT", "x")
+        == "https://api.example.com/api/integrations/google/callback"
+    )
+    monkeypatch.setenv("CS_TEST_FRONT", "  https://app.example.com/integrations  ")
+    assert c._env_str("CS_TEST_FRONT", "x") == "https://app.example.com/integrations"
+
+
+def test_env_str_blank_or_unset_falls_back(monkeypatch):
+    """Edge: unset / empty / whitespace-only env ⇒ the default (never an empty URL)."""
+    from app import config as c
+    monkeypatch.delenv("CS_TEST_UNSET", raising=False)
+    assert c._env_str("CS_TEST_UNSET", "def") == "def"
+    monkeypatch.setenv("CS_TEST_UNSET", "")
+    assert c._env_str("CS_TEST_UNSET", "def") == "def"
+    monkeypatch.setenv("CS_TEST_UNSET", "   ")
+    assert c._env_str("CS_TEST_UNSET", "def") == "def"
+
+
+def test_prod_url_defaults_byte_identical():
+    """AC-1/AC-2: unset env ⇒ the pre-049 localhost defaults (031 tests also pin these)."""
+    from app import config as c
+    assert c.GOOGLE_OAUTH_REDIRECT_URI == "http://localhost:8000/api/integrations/google/callback"
+    assert c.FRONTEND_INTEGRATIONS_URL == "http://localhost:3000/integrations"

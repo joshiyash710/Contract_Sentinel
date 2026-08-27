@@ -38,6 +38,15 @@ def _env_int(name: str, default: int) -> int:
     except ValueError:
         return default
 
+
+def _env_str(name: str, default: str) -> str:
+    """Read a string env override (feature 049); falls back to default on unset/blank, else trims.
+    Companion to _env_bool/_env_int for prod URL config (OAuth redirect, frontend URLs)."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip()
+
 # ── IngestAgent thresholds ─────────────────────────────────────────────────────
 # Source: specs/003-ingest-agent/spec.md §6
 MIN_TEXT_LENGTH_THRESHOLD: int = 50  # chars; below → force OCR
@@ -528,9 +537,12 @@ PER_USER_DRIVE_ENABLED: bool = True
 # Master toggle. False → delivery ignores per-user tokens and uses the central token
 # (pre-031 behavior); fully reversible.
 
-GOOGLE_OAUTH_REDIRECT_URI: str = "http://localhost:8000/api/integrations/google/callback"
+GOOGLE_OAUTH_REDIRECT_URI: str = _env_str(
+    "GOOGLE_OAUTH_REDIRECT_URI", "http://localhost:8000/api/integrations/google/callback"
+)
 # The web OAuth callback (backend, spec §6 Q1/Q2). Must match the authorized redirect URI
 # registered on the Web OAuth client in GCP Console. Prod needs its own registered URI.
+# Feature 049: env-overridable — set to https://api.<domain>/api/integrations/google/callback in prod.
 
 GOOGLE_DRIVE_OAUTH_SCOPES: tuple = ("https://www.googleapis.com/auth/drive.file",)
 # Per-user connect scope: create/manage only app-created files in the user's own Drive.
@@ -539,8 +551,11 @@ GOOGLE_OAUTH_WEB_CREDENTIALS_PATH: str = "data/secrets/google_web_credentials.js
 # Web-application OAuth client secrets (distinct from the central desktop client above).
 # git-ignored; the owner registers the client + redirect URI in GCP Console.
 
-FRONTEND_INTEGRATIONS_URL: str = "http://localhost:3000/integrations"
+FRONTEND_INTEGRATIONS_URL: str = _env_str(
+    "FRONTEND_INTEGRATIONS_URL", "http://localhost:3000/integrations"
+)
 # Where the OAuth callback 302-redirects the browser after connect/disconnect.
+# Feature 049: env-overridable — set to the deployed frontend /integrations page in prod.
 
 # ── Runner / API layer ─────────────────────────────────────────────────────────
 # Source: specs/011-pipeline-runner-api/spec.md §6.1

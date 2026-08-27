@@ -177,7 +177,12 @@ use a free hostname (e.g. DuckDNS) pointed at the VM IP, or Cloudflare's free pr
 - **Public path (later):** submitting for **Production** verification (Gmail/Drive scopes) can take
   **days to weeks** of Google review. Only do this when you actually need >100 users.
 - Set the **authorized redirect URI** to your deployed backend's callback
-  (`https://api.yourdomain.com/...oauth/callback`) and update the OAuth client accordingly.
+  (`https://api.yourdomain.com/api/integrations/google/callback`) and update the OAuth client
+  accordingly. **The backend must be told the same value** via `GOOGLE_OAUTH_REDIRECT_URI` (feature 049)
+  — it must match the GCP-registered URI exactly or Google rejects the callback.
+- Set **`FRONTEND_INTEGRATIONS_URL`** to your deployed frontend's integrations page
+  (`https://<app>.vercel.app/integrations`) — the post-connect 302 lands there; left at the localhost
+  default the user is bounced to a dead `localhost:3000` after connecting (feature 049).
 - Set `OAUTHLIB_RELAX_TOKEN_SCOPE=1` if you hit scope-mismatch errors (known gotcha).
 
 ---
@@ -208,6 +213,8 @@ use a free hostname (e.g. DuckDNS) pointed at the VM IP, or Cloudflare's free pr
 | `LLM_PROVIDER` | backend | `groq` in prod, `ollama` local |
 | `GROQ_API_KEY` | backend | from console.groq.com |
 | `GROQ_MODEL` | backend | `openai/gpt-oss-120b` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | backend | prod: `https://api.<domain>/api/integrations/google/callback` — must exactly match the URI registered on the GCP Web OAuth client (feature 049) |
+| `FRONTEND_INTEGRATIONS_URL` | backend | prod: `https://<app>.vercel.app/integrations` — where OAuth connect/disconnect 302-redirects the browser (feature 049) |
 | `OLLAMA_HOST` | backend | `http://127.0.0.1:11434` (local bge-m3) |
 | `OLLAMA_EMBED_MODEL_NAME` | backend | `bge-m3` |
 | `NEXT_PUBLIC_API_PROVIDER` | frontend | `real` |
