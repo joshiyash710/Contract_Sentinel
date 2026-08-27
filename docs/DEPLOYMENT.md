@@ -157,9 +157,15 @@ use a free hostname (e.g. DuckDNS) pointed at the VM IP, or Cloudflare's free pr
    - `NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com` (your backend's public HTTPS URL)
 3. Deploy. You get a free `*.vercel.app` / `*.pages.dev` URL (or attach a custom domain later).
 4. **Wire CORS + cookies (critical):**
-   - Backend `CORS` must allow the exact frontend origin **with credentials**.
-   - Auth cookies are `Secure` + cross-site → set `SameSite=None; Secure` (only works over HTTPS, which
-     you now have). Confirm login persists across the frontend→backend boundary.
+   - Backend `CORS` must allow the exact frontend origin **with credentials** — set
+     `CORS_ALLOWED_ORIGINS=https://<app>.vercel.app` (comma-separated for several; feature 048).
+   - Auth cookies are `Secure` + cross-site → set **`AUTH_COOKIE_SAMESITE=none`** (with
+     `AUTH_COOKIE_SECURE=True`, which you have over HTTPS). This is the switch that makes the session
+     cookie actually stick across the frontend→backend boundary; without it the browser silently drops
+     it and login won't persist. If instead you put frontend + backend on subdomains of one registrable
+     domain (e.g. `app.` + `api.yourdomain.com`), the default `lax` suffices — leave `AUTH_COOKIE_SAMESITE`
+     unset. Note: the config **refuses to boot** if `AUTH_COOKIE_SAMESITE=none` without
+     `AUTH_COOKIE_SECURE=True` (browsers reject that combination).
 
 ---
 
@@ -197,6 +203,8 @@ use a free hostname (e.g. DuckDNS) pointed at the VM IP, or Cloudflare's free pr
 | `AUTH_SECRET` | backend | 64+ random bytes; secret manager |
 | Fernet key(s) | backend | contract/token encryption; NEVER commit |
 | `AUTH_COOKIE_SECURE` | backend | `True` in prod (needs TLS) |
+| `CORS_ALLOWED_ORIGINS` | backend | comma-separated; the exact deployed frontend origin(s), e.g. `https://<app>.vercel.app` (unset ⇒ localhost dev default) |
+| `AUTH_COOKIE_SAMESITE` | backend | `none` for a cross-site `*.vercel.app`↔VM deploy (**requires `AUTH_COOKIE_SECURE=True`**); `lax` (default) if frontend+backend share a registrable domain |
 | `LLM_PROVIDER` | backend | `groq` in prod, `ollama` local |
 | `GROQ_API_KEY` | backend | from console.groq.com |
 | `GROQ_MODEL` | backend | `openai/gpt-oss-120b` |

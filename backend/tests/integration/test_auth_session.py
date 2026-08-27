@@ -38,6 +38,23 @@ def test_cookie_no_secure_flag_when_disabled(client):
     assert "httponly" in sc and "secure" not in sc
 
 
+def test_cookie_samesite_none_cross_site_set_and_clear(client, monkeypatch):
+    """Feature 048 / AC-6: with AUTH_COOKIE_SAMESITE=none (+Secure) the session cookie is written
+    AND cleared as SameSite=None; Secure — the cross-site (Vercel↔VM) configuration. Both the login
+    Set-Cookie and the logout clear Set-Cookie must carry samesite=none + secure, or the browser
+    won't attach the cookie cross-site (login) / won't remove it (logout)."""
+    import app.config as _c
+
+    monkeypatch.setattr(_c, "AUTH_COOKIE_SECURE", True)
+    monkeypatch.setattr(_c, "AUTH_COOKIE_SAMESITE", "none")
+
+    set_sc = _login(client).headers.get("set-cookie", "").lower()
+    assert "samesite=none" in set_sc and "secure" in set_sc and "httponly" in set_sc
+
+    clear_sc = client.post("/api/auth/logout").headers.get("set-cookie", "").lower()
+    assert "samesite=none" in clear_sc and "secure" in clear_sc
+
+
 # ── AC-8 / AC-9: absolute cap + sliding idle ─────────────────────────────────
 
 

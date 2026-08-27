@@ -264,7 +264,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
         key=_cfg.AUTH_COOKIE_NAME,
         value=token,
         httponly=True,
-        samesite="lax",
+        samesite=_cfg.AUTH_COOKIE_SAMESITE,  # 048: "none" for cross-site deploy; default "lax"
         secure=_cfg.AUTH_COOKIE_SECURE,
         max_age=_cfg.AUTH_SESSION_TTL_SECONDS,
         path="/",
@@ -278,7 +278,8 @@ def _clear_session_cookie(response: Response) -> None:
         key=_cfg.AUTH_COOKIE_NAME,
         path="/",
         httponly=True,
-        samesite="lax",
+        samesite=_cfg.AUTH_COOKIE_SAMESITE,  # 048: match the set-cookie policy
+        secure=_cfg.AUTH_COOKIE_SECURE,  # 048: a Secure cookie can only be cleared by a Secure delete
     )
 
 

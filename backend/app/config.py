@@ -590,12 +590,30 @@ STARTUP_RECOVERY_ENABLED: bool = True
 JOB_REGISTRY_MAX: int = JOB_STORE_RETENTION_MAX
 # 011 alias — keep so no existing call site breaks; new code reads JOB_STORE_RETENTION_MAX.
 
-CORS_ALLOWED_ORIGINS: tuple = (
+_DEFAULT_CORS_ALLOWED_ORIGINS = (
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 )
+
+
+def _env_origin_tuple(name: str, default: tuple) -> tuple:
+    """Feature 048: comma-separated CORS origin allowlist from env; trims each, drops empties.
+    If the env var is unset OR parses to zero non-empty origins, return `default` — never an empty
+    allowlist (an empty tuple would reject every browser origin, breaking the app)."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    parsed = tuple(p.strip() for p in raw.split(",") if p.strip())
+    return parsed if parsed else default
+
+
+CORS_ALLOWED_ORIGINS: tuple = _env_origin_tuple(
+    "CORS_ALLOWED_ORIGINS", _DEFAULT_CORS_ALLOWED_ORIGINS
+)
 # Browser origins granted CORS (spec D7). Default = the Vite dev-server origins the future
 # frontend/ runs on; a cross-origin EventSource/fetch fails without this even on localhost.
+# Feature 048: env-overridable (comma-separated) so a cross-origin deploy (e.g. the Vercel frontend
+# origin) can be granted CORS without a code change; unset ⇒ the localhost default above.
 
 API_BIND_HOST: str = "127.0.0.1"
 API_BIND_PORT: int = 8000
@@ -683,6 +701,32 @@ AUTH_SECRET_FILE: str = (
 AUTH_COOKIE_SECURE: bool = _env_bool("AUTH_COOKIE_SECURE", True)
 # 032: default True (was False). A Secure cookie is dropped by browsers over plain HTTP, so this
 # REQUIRES TLS in front of the app. For local plaintext-HTTP dev set AUTH_COOKIE_SECURE=False (EC-10).
+
+# Feature 048: cross-origin cookie SameSite — env-overridable. Default "lax" = byte-identical to
+# pre-048. Set "none" for a cross-site frontend↔backend deploy (e.g. *.vercel.app ↔ VM); the browser
+# only attaches a cross-site cookie when it is SameSite=None (and requires Secure with it).
+_ALLOWED_SAMESITE = ("lax", "strict", "none")
+
+
+def _env_samesite(name: str, default: str = "lax") -> str:
+    """Read the cookie SameSite policy from env; unrecognized ⇒ safe default (lax)."""
+    val = os.getenv(name, default).strip().lower()
+    return val if val in _ALLOWED_SAMESITE else default
+
+
+def _validate_samesite_secure(samesite: str, secure: bool) -> None:
+    """Feature 048 safety invariant (spec G4/AC-7): a SameSite=None cookie is dropped by browsers
+    unless it is also Secure. Fail loudly at boot rather than ship a login cookie the browser
+    silently discards. Named function so it is testable directly (no config reload)."""
+    if samesite == "none" and not secure:
+        raise ValueError(
+            "AUTH_COOKIE_SAMESITE=none requires AUTH_COOKIE_SECURE=True "
+            "(browsers drop a SameSite=None cookie without the Secure attribute)."
+        )
+
+
+AUTH_COOKIE_SAMESITE: str = _env_samesite("AUTH_COOKIE_SAMESITE", "lax")
+_validate_samesite_secure(AUTH_COOKIE_SAMESITE, AUTH_COOKIE_SECURE)  # boot-time guard
 AUTH_SESSION_TTL_SECONDS: int = _env_int("AUTH_SESSION_TTL_SECONDS", 8 * 3600)
 # 032: absolute session lifetime cap = 8h (was 7 days). Max a session can live regardless of activity.
 AUTH_IDLE_TIMEOUT_SECONDS: int = _env_int("AUTH_IDLE_TIMEOUT_SECONDS", 30 * 60)

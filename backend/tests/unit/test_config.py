@@ -633,3 +633,70 @@ def test_per_user_drive_031_constants_types():
     assert isinstance(c.GOOGLE_DRIVE_OAUTH_SCOPES, tuple)
     assert isinstance(c.GOOGLE_OAUTH_WEB_CREDENTIALS_PATH, str)
     assert isinstance(c.FRONTEND_INTEGRATIONS_URL, str)
+
+
+# ── Feature 048: cross-origin deploy config (env-overridable CORS + cookie SameSite) ──
+# Tests exercise the named helpers directly (no importlib.reload) — see plan §5.
+
+
+def test_cors_allowed_origins_default_unchanged():
+    """AC-1: with no env override, defaults are byte-identical to pre-048 localhost tuple."""
+    from app import config as c
+    assert c.CORS_ALLOWED_ORIGINS == (
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    )
+
+
+def test_env_origin_tuple_parses_csv(monkeypatch):
+    """AC-2: comma-separated env → trimmed, order-preserved tuple."""
+    from app import config as c
+    monkeypatch.setenv("CS_TEST_ORIGINS", "https://cs.vercel.app, https://foo.dev")
+    assert c._env_origin_tuple("CS_TEST_ORIGINS", ("x",)) == (
+        "https://cs.vercel.app",
+        "https://foo.dev",
+    )
+
+
+def test_env_origin_tuple_blank_falls_back_to_default(monkeypatch):
+    """Edge (reviewer ambiguity): unset / empty / comma-only env → the default tuple, never empty."""
+    from app import config as c
+    default = ("http://localhost:5173",)
+    monkeypatch.delenv("CS_TEST_ORIGINS", raising=False)
+    assert c._env_origin_tuple("CS_TEST_ORIGINS", default) == default
+    monkeypatch.setenv("CS_TEST_ORIGINS", "")
+    assert c._env_origin_tuple("CS_TEST_ORIGINS", default) == default
+    monkeypatch.setenv("CS_TEST_ORIGINS", " , ,")
+    assert c._env_origin_tuple("CS_TEST_ORIGINS", default) == default
+
+
+def test_auth_cookie_samesite_default_is_lax():
+    """AC-3: default SameSite unchanged from today."""
+    from app import config as c
+    assert c.AUTH_COOKIE_SAMESITE == "lax"
+
+
+def test_env_samesite_normalizes_none(monkeypatch):
+    """AC-4: any-case 'None' → normalized 'none'."""
+    from app import config as c
+    monkeypatch.setenv("CS_TEST_SS", "None")
+    assert c._env_samesite("CS_TEST_SS", "lax") == "none"
+
+
+def test_env_samesite_invalid_falls_back_to_default(monkeypatch):
+    """AC-5: unrecognized / whitespace-only value → safe default (lax)."""
+    from app import config as c
+    monkeypatch.setenv("CS_TEST_SS", "bogus")
+    assert c._env_samesite("CS_TEST_SS", "lax") == "lax"
+    monkeypatch.setenv("CS_TEST_SS", "   ")
+    assert c._env_samesite("CS_TEST_SS", "lax") == "lax"
+
+
+def test_validate_samesite_secure_guard():
+    """AC-7: SameSite=none without Secure raises, naming both vars; valid combos do not raise."""
+    import pytest
+    from app import config as c
+    with pytest.raises(ValueError, match="AUTH_COOKIE_SAMESITE.*AUTH_COOKIE_SECURE"):
+        c._validate_samesite_secure("none", secure=False)
+    assert c._validate_samesite_secure("none", secure=True) is None
+    assert c._validate_samesite_secure("lax", secure=False) is None
