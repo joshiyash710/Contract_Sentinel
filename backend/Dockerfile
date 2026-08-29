@@ -36,6 +36,9 @@ RUN uv sync --frozen --no-dev --no-install-project
 COPY app ./app
 COPY alembic ./alembic
 COPY alembic.ini ./
+# Feature 053: ship the prebuilt FAISS KB index so CRAG local retrieval works in prod (else all-web
+# fallback). data/kb/ is git-tracked; rebuild it via HF (050 AC-10) before the image build for prod.
+COPY data/kb ./data/kb
 COPY docker-entrypoint.sh ./
 RUN uv sync --frozen --no-dev \
     && chmod +x docker-entrypoint.sh

@@ -1,0 +1,47 @@
+# Render Blueprint — ContractSentinel API ($0 Render + Turso deploy, feature 053).
+# Turso is the database (no Render Postgres). Secrets are `sync: false` — set them in the Render
+# dashboard; NEVER commit values. AUTH_SECRET + CONTRACTSENTINEL_ENCRYPTION_KEY MUST be pinned (a
+# restart otherwise regenerates them → sessions invalid + Turso-stored ciphertext undecryptable).
+# See docs/DEPLOYMENT.md for the full runbook + go-live checklist.
+services:
+  - type: web
+    name: contractsentinel-api
+    runtime: docker
+    rootDir: backend            # build context = backend/ (Dockerfile COPYs are backend-relative)
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    plan: free
+    envVars:
+      # ── non-secret config (inline) ──
+      - key: LLM_PROVIDER
+        value: groq
+      - key: EMBED_PROVIDER
+        value: hf
+      - key: GROQ_MODEL
+        value: openai/gpt-oss-120b
+      - key: HF_EMBED_MODEL
+        value: BAAI/bge-m3
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: AUTH_COOKIE_SAMESITE
+        value: none
+      # ── environment-specific (set in dashboard: your Vercel origin + OAuth/frontend URLs) ──
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: GOOGLE_OAUTH_REDIRECT_URI
+        sync: false
+      - key: FRONTEND_INTEGRATIONS_URL
+        sync: false
+      # ── secrets (dashboard-set; never committed) ──
+      - key: AUTH_SECRET
+        sync: false
+      - key: CONTRACTSENTINEL_ENCRYPTION_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: HF_API_TOKEN
+        sync: false
+      - key: TURSO_DATABASE_URL
+        sync: false
+      - key: TURSO_AUTH_TOKEN
+        sync: false

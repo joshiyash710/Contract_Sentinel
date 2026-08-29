@@ -62,6 +62,7 @@ async def lifespan(application: FastAPI):
     constants in tests affects the lifespan-created objects.
     """
     loop = asyncio.get_running_loop()
+    _cfg.validate_prod_config()  # feature 053: fail-fast on deploy misconfig (no-op in local dev)
     bootstrap_secret()
     bootstrap_encryption_key()  # feature 032 (W1): fail-fast / pre-generate the at-rest key
     upgrade_to_head(_cfg.JOB_STORE_DB_PATH)

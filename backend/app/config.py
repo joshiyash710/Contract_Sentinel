@@ -8,10 +8,13 @@ specs/000-constitution.md §3 (Configurable Thresholds Rule).
 Future nodes (CRAG, Self-RAG, etc.) will add their own constants here.
 """
 
+import logging
 import os
 from typing import Optional
 
 from dotenv import load_dotenv
+
+_log = logging.getLogger("contractsentinel.config")
 
 # Feature 046: load backend/.env (GROQ_API_KEY etc.) BEFORE any os.getenv read below. Idempotent;
 # no-op if .env is absent. Real process env vars still take precedence (load_dotenv does not override).
@@ -809,3 +812,30 @@ AUTH_RESET_EMAIL_COOLDOWN_SECONDS: int = _env_int("AUTH_RESET_EMAIL_COOLDOWN_SEC
 # Per-email: at most one reset email per COOLDOWN seconds (mailbomb protection, AC-7).
 FRONTEND_RESET_URL: str = os.getenv("FRONTEND_RESET_URL", "http://localhost:3000/reset")
 # Base URL of the frontend /reset page embedded in the emailed link; env-overridable for non-dev deploys.
+
+
+# ── Startup prod-config guard (feature 053) ──────────────────────────────────────
+def validate_prod_config() -> None:
+    """Fail-fast on the most common deploy misconfig; never echo a secret value.
+
+    Called first in the API lifespan (app/api/main.py) so a misconfigured deploy stops immediately with
+    one clear message instead of failing lazily at first use. Reads module-level config live (tests
+    monkeypatch app.config.<NAME>). Default local dev (ollama/ollama, no Turso) is a no-op.
+    """
+    errs = []
+    if EMBED_PROVIDER == "hf" and not HF_API_TOKEN:
+        errs.append("EMBED_PROVIDER=hf but HF_API_TOKEN is empty")
+    if LLM_PROVIDER == "groq" and not GROQ_API_KEY:
+        errs.append("LLM_PROVIDER=groq but GROQ_API_KEY is empty")
+    if TURSO_DATABASE_URL and not TURSO_AUTH_TOKEN:
+        errs.append("TURSO_DATABASE_URL is set but TURSO_AUTH_TOKEN is empty")
+    if errs:
+        raise RuntimeError(
+            "Invalid production config (values intentionally not shown): " + "; ".join(errs)
+        )
+    if TURSO_DATABASE_URL and not os.environ.get(ENCRYPTION_KEY_ENV):
+        _log.warning(
+            "TURSO_DATABASE_URL is set but %s is not pinned via env — a restart regenerates the "
+            "at-rest key and makes stored ciphertext undecryptable. Pin it in the deploy env.",
+            ENCRYPTION_KEY_ENV,
+        )
