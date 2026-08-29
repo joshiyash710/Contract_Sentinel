@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Callable, List, Optional
 
 import app.config as _cfg
+from app import blob_store
 from app.runner.models import (
     ClauseRiskHeatmap,
     ClauseTypeRisk,
@@ -60,11 +61,11 @@ def read_report_data(report_path: Optional[str]) -> Optional[ReportData]:
     (EC-3/EC-10) — logged, never raised."""
     if not report_path:
         return None
-    json_path = Path(report_path).with_suffix(".json")
+    json_key = str(Path(report_path).with_suffix(".json"))
     try:
-        if not json_path.exists():
+        if not blob_store.exists(json_key):  # feature 052: disk (default) or Turso BLOB
             return None
-        data = json.loads(json_path.read_text(encoding="utf-8"))
+        data = json.loads(blob_store.read(json_key).decode("utf-8"))
         summary = data.get("summary") or {}
         return ReportData(
             high=int(summary.get("high", 0)),
@@ -75,8 +76,8 @@ def read_report_data(report_path: Optional[str]) -> Optional[ReportData]:
             findings=list(data.get("findings") or []),
             analysis_degraded=bool(data.get("analysis_degraded", False)),
         )
-    except (OSError, ValueError, TypeError) as exc:
-        logger.warning("dashboard: could not read report %s: %s", json_path, exc)
+    except (OSError, ValueError, TypeError, blob_store.BlobNotFound) as exc:
+        logger.warning("dashboard: could not read report %s: %s", json_key, exc)
         return None
 
 

@@ -92,6 +92,26 @@ def test_writes_md_and_json_pair(tmp_path, monkeypatch):
     assert "1 finding" in md_text or "1 findings" in md_text or "findings" in md_text
 
 
+def test_writes_via_blob_store_json_first(tmp_path, monkeypatch):
+    """Feature 052 (AC-4): report_agent persists .json then .md via blob_store.write; report_path=.md key."""
+    import app.graph.nodes.report_agent as mod
+
+    monkeypatch.setattr(mod, "REPORT_OUTPUT_DIR", str(tmp_path))
+    writes = []
+    monkeypatch.setattr(mod.blob_store, "write", lambda key, data: writes.append((key, data)))
+
+    from app.graph.nodes.report_agent import report_agent
+
+    cid1, r1 = _validated_clause("c1", 1)
+    state = make_state(clauses=[(cid1, r1)])
+    result = report_agent(state)
+
+    keys = [w[0] for w in writes]
+    assert keys[0].endswith(".json") and keys[1].endswith(".md")  # JSON first (AC-19a)
+    assert result["report_path"] == keys[1]  # report_path is the .md key
+    assert all(isinstance(w[1], (bytes, bytearray)) for w in writes)
+
+
 def test_report_path_points_at_existing_nonempty_md(tmp_path, monkeypatch):
     """report_path → an existing, non-empty .md file (AC-10)."""
     import app.graph.nodes.report_agent as mod
@@ -311,7 +331,8 @@ def test_write_failure_emits_error_count(tmp_path, monkeypatch):
     cid1, r1 = _validated_clause("c1", 1)
     state = make_state(clauses=[(cid1, r1)])
 
-    with patch("pathlib.Path.write_text", side_effect=OSError("disk full")):
+    # feature 052: writes go through blob_store.write (was Path.write_text).
+    with patch.object(mod.blob_store, "write", side_effect=OSError("disk full")):
         result = report_agent(state)
 
     assert result["report_path"] is None
@@ -330,16 +351,16 @@ def test_partial_pair_failure_cleans_orphan_json(tmp_path, monkeypatch):
     state = make_state(document_id="doc-partial", clauses=[(cid1, r1)])
 
     json_written = []
-    original_write_text = Path.write_text
+    real_write = mod.blob_store.write
 
-    def selective_write(self, data, *args, **kwargs):
-        if self.suffix == ".json":
-            json_written.append(self)
-            original_write_text(self, data, *args, **kwargs)
-        elif self.suffix == ".md":
+    def selective_write(key, data):
+        if key.endswith(".json"):
+            json_written.append(Path(key))
+            real_write(key, data)  # disk backend → real file (so _cleanup_orphan can remove it)
+        else:
             raise OSError("md write failed")
 
-    with patch.object(Path, "write_text", selective_write):
+    with patch.object(mod.blob_store, "write", selective_write):
         result = report_agent(state)
 
     assert result["report_path"] is None
@@ -361,18 +382,16 @@ def test_json_written_before_markdown(tmp_path, monkeypatch):
     state = make_state(clauses=[(cid1, r1)])
 
     write_order = []
-    original_write_text = Path.write_text
+    real_write = mod.blob_store.write
 
-    def recording_write(self, data, *args, **kwargs):
-        write_order.append(self.suffix)
-        return original_write_text(self, data, *args, **kwargs)
+    def recording_write(key, data):
+        write_order.append(Path(key).suffix)
+        return real_write(key, data)
 
-    with patch.object(Path, "write_text", recording_write):
+    with patch.object(mod.blob_store, "write", recording_write):
         report_agent(state)
 
-    json_idx = next(i for i, s in enumerate(write_order) if s == ".json")
-    md_idx = next(i for i, s in enumerate(write_order) if s == ".md")
-    assert json_idx < md_idx, f"JSON ({json_idx}) must precede Markdown ({md_idx})"
+    assert write_order.index(".json") < write_order.index(".md")
 
 
 def test_write_failure_still_emits_trail(tmp_path, monkeypatch):

@@ -42,6 +42,26 @@ def test_download_json(client):
     assert isinstance(data, dict)
 
 
+def test_download_reads_via_blob_store(client, monkeypatch):
+    """Feature 052 (AC-5): the download serves report bytes via blob_store.read."""
+    import app.api.routes as routes
+
+    job_id = _submit(client)
+    _wait_for(client, job_id, "completed")
+
+    seen = {}
+    real_read = routes.blob_store.read
+
+    def spy(key):
+        seen["key"] = key
+        return real_read(key)
+
+    monkeypatch.setattr(routes.blob_store, "read", spy)
+    r = client.get(f"/api/jobs/{job_id}/report?format=md")
+    assert r.status_code == 200
+    assert seen["key"].endswith(".md")
+
+
 def test_report_before_ready_409(client, monkeypatch):
     """GET /report on a still-running job → 409 (AC-14)."""
     import app.runner.worker as worker_mod

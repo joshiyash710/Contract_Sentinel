@@ -24,10 +24,11 @@ _logger = logging.getLogger(__name__)
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 import app.config as _cfg
+from app import blob_store
 from app.api.auth import AuthUser, require_auth
 from app.api.aggregate import build_dashboard_metrics, build_job_list, read_report_data
 from app.runner.events import JobEventBuffer
@@ -297,7 +298,8 @@ async def get_job_report(
         target = md_path
         media_type = "text/markdown"
 
-    if not target.exists():
-        raise HTTPException(status_code=404, detail="Report file not found on disk")
+    key = str(target)
+    if not blob_store.exists(key):
+        raise HTTPException(status_code=404, detail="Report file not found")
 
-    return FileResponse(str(target), media_type=media_type)
+    return Response(content=blob_store.read(key), media_type=media_type)  # feature 052: bytes via store

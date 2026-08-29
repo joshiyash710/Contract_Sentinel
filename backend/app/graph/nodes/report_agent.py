@@ -15,9 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from pydantic import ValidationError
-
 import app.config as _config
+from app import blob_store
 from app.graph.nodes.renderers import (
     assemble_report,
     build_evidence_trail,
@@ -92,11 +91,11 @@ def report_agent(state: ContractState) -> dict:
     # ── Step 4: Write files (JSON first, then Markdown — AC-19a) ──────────────
     report_path: Optional[str] = None
     try:
-        out_dir.mkdir(parents=True, exist_ok=True)
-        json_path.write_text(json_text, encoding="utf-8")  # JSON first (D1 / AC-19a)
-        md_path.write_text(md_text, encoding="utf-8")  # Markdown second
+        # Feature 052: persist via blob_store (local disk default, or Turso BLOBs when configured).
+        blob_store.write(str(json_path), json_text.encode("utf-8"))  # JSON first (D1 / AC-19a)
+        blob_store.write(str(md_path), md_text.encode("utf-8"))  # Markdown second
         report_path = str(md_path)
-    except (OSError, ValidationError) as exc:
+    except Exception as exc:  # any report-write failure (disk OSError / Turso libsql) → degrade
         logger.error(
             "ReportAgent: failed to write report for document_id=%s: %s",
             document_id,

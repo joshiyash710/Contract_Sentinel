@@ -143,6 +143,64 @@ async def test_happy_path_both_channels(tmp_path):
     assert status["gmail"]["delivered_at"] is not None
 
 
+async def test_turso_backend_materializes_and_cleans_up(tmp_path, monkeypatch):
+    """Feature 052 (AC-6): on the Turso backend, delivery gates on blob_store.exists, materializes
+    md/json to tempfiles for the MCP attach, and cleans up the tempdir afterward."""
+    import sqlite3
+    from contextlib import contextmanager
+
+    import app.blob_store as bs
+    from app.delivery.delivery_step import deliver_report
+
+    md_path, json_path = _make_report_json(tmp_path)
+    md_bytes, json_bytes = md_path.read_bytes(), json_path.read_bytes()
+
+    # Turso backend via a real local sqlite report_blobs table; then remove the disk files so delivery
+    # can only succeed via the store (pre-swap, md_path.exists() is False → delivery would skip).
+    dbfile = tmp_path / "blobs.db"
+
+    def _mk():
+        c = sqlite3.connect(str(dbfile), check_same_thread=False)
+        c.row_factory = sqlite3.Row
+        return c
+
+    seed = _mk()
+    seed.execute(
+        "CREATE TABLE report_blobs (key TEXT PRIMARY KEY, data BLOB NOT NULL, created_at TEXT NOT NULL)"
+    )
+    seed.commit()
+    seed.close()
+    monkeypatch.setattr(bs._config, "TURSO_DATABASE_URL", "libsql://x")
+    monkeypatch.setattr(bs, "_conn", _mk)
+    bs.write(str(md_path), md_bytes)
+    bs.write(str(json_path), json_bytes)
+    md_path.unlink()
+    json_path.unlink()
+
+    captured = {}
+    real_mat = bs.materialize
+
+    @contextmanager
+    def spy(keys):
+        with real_mat(keys) as paths:
+            captured["dir"] = next(iter(paths.values())).parent
+            captured["md_exists_during"] = paths[str(md_path)].exists()
+            yield paths
+
+    monkeypatch.setattr(bs, "materialize", spy)
+
+    state = {"document_id": "doc123", "original_filename": "contract.pdf", "report_path": str(md_path)}
+    with (
+        patch("app.delivery.delivery_step.upload_report_to_drive", new=AsyncMock(return_value=_ok_drive())),
+        patch("app.delivery.delivery_step.send_report_via_gmail", new=AsyncMock(return_value=_ok_gmail())),
+    ):
+        result = await deliver_report(state, recipient="a@b.com")
+
+    assert result["mcp_delivery_status"]["gmail"]["status"] == MCPDeliveryStatus.SUCCESS
+    assert captured["md_exists_during"] is True  # tempfile existed during delivery
+    assert not captured["dir"].exists()  # tempdir cleaned up after
+
+
 async def test_status_keys_and_info_shape(tmp_path):
     from app.delivery.delivery_step import deliver_report
 
