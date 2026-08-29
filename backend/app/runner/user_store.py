@@ -17,6 +17,7 @@ from typing import Optional
 from cryptography.fernet import InvalidToken
 
 import app.config as _cfg
+from app.runner import db_backend
 from app.security import crypto
 
 
@@ -53,8 +54,7 @@ class UserStore:
 
     def __init__(self, db_path: str) -> None:
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        self._conn = db_backend.connect(db_path)  # feature 051: sqlite3 (default) or libsql (Turso)
 
     def close(self) -> None:
         with self._lock:

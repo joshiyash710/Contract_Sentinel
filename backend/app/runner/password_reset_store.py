@@ -9,10 +9,11 @@ Stores only the HMAC of a token (never the raw token); hashing is done by the ca
 (security.hash_reset_token). Tokens are single-use (used_at) and time-limited (expires_at).
 """
 
-import sqlite3
 import threading
 from dataclasses import dataclass
 from typing import Optional
+
+from app.runner import db_backend
 
 
 @dataclass
@@ -28,8 +29,7 @@ class ResetTokenRow:
 class PasswordResetStore:
     def __init__(self, db_path: str) -> None:
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        self._conn = db_backend.connect(db_path)  # feature 051: sqlite3 (default) or libsql (Turso)
 
     def close(self) -> None:
         with self._lock:

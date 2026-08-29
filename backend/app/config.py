@@ -598,6 +598,17 @@ JOB_STORE_DB_PATH: str = "data/job_store.db"
 # REPORT_OUTPUT_DIR / UPLOAD_DIR. Holds the durable projection of JobRecord so a
 # GET survives a process restart (spec AC-2; kills 011 EC-9). git-ignored.
 
+# ── Turso (libSQL) store persistence (feature 051) ───────────────────────────────
+# When TURSO_DATABASE_URL is set, the single Alembic-managed store DB (jobs + users +
+# password_reset_tokens) is routed to Turso (a durable, network-hosted libSQL DB that is
+# SQLite-compatible) instead of the local JOB_STORE_DB_PATH file — the durability fix for the $0
+# Render deploy, whose disk is ephemeral. Default "" ⇒ byte-for-byte today (local SQLite). This is a
+# LINUX-DEPLOY-only config: the runtime store connection uses `libsql` (cross-platform), but the
+# migration path needs `sqlalchemy-libsql`, which builds only on Linux — so Windows dev always uses
+# local SQLite. NEVER log TURSO_AUTH_TOKEN. See specs/051 + docs/DEPLOYMENT.md.
+TURSO_DATABASE_URL: str = os.getenv("TURSO_DATABASE_URL", "").strip()   # "" ⇒ local SQLite (default)
+TURSO_AUTH_TOKEN: str = os.getenv("TURSO_AUTH_TOKEN", "")               # DB auth token; NEVER logged
+
 CHECKPOINTER_DB_PATH: str = "data/checkpoints.db"
 # LangGraph SqliteSaver file (spec D1). Owned by SqliteSaver.setup(), NEVER by
 # Alembic. Serialized ContractState per super-step, keyed by thread_id

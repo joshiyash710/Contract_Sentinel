@@ -4,10 +4,6 @@ Unit tests for build_graph checkpointer param + persistence module.
 Written red (Task 5) — green after builder.py param + persistence.py.
 """
 
-import sqlite3
-
-import pytest
-
 
 # ── AC-8: default graph structure is unchanged ─────────────────────────────────
 
@@ -74,3 +70,23 @@ def test_checkpointer_writes_thread(tmp_path):
     assert has_checkpoint(saver, "absent") is False
 
     saver.conn.close()
+
+
+def test_checkpointer_stays_local_sqlite_ignores_turso(tmp_path):
+    """Feature 051 (AC-8): the checkpointer is always a local SqliteSaver, never routed to Turso.
+
+    The spike showed SqliteSaver is libsql-incompatible, so the checkpointer stays local/ephemeral.
+    """
+    import pathlib
+
+    from langgraph.checkpoint.sqlite import SqliteSaver
+
+    from app.runner.persistence import build_saver
+
+    saver = build_saver(str(tmp_path / "ckpt.db"))
+    assert isinstance(saver, SqliteSaver)
+
+    # persistence.py must not consult the Turso config or the store factory.
+    src = pathlib.Path("app/runner/persistence.py").read_text(encoding="utf-8")
+    assert "TURSO" not in src
+    assert "db_backend" not in src

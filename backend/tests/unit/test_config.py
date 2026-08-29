@@ -237,6 +237,21 @@ def test_llm_provider_and_groq_config_valid():
     assert isinstance(GROQ_MAX_RETRIES, int)
 
 
+def test_turso_persistence_config_valid():
+    """Feature 051 (AC-7): the Turso store-persistence config is well-formed and defaults to local."""
+    import os
+
+    from app.config import TURSO_DATABASE_URL, TURSO_AUTH_TOKEN
+
+    assert isinstance(TURSO_DATABASE_URL, str)
+    assert isinstance(TURSO_AUTH_TOKEN, str)
+    # Shipped default is local SQLite (a deploy may set TURSO_DATABASE_URL via env).
+    if not os.getenv("TURSO_DATABASE_URL"):
+        assert TURSO_DATABASE_URL == ""
+    if not os.getenv("TURSO_AUTH_TOKEN"):
+        assert TURSO_AUTH_TOKEN == ""
+
+
 def test_embed_provider_and_hf_config_valid():
     """Feature 050 (AC-7): the embedding provider seam config is well-formed and defaults to ollama."""
     from app.config import (

@@ -13,6 +13,7 @@ import threading
 from dataclasses import dataclass
 from typing import List, Optional
 
+from app.runner import db_backend
 from app.runner.models import ErrorInfo, JobState
 
 _TERMINAL = (JobState.completed, JobState.failed)
@@ -55,8 +56,7 @@ class JobStore:
 
     def __init__(self, db_path: str) -> None:
         self._lock = threading.Lock()
-        self._conn = sqlite3.connect(db_path, check_same_thread=False)
-        self._conn.row_factory = sqlite3.Row
+        self._conn = db_backend.connect(db_path)  # feature 051: sqlite3 (default) or libsql (Turso)
 
     def upsert(self, row: JobRow) -> None:
         with self._lock:

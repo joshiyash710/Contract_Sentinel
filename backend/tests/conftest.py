@@ -34,6 +34,11 @@ def _isolate_encryption_key_suite_wide(tmp_path_factory, monkeypatch):
     # plain http, so — like local dev over http — force it False for the suite. Tests that assert the
     # Secure flag (AC-7) monkeypatch it back to True explicitly.
     monkeypatch.setattr(_cfg, "AUTH_COOKIE_SECURE", False)
+    # Feature 051: tests must NOT connect to a real Turso DB via a developer's .env (which may hold
+    # TURSO_DATABASE_URL/TOKEN for the live probe). Force the local-SQLite default suite-wide; the
+    # db_backend / migrations tests that want the Turso path monkeypatch these back explicitly.
+    monkeypatch.setattr(_cfg, "TURSO_DATABASE_URL", "")
+    monkeypatch.setattr(_cfg, "TURSO_AUTH_TOKEN", "")
     yield
     monkeypatch.setattr(crypto, "_KEY", None, raising=False)
 
