@@ -39,6 +39,35 @@ def _resolve_backend_path(rel: str) -> Path:
     return backend_dir / rel
 
 
+def _warn_on_provider_mismatch(index_path: Path) -> None:
+    """Feature 050 (D3/EC-7): warn — never fail — if the index was built with a different embedding
+    provider/model than the active one.
+
+    A HuggingFace-built index queried under Ollama (or vice-versa) yields meaningless cosine scores
+    because the vectors come from different models (spec §1 invariant). A missing marker (legacy index)
+    is tolerated silently; an unreadable marker is ignored. This only logs — it never blocks loading.
+    """
+    marker_path = Path(str(index_path) + ".provider")
+    if not marker_path.exists():
+        return
+    try:
+        stamp = json.loads(marker_path.read_text(encoding="utf-8"))
+    except Exception:
+        return  # unreadable marker → never block the KB load
+    active_model = (
+        _config.HF_EMBED_MODEL if _config.EMBED_PROVIDER == "hf"
+        else _config.OLLAMA_EMBED_MODEL_NAME
+    )
+    if stamp.get("provider") != _config.EMBED_PROVIDER or stamp.get("model") != active_model:
+        logger.warning(
+            "CRAG KB: index %s was built for provider=%r model=%r but the active EMBED_PROVIDER=%r "
+            "model=%r — cosine scores are meaningless until the index is rebuilt "
+            "(EMBED_PROVIDER=%s python scripts/build_kb.py). See docs/DEPLOYMENT.md.",
+            marker_path.name, stamp.get("provider"), stamp.get("model"),
+            _config.EMBED_PROVIDER, active_model, _config.EMBED_PROVIDER,
+        )
+
+
 def load_kb() -> Optional[_LoadedKB]:
     """Load and cache the FAISS index + metadata sidecar.
 
@@ -73,6 +102,8 @@ def load_kb() -> Optional[_LoadedKB]:
             "CRAG KB: failed to load FAISS index from %s: %s", index_path, exc
         )
         return None
+
+    _warn_on_provider_mismatch(index_path)
 
     try:
         meta: List[dict] = []

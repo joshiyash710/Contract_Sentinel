@@ -31,13 +31,13 @@ from typing import List
 
 import faiss
 import numpy as np
-import ollama
 
 # Make ``app`` importable when run as a plain script from backend/.
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BACKEND_DIR))
 
 from app import config  # noqa: E402
+from app.llm.embed_client import get_embed_client  # noqa: E402  (feature 050 embedding seam)
 from eval.harness.corpus_check import CorpusError, load_corpus_records  # noqa: E402
 
 CORPUS_PATH = BACKEND_DIR / "data" / "kb" / "clauses_corpus.jsonl"
@@ -77,12 +77,29 @@ def _load_corpus() -> List[dict]:
 
 
 def _embed(text: str) -> np.ndarray:
-    resp = ollama.embeddings(model=config.OLLAMA_EMBED_MODEL_NAME, prompt=text)
+    # Feature 050: route through the embedding seam so EMBED_PROVIDER=hf builds the index via the same
+    # HuggingFace bge-m3 the runtime query embedding uses (index/query must share the model).
+    resp = get_embed_client(config.CRAG_EMBED_TIMEOUT_SECONDS).embeddings(
+        model=config.OLLAMA_EMBED_MODEL_NAME, prompt=text
+    )
     vec = np.asarray(resp["embedding"], dtype=np.float32)
     norm = float(np.linalg.norm(vec))
     if norm < _MIN_NORM:
         raise SystemExit("Embedding returned a zero-norm vector; cannot L2-normalize.")
     return vec / norm  # L2-normalize so inner product == cosine (§7.1)
+
+
+def _provider_marker() -> str:
+    """JSON provenance stamp of the embedding provider/model used to build the index (feature 050 D3).
+
+    Written next to the index so the runtime KB loader can warn on a provider/index mismatch (a HF-built
+    index queried under Ollama, or vice-versa, yields meaningless cosine scores — spec §1 invariant).
+    """
+    model = (
+        config.HF_EMBED_MODEL if config.EMBED_PROVIDER == "hf"
+        else config.OLLAMA_EMBED_MODEL_NAME
+    )
+    return json.dumps({"provider": config.EMBED_PROVIDER, "model": model})
 
 
 def main() -> None:
@@ -106,6 +123,10 @@ def main() -> None:
     INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
     faiss.write_index(index, str(INDEX_PATH))
 
+    # Feature 050 (D3): stamp the provider/model this index was built with, next to the index.
+    marker_path = Path(str(INDEX_PATH) + ".provider")
+    marker_path.write_text(_provider_marker(), encoding="utf-8")
+
     with META_PATH.open("w", encoding="utf-8") as fh:
         for rec in records:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -113,7 +134,8 @@ def main() -> None:
     print(
         f"Built FAISS index: {index.ntotal} vectors, dim={dim}\n"
         f"  index -> {INDEX_PATH.relative_to(BACKEND_DIR)}\n"
-        f"  meta  -> {META_PATH.relative_to(BACKEND_DIR)}"
+        f"  meta  -> {META_PATH.relative_to(BACKEND_DIR)}\n"
+        f"  provider -> {marker_path.relative_to(BACKEND_DIR)} ({config.EMBED_PROVIDER})"
     )
 
 

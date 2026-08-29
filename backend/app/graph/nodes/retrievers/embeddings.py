@@ -22,7 +22,8 @@ from typing import Optional
 
 import httpx
 import numpy as np
-import ollama
+
+from app.llm.embed_client import get_embed_client
 
 logger = logging.getLogger("contractsentinel.crag_retrieval.embeddings")
 
@@ -63,7 +64,7 @@ def _call_embed(
     Returns None on any failure so the caller treats it as un-scorable.
     """
     try:
-        client = ollama.Client(timeout=timeout_seconds)
+        client = get_embed_client(timeout_seconds)
         resp = client.embeddings(model=model_name, prompt=text)
         # Support both old Ollama client (returns plain dict) and new client
         # (returns EmbeddingsResponse Pydantic model with .embedding attribute).

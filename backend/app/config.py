@@ -224,6 +224,20 @@ OLLAMA_EMBED_MODEL_NAME: str = "bge-m3"
 # OLLAMA_MODEL_NAME or used for generation. Serves CRAG (and future Self-RAG)
 # clause/query embedding only.
 
+# ── Embedding provider seam (feature 050) — bge-m3 via Ollama (default) or HuggingFace ────────────
+# When EMBED_PROVIDER="hf", the two bge-m3 embedding call sites (CRAG query embedding + the offline KB
+# index build) route to the HuggingFace Inference API instead of local Ollama — for the $0 Render
+# deploy where 512MB RAM can't run Ollama. This is the EMBEDDING seam, separate from the generation
+# seam (feature 046 above); the HF path serves ONLY bge-m3, never a generative model (§8). Default
+# "ollama" ⇒ byte-for-byte today. NEVER log HF_API_TOKEN. Switching provider REQUIRES rebuilding the
+# FAISS index through the same provider (index/query vectors must share the model). See specs/050 +
+# docs/DEPLOYMENT.md.
+EMBED_PROVIDER: str = os.getenv("EMBED_PROVIDER", "ollama").strip().lower()  # "ollama" | "hf"
+HF_API_TOKEN: str = os.getenv("HF_API_TOKEN", "")
+HF_EMBED_MODEL: str = os.getenv("HF_EMBED_MODEL", "BAAI/bge-m3")
+HF_EMBED_MAX_RETRIES: int = _env_int("HF_EMBED_MAX_RETRIES", 2)
+EMBED_DIM: int = _env_int("EMBED_DIM", 1024)  # bge-m3 vector length; adapter shape guard (050 AC-8)
+
 CRAG_KB_INDEX_PATH: str = "data/kb/clauses.faiss"
 # Filesystem path to the prebuilt FAISS index for the local clause KB.
 # Relative to the backend/ directory (the pipeline's working directory).

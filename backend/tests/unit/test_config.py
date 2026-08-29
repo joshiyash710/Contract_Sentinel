@@ -237,6 +237,26 @@ def test_llm_provider_and_groq_config_valid():
     assert isinstance(GROQ_MAX_RETRIES, int)
 
 
+def test_embed_provider_and_hf_config_valid():
+    """Feature 050 (AC-7): the embedding provider seam config is well-formed and defaults to ollama."""
+    from app.config import (
+        EMBED_PROVIDER,
+        HF_EMBED_MODEL,
+        HF_EMBED_MAX_RETRIES,
+        EMBED_DIM,
+    )
+
+    assert EMBED_PROVIDER in {"ollama", "hf"}
+    # Shipped default is the fully-local path (a deploy may set EMBED_PROVIDER=hf via env).
+    import os
+
+    if not os.getenv("EMBED_PROVIDER"):
+        assert EMBED_PROVIDER == "ollama"
+    assert isinstance(HF_EMBED_MODEL, str) and HF_EMBED_MODEL.strip()
+    assert isinstance(HF_EMBED_MAX_RETRIES, int)
+    assert isinstance(EMBED_DIM, int) and EMBED_DIM == 1024
+
+
 def test_sublist_split_marker_flag_is_bool():
     """Feature 045 (AC-3): the sub-list-split flag is a bool (reversible master switch)."""
     from app.config import CLAUSE_SPLITTER_SPLIT_SUBLIST_MARKERS

@@ -225,3 +225,59 @@ def test_path_resolved_relative_to_backend(monkeypatch):
     backend_dir = Path(cfg.__file__).resolve().parent.parent
     expected = backend_dir / cfg.CRAG_KB_INDEX_PATH
     assert resolved == expected
+
+
+# ── Feature 050 (D3/EC-7): provider-provenance mismatch warning ─────────────────
+def _provider_warnings(caplog):
+    return [r for r in caplog.records if r.levelno >= 30 and "provider" in r.getMessage().lower()]
+
+
+def test_load_kb_provider_mismatch_warns(tmp_path, monkeypatch, caplog):
+    """A .provider marker disagreeing with the active EMBED_PROVIDER → single warning; KB still loads."""
+    v = _make_unit_vec(1.0, 0.0)
+    meta = [{"snippet_text": "row 0", "source_reference": "ref://0"}]
+    idx_p, meta_p = _write_kb(tmp_path, [v], meta)
+    Path(str(idx_p) + ".provider").write_text(
+        json.dumps({"provider": "hf", "model": "BAAI/bge-m3"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(kb_retriever_mod._config, "EMBED_PROVIDER", "ollama")  # active differs
+    _redirect_kb(monkeypatch, idx_p, meta_p)
+
+    with caplog.at_level("WARNING"):
+        kb = load_kb()
+
+    assert kb is not None  # warning only — still serves
+    assert len(_provider_warnings(caplog)) >= 1
+
+
+def test_load_kb_provider_match_no_warn(tmp_path, monkeypatch, caplog):
+    """A matching marker → no provider warning."""
+    v = _make_unit_vec(1.0, 0.0)
+    meta = [{"snippet_text": "row 0", "source_reference": "ref://0"}]
+    idx_p, meta_p = _write_kb(tmp_path, [v], meta)
+    Path(str(idx_p) + ".provider").write_text(
+        json.dumps({"provider": "ollama", "model": kb_retriever_mod._config.OLLAMA_EMBED_MODEL_NAME}),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(kb_retriever_mod._config, "EMBED_PROVIDER", "ollama")
+    _redirect_kb(monkeypatch, idx_p, meta_p)
+
+    with caplog.at_level("WARNING"):
+        kb = load_kb()
+
+    assert kb is not None
+    assert _provider_warnings(caplog) == []
+
+
+def test_load_kb_absent_marker_no_warn(tmp_path, monkeypatch, caplog):
+    """A legacy index with no .provider marker → tolerated silently (no provider warning)."""
+    v = _make_unit_vec(1.0, 0.0)
+    meta = [{"snippet_text": "row 0", "source_reference": "ref://0"}]
+    idx_p, meta_p = _write_kb(tmp_path, [v], meta)
+    _redirect_kb(monkeypatch, idx_p, meta_p)
+
+    with caplog.at_level("WARNING"):
+        kb = load_kb()
+
+    assert kb is not None
+    assert _provider_warnings(caplog) == []

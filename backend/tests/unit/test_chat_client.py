@@ -126,4 +126,6 @@ def test_groq_api_key_never_logged(monkeypatch, caplog):
 def test_embeddings_module_does_not_route_to_groq():
     src = pathlib.Path("app/graph/nodes/retrievers/embeddings.py").read_text(encoding="utf-8")
     assert "get_chat_client" not in src, "embeddings must NOT use the generative provider seam (§8)"
-    assert "ollama.Client" in src, "embeddings must keep building ollama.Client for bge-m3"
+    # feature 050: embeddings route bge-m3 through the dedicated EMBEDDING seam (get_embed_client),
+    # never the generative one — the §8 separation is preserved by the seam, not by a literal Client.
+    assert "get_embed_client" in src, "embeddings must route bge-m3 through the embedding seam (§8)"
