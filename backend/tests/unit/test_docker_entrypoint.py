@@ -15,3 +15,14 @@ def test_entrypoint_is_turso_aware():
 def test_dockerfile_ships_kb_index():
     txt = (_BACKEND / "Dockerfile").read_text(encoding="utf-8")
     assert "COPY data/kb" in txt, "Dockerfile must COPY data/kb so CRAG resolves the FAISS index in the image"
+
+
+def test_dockerignore_keeps_kb_index():
+    """The Dockerfile COPYs data/kb; .dockerignore must not strip it from the build context (feature 053).
+
+    A `data/` exclusion silently drops data/kb from the context → `COPY data/kb` fails at build.
+    """
+    di = (_BACKEND / ".dockerignore").read_text(encoding="utf-8")
+    if "data/" in di:  # some form of data exclusion present
+        assert "!data/kb" in di, ".dockerignore excludes data/ but does not re-include data/kb"
+

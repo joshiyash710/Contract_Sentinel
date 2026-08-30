@@ -10,7 +10,11 @@
 .env
 .env.*
 !.env.example
-data/
+# Exclude data/ CONTENTS (reports/uploads/*.db/secrets) but KEEP the git-tracked KB index (feature 053:
+# the Dockerfile COPYs data/kb so CRAG resolves clauses.faiss in prod). `data/*` (not `data/`) so
+# BuildKit descends into data/ and honors the re-include below.
+data/*
+!data/kb
 
 # Tests, eval harness, and dev-only assets are not needed in the prod image.
 tests/
