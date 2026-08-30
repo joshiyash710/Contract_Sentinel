@@ -1,5 +1,5 @@
-"""Feature 052 migration 0009 (integration): additive `report_blobs` table for Turso blob storage.
-Serves AC-7."""
+"""Feature 054 migration 0010 (integration): additive `upload_blobs` table for durable uploads.
+Serves AC-8."""
 
 import sqlite3
 from pathlib import Path
@@ -16,35 +16,28 @@ def _cfg(db_path: str) -> Config:
     return cfg
 
 
-def test_head_is_0010(tmp_path):
+def test_0010_down_revision_is_0009(tmp_path):
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_cfg(str(tmp_path / "x.db")))
-    assert script.get_current_head() == "0010"
+    assert script.get_revision("0010").down_revision == "0009"
 
 
-def test_0009_down_revision_is_0008(tmp_path):
-    from alembic.script import ScriptDirectory
-
-    script = ScriptDirectory.from_config(_cfg(str(tmp_path / "x.db")))
-    assert script.get_revision("0009").down_revision == "0008"
-
-
-def test_0009_creates_report_blobs(tmp_path):
-    db = str(tmp_path / "m9.db")
+def test_0010_creates_upload_blobs(tmp_path):
+    db = str(tmp_path / "m10.db")
     command.upgrade(_cfg(db), "head")
     conn = sqlite3.connect(db)
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(report_blobs)").fetchall()}
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(upload_blobs)").fetchall()}
     conn.close()
     assert {"key", "data", "created_at"} <= cols
 
 
-def test_0009_downgrade_drops_report_blobs(tmp_path):
-    db = str(tmp_path / "m9d.db")
+def test_0010_downgrade_drops_upload_blobs(tmp_path):
+    db = str(tmp_path / "m10d.db")
     cfg = _cfg(db)
     command.upgrade(cfg, "head")
-    command.downgrade(cfg, "0008")
+    command.downgrade(cfg, "0009")
     conn = sqlite3.connect(db)
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     conn.close()
-    assert "report_blobs" not in tables
+    assert "upload_blobs" not in tables

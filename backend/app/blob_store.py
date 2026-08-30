@@ -22,6 +22,18 @@ class BlobNotFound(Exception):
     """Raised by `read()` when no blob/file exists for the key."""
 
 
+# Feature 054: uploads and reports live in DISTINCT Turso tables so their lifecycles stay separate
+# (reports are durable; uploads are terminal-deleted). The table name is NEVER taken from request/user
+# data — only the two literals below — so interpolating it into the SQL has no injection surface.
+_ALLOWED_TABLES = {"report_blobs", "upload_blobs"}
+
+
+def _tbl(table: str) -> str:
+    if table not in _ALLOWED_TABLES:
+        raise ValueError(f"unknown blob table {table!r}")
+    return table
+
+
 def _use_turso() -> bool:
     return bool(_config.TURSO_DATABASE_URL)
 
@@ -33,12 +45,13 @@ def _conn():
     return db_backend.connect(_config.JOB_STORE_DB_PATH)  # Turso when TURSO_DATABASE_URL is set
 
 
-def write(key: str, data: bytes) -> None:
+def write(key: str, data: bytes, *, table: str = "report_blobs") -> None:
     if _use_turso():
+        tbl = _tbl(table)
         conn = _conn()
         try:
             conn.execute(
-                "INSERT INTO report_blobs (key, data, created_at) VALUES (?,?,?) "
+                f"INSERT INTO {tbl} (key, data, created_at) VALUES (?,?,?) "
                 "ON CONFLICT(key) DO UPDATE SET data=excluded.data, created_at=excluded.created_at",
                 (key, data, datetime.datetime.utcnow().isoformat()),
             )
@@ -51,11 +64,12 @@ def write(key: str, data: bytes) -> None:
         p.write_bytes(data)
 
 
-def read(key: str) -> bytes:
+def read(key: str, *, table: str = "report_blobs") -> bytes:
     if _use_turso():
+        tbl = _tbl(table)
         conn = _conn()
         try:
-            row = conn.execute("SELECT data FROM report_blobs WHERE key=?", (key,)).fetchone()
+            row = conn.execute(f"SELECT data FROM {tbl} WHERE key=?", (key,)).fetchone()
         finally:
             conn.close()
         if row is None:
@@ -67,23 +81,25 @@ def read(key: str) -> bytes:
     return p.read_bytes()
 
 
-def exists(key: str) -> bool:
+def exists(key: str, *, table: str = "report_blobs") -> bool:
     if _use_turso():
+        tbl = _tbl(table)
         conn = _conn()
         try:
             return (
-                conn.execute("SELECT 1 FROM report_blobs WHERE key=?", (key,)).fetchone() is not None
+                conn.execute(f"SELECT 1 FROM {tbl} WHERE key=?", (key,)).fetchone() is not None
             )
         finally:
             conn.close()
     return Path(key).exists()
 
 
-def delete(key: str) -> None:
+def delete(key: str, *, table: str = "report_blobs") -> None:
     if _use_turso():
+        tbl = _tbl(table)
         conn = _conn()
         try:
-            conn.execute("DELETE FROM report_blobs WHERE key=?", (key,))
+            conn.execute(f"DELETE FROM {tbl} WHERE key=?", (key,))
             conn.commit()
         finally:
             conn.close()

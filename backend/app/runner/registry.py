@@ -16,13 +16,17 @@ Feature 012 additions:
   checkpoint threads to keep the two stores in sync (spec D5).
 """
 
+import logging
 import threading
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+import app.config as _config
 from app import blob_store
 from app.runner.events import JobEventBuffer
 from app.runner.models import ErrorInfo, JobState, JobStatus
+
+logger = logging.getLogger("contractsentinel.runner.registry")
 
 
 def _coerce_status(mcp_delivery_status: Dict[str, Any]) -> Dict[str, Any]:
@@ -145,6 +149,15 @@ class JobRecord:
             self._mcp_delivery_status = mcp_delivery_status or {}
             self._error = error
             self._persist()
+        # Feature 054: a terminal job is never re-run (012 resume touches only nonterminal rows), so its
+        # durable upload source is no longer needed — best-effort delete to bound Turso growth. Done off
+        # the record lock (document_path is set once at init, never mutated); a delete failure must never
+        # change the job outcome. No-op on the disk backend and when document_path is unset.
+        if _config.TURSO_DATABASE_URL and self.document_path:
+            try:
+                blob_store.delete(self.document_path, table="upload_blobs")
+            except Exception:  # noqa: BLE001
+                logger.debug("upload-blob delete skipped", exc_info=True)
 
     def to_status(self) -> JobStatus:
         """Project internal state to the boundary Pydantic type (under lock)."""

@@ -18,13 +18,13 @@ def _cfg(db_path: str) -> Config:
     return cfg
 
 
-def test_head_is_0009(tmp_path):
+def test_head_is_0010(tmp_path):
     from alembic.script import ScriptDirectory
 
-    # Feature 052 added migration 0009 (report_blobs), now the head; 0007 remains in the chain
+    # Feature 054 added migration 0010 (upload_blobs), now the head; 0007 remains in the chain
     # (verified by the upgrade/downgrade tests below).
     script = ScriptDirectory.from_config(_cfg(str(tmp_path / "x.db")))
-    assert script.get_current_head() == "0009"
+    assert script.get_current_head() == "0010"
 
 
 def test_0007_adds_columns_and_encrypts_legacy_plaintext(tmp_path):

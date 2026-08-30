@@ -27,6 +27,10 @@ def turso_local(tmp_path, monkeypatch):
     seed.execute(
         "CREATE TABLE report_blobs (key TEXT PRIMARY KEY, data BLOB NOT NULL, created_at TEXT NOT NULL)"
     )
+    # Feature 054: uploads live in a distinct table.
+    seed.execute(
+        "CREATE TABLE upload_blobs (key TEXT PRIMARY KEY, data BLOB NOT NULL, created_at TEXT NOT NULL)"
+    )
     seed.commit()
     seed.close()
 
@@ -77,6 +81,37 @@ def test_turso_roundtrip(turso_local):
     assert blob_store.read(key) == b"updated"
     blob_store.delete(key)
     assert blob_store.exists(key) is False
+
+
+# ── Feature 054: table= parameter (upload_blobs) ─────────────────────────────
+def test_default_table_is_report_blobs(turso_local):
+    """Omitting table= targets report_blobs (052 call sites unchanged)."""
+    blob_store.write("data/reports/j1.md", b"r")
+    assert blob_store.exists("data/reports/j1.md") is True
+    assert blob_store.exists("data/reports/j1.md", table="upload_blobs") is False
+
+
+def test_upload_table_roundtrip_and_isolation(turso_local):
+    """upload_blobs round-trips and is isolated from report_blobs (AC-1 enabler)."""
+    up = "data/uploads/job1.pdf"
+    assert blob_store.exists(up, table="upload_blobs") is False
+    with pytest.raises(blob_store.BlobNotFound):
+        blob_store.read(up, table="upload_blobs")
+    blob_store.write(up, b"ciphertext", table="upload_blobs")
+    assert blob_store.exists(up, table="upload_blobs") is True
+    assert blob_store.read(up, table="upload_blobs") == b"ciphertext"
+    # Isolation: the same key is absent from the report table.
+    assert blob_store.exists(up) is False
+    blob_store.delete(up, table="upload_blobs")
+    assert blob_store.exists(up, table="upload_blobs") is False
+
+
+def test_unknown_table_rejected(turso_local):
+    """_tbl guards the interpolated table name (no injection surface)."""
+    with pytest.raises(ValueError):
+        blob_store.write("k", b"x", table="jobs; DROP TABLE users")
+    with pytest.raises(ValueError):
+        blob_store.read("k", table="bogus")
 
 
 def test_turso_materialize_tempfiles_cleaned(turso_local):

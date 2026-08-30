@@ -44,23 +44,45 @@ INGEST_STRIP_DOCUMENT_CHROME_ENABLED = _config.INGEST_STRIP_DOCUMENT_CHROME_ENAB
 
 
 def _materialize_plaintext(document_path: str, ext: str) -> tuple[str, bool]:
-    """Feature 036: if the on-disk contract is encrypted at rest, decrypt it to a short-lived temp file
-    with the same extension and return (temp_path, True); the caller parses it and deletes it. Legacy
-    plaintext (decrypt raises InvalidToken) or the flag being OFF → return (document_path, False) so the
-    parser reads the original in place."""
-    if not _config.CONTRACT_ENCRYPTION_AT_REST_ENABLED:
-        return document_path, False
+    """Return (parse_path, is_temp) for the contract source.
+
+    Feature 036: decrypt an at-rest-encrypted contract to a short-lived temp file. Feature 054: when
+    TURSO_DATABASE_URL is set the source lives as a durable blob (not on the ephemeral disk), so read it
+    from the blob store; a rehydrated job after a container restart still finds it. On the disk backend
+    behavior is byte-identical to pre-054: legacy plaintext (decrypt raises InvalidToken) or encryption
+    OFF → return (document_path, False) so the parser reads the original in place."""
+    turso = bool(_config.TURSO_DATABASE_URL)
+    if not _config.CONTRACT_ENCRYPTION_AT_REST_ENABLED and not turso:
+        return document_path, False  # pre-054 disk fast-path (encryption off), unchanged
     from cryptography.fernet import InvalidToken
     from app.security import crypto
 
-    try:
+    if turso:
+        from app import blob_store
+
+        try:
+            raw = blob_store.read(document_path, table="upload_blobs")
+        except blob_store.BlobNotFound as exc:
+            # No durable source (never persisted / already terminal-deleted). FileNotFoundError is an
+            # OSError, so the ingest node maps it to 'corrupted_file' (EC-3 parity with the disk path).
+            raise FileNotFoundError(str(document_path)) from exc
+    else:
         with open(document_path, "rb") as f:
-            plaintext = crypto.decrypt_bytes(f.read())
-    except InvalidToken:
-        return document_path, False  # already plaintext (pre-036 upload) — parse in place (AC-5)
+            raw = f.read()
+
+    if _config.CONTRACT_ENCRYPTION_AT_REST_ENABLED:
+        try:
+            data = crypto.decrypt_bytes(raw)
+        except InvalidToken:
+            if not turso:
+                return document_path, False  # DISK legacy plaintext — parse in place (pre-036, AC-7)
+            data = raw  # TURSO: no readable disk path → materialize the plaintext blob below (AC-5)
+    else:
+        data = raw  # encryption OFF + Turso (encryption OFF + disk already returned above)
+
     tmp = tempfile.NamedTemporaryFile(suffix=ext, delete=False)
     try:
-        tmp.write(plaintext)
+        tmp.write(data)
         tmp.close()  # close before the parser opens the path (Windows file-lock safety)
     except Exception:
         # A write failure (e.g. disk full) must not leave a plaintext contract temp behind.

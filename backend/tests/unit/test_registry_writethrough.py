@@ -82,6 +82,57 @@ def test_report_available_uses_blob_store(db, store, loop, monkeypatch):
     assert calls["n"] == 0
 
 
+def test_mark_terminal_deletes_upload_blob_on_turso(db, store, loop, monkeypatch):
+    """Feature 054 (AC-4): a terminal job best-effort deletes its upload blob under Turso."""
+    import app.runner.registry as registry_mod
+    from app.runner.registry import JobRegistry
+
+    monkeypatch.setattr(registry_mod._config, "TURSO_DATABASE_URL", "libsql://x")
+    calls = []
+    monkeypatch.setattr(
+        registry_mod.blob_store, "delete", lambda key, *, table: calls.append((key, table))
+    )
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    rec = _make_record("jterm")  # document_path="/tmp/contract.pdf"
+    registry.add(rec)
+    rec.mark_terminal(
+        status=JobState.completed,
+        finished_at="2026-01-01T00:02:00+00:00",
+        report_path=None,
+        mcp_delivery_status={},
+        error=None,
+    )
+    assert calls == [("/tmp/contract.pdf", "upload_blobs")]
+
+
+def test_mark_terminal_delete_failure_does_not_change_status(db, store, loop, monkeypatch):
+    """Feature 054 (AC-4): a blob-delete failure never alters the terminal outcome."""
+    import app.runner.registry as registry_mod
+    from app.runner.registry import JobRegistry
+
+    def _boom(key, *, table):
+        raise RuntimeError("turso down")
+
+    monkeypatch.setattr(registry_mod.blob_store, "delete", _boom)
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    rec = _make_record("jterm2")
+    registry.add(rec)
+    # Enable the Turso delete-gate only AFTER add() so the shared local `store` connection is untouched.
+    monkeypatch.setattr(registry_mod._config, "TURSO_DATABASE_URL", "libsql://x")
+    rec.mark_terminal(
+        status=JobState.completed,
+        finished_at="2026-01-01T00:02:00+00:00",
+        report_path=None,  # None → to_status() short-circuits the blob_store.exists() report check
+        mcp_delivery_status={},
+        error=None,
+    )
+    assert rec.to_status().status == JobState.completed
+    # Read back through the fixture's existing local connection (a new JobStore would route to Turso).
+    assert store.get("jterm2").status == JobState.completed
+
+
 def test_add_persists_queued(db, store, loop):
     from app.runner.store import JobStore
     from app.runner.registry import JobRegistry

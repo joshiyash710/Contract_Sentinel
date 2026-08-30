@@ -166,6 +166,24 @@ async def analyze(
             _logger.exception("Upload encryption failed")
             raise HTTPException(status_code=500, detail="Internal error saving upload") from exc
 
+    # Feature 054: persist the durable source to the blob store so a job resumed after a container
+    # restart (Render's ephemeral disk wipes data/uploads/) can re-read it. The disk backend already has
+    # the file → skip. Runs on the already-finalized (036-encrypted) bytes; the ingest path handles both
+    # ciphertext and legacy plaintext. MAX_UPLOAD_SIZE_BYTES already bounds this in-memory read.
+    if _cfg.TURSO_DATABASE_URL:
+        try:
+            with open(dest_path, "rb") as f:
+                _stored = f.read()
+            from app import blob_store
+
+            blob_store.write(dest_path, _stored, table="upload_blobs")
+            del _stored
+        except Exception as exc:  # noqa: BLE001 — never create a half-durable job (EC-5)
+            if os.path.exists(dest_path):
+                os.unlink(dest_path)
+            _logger.exception("Upload blob persist failed")
+            raise HTTPException(status_code=500, detail="Internal error saving upload") from exc
+
     # Default the report recipient to the logged-in user's own email (feature 020 — AC-4),
     # so each user's report is delivered to their inbox. An explicit request recipient wins.
     recipient = recipient or current_user.email

@@ -66,8 +66,8 @@ def test_upgrade_is_idempotent(tmp_path):
     conn.close()
 
 
-def test_current_head_is_0009(tmp_path):
-    """Feature 052: migration 0009 (report_blobs) is the current Alembic head."""
+def test_current_head_is_0010(tmp_path):
+    """Feature 054: migration 0010 (upload_blobs) is the current Alembic head."""
     from pathlib import Path
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -75,7 +75,7 @@ def test_current_head_is_0009(tmp_path):
     alembic_dir = Path(__file__).resolve().parents[2] / "alembic"
     cfg = Config()
     cfg.set_main_option("script_location", str(alembic_dir))
-    assert ScriptDirectory.from_config(cfg).get_current_head() == "0009"
+    assert ScriptDirectory.from_config(cfg).get_current_head() == "0010"
 
 
 def test_migration_0008_creates_password_reset_tokens(tmp_path):
