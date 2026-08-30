@@ -18,9 +18,9 @@ Feature 012 additions:
 
 import threading
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from app import blob_store
 from app.runner.events import JobEventBuffer
 from app.runner.models import ErrorInfo, JobState, JobStatus
 
@@ -151,7 +151,10 @@ class JobRecord:
         with self._lock:
             completed_nodes = list(self._completed_nodes)
             report_path = self._report_path
-            report_available = bool(report_path and Path(report_path).exists())
+            # Feature 052 fix: report lives in blob_store (disk OR Turso), not necessarily on the local
+            # filesystem. Short-circuit so the (possibly-network) existence check only runs once
+            # report_path is set — i.e. at/after completion, not on every processing poll.
+            report_available = bool(report_path) and blob_store.exists(report_path)
             return JobStatus(
                 job_id=self.job_id,
                 status=self._status,

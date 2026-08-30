@@ -53,6 +53,35 @@ def _make_record(job_id="j1"):
     )
 
 
+def test_report_available_uses_blob_store(db, store, loop, monkeypatch):
+    """Feature 052 fix: report_available reflects blob_store (disk OR Turso), not a raw disk check."""
+    import app.runner.registry as registry_mod
+    from app.runner.registry import JobRegistry
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    rec = _make_record("jrep")
+    registry.add(rec)
+    rec.mark_terminal(
+        status=JobState.completed,
+        finished_at="2026-01-01T00:02:00+00:00",
+        report_path="/data/reports/jrep.md",  # a path that does NOT exist on this disk
+        mcp_delivery_status={},
+        error=None,
+    )
+    monkeypatch.setattr(registry_mod.blob_store, "exists", lambda key: True)
+    assert rec.to_status().report_available is True  # blob present via store (no disk file needed)
+    monkeypatch.setattr(registry_mod.blob_store, "exists", lambda key: False)
+    assert rec.to_status().report_available is False
+
+    # report_path None → False WITHOUT consulting the store (short-circuit; no per-poll network hit)
+    calls = {"n": 0}
+    monkeypatch.setattr(registry_mod.blob_store, "exists", lambda key: calls.__setitem__("n", 1) or True)
+    rec2 = _make_record("jnone")
+    registry.add(rec2)
+    assert rec2.to_status().report_available is False
+    assert calls["n"] == 0
+
+
 def test_add_persists_queued(db, store, loop):
     from app.runner.store import JobStore
     from app.runner.registry import JobRegistry
