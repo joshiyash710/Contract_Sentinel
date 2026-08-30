@@ -24,8 +24,10 @@ def _turso_sqlalchemy_url() -> str:
     TURSO_DATABASE_URL is `libsql://<host>`; the dialect wants
     `sqlite+libsql://<host>/?authToken=<token>&secure=true`.
     """
-    host = _config.TURSO_DATABASE_URL.split("://", 1)[-1]
-    return f"sqlite+libsql://{host}/?authToken={_config.TURSO_AUTH_TOKEN}&secure=true"
+    host = _config.TURSO_DATABASE_URL.split("://", 1)[-1].rstrip("/")
+    # No trailing slash before the query — a "/" path can make the dialect treat it as a local DB file
+    # and drop the remote authToken (matches the documented sqlalchemy-libsql form).
+    return f"sqlite+libsql://{host}?authToken={_config.TURSO_AUTH_TOKEN}&secure=true"
 
 
 def upgrade_to_head(db_path: str) -> None:
