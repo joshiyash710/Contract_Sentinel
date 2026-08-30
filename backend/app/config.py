@@ -540,7 +540,9 @@ MCP_DELIVERY_MAX_RETRIES: int = 2
 # Bounded retries with exponential backoff for transient errors (AC-17, Edge Case 8).
 
 GOOGLE_OAUTH_CREDENTIALS_PATH: str = "data/secrets/google_credentials.json"
-GOOGLE_OAUTH_TOKEN_PATH: str = "data/secrets/google_token.json"
+GOOGLE_OAUTH_TOKEN_PATH: str = _env_str("GOOGLE_OAUTH_TOKEN_PATH", "data/secrets/google_token.json")
+# Feature 053: env-overridable so a Render/Docker deploy can point at a mounted Secret File
+# (e.g. /etc/secrets/google_token.json). Default unchanged for local dev.
 # OAuth client-secrets + cached-token paths (backend/-relative).
 # Consumed by the MCP server layer, NOT the client step (D10). git-ignored.
 # NOTE (feature 031): these remain the CENTRAL desktop client + token, used for the
@@ -564,8 +566,12 @@ GOOGLE_OAUTH_REDIRECT_URI: str = _env_str(
 GOOGLE_DRIVE_OAUTH_SCOPES: tuple = ("https://www.googleapis.com/auth/drive.file",)
 # Per-user connect scope: create/manage only app-created files in the user's own Drive.
 
-GOOGLE_OAUTH_WEB_CREDENTIALS_PATH: str = "data/secrets/google_web_credentials.json"
+GOOGLE_OAUTH_WEB_CREDENTIALS_PATH: str = _env_str(
+    "GOOGLE_OAUTH_WEB_CREDENTIALS_PATH", "data/secrets/google_web_credentials.json"
+)
 # Web-application OAuth client secrets (distinct from the central desktop client above).
+# Feature 053: env-overridable so a Render deploy points at a mounted Secret File
+# (e.g. /etc/secrets/google_web_credentials.json). Default unchanged for local dev.
 # git-ignored; the owner registers the client + redirect URI in GCP Console.
 
 FRONTEND_INTEGRATIONS_URL: str = _env_str(
