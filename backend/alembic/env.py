@@ -34,6 +34,15 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    # Feature 053: the caller (app/runner/migrations.py, Turso path) may inject a live connection so the
+    # auth token is passed via connect_args, not the URL. Use it if present.
+    injected = config.attributes.get("connection", None)
+    if injected is not None:
+        context.configure(connection=injected, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

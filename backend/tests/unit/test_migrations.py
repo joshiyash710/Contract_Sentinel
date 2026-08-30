@@ -1,48 +1,74 @@
-"""Feature 051 (AC-5/AC-6): upgrade_to_head selects the Turso `sqlite+libsql://` URL when
-TURSO_DATABASE_URL is set (else the local sqlite:/// URL), and never leaks TURSO_AUTH_TOKEN.
-
-`command.upgrade` is patched so the Linux-only `sqlalchemy-libsql` dialect is never invoked — these run
-on Windows and assert only the Config the helper builds + the token-redaction guard.
-"""
+"""Feature 051/053 (AC-5/AC-6): upgrade_to_head migrates local SQLite by default, or Turso via
+sqlalchemy-libsql with the auth token in connect_args (NOT the URL query) + an injected Alembic
+connection. Never leaks TURSO_AUTH_TOKEN. The Turso path mocks create_engine (sqlalchemy-libsql is
+Linux-only; these run on Windows and never touch the network)."""
 
 import pytest
 
 import app.runner.migrations as migrations
 
 
-def _capture_url(monkeypatch):
-    calls = {}
+class _FakeConn:
+    def __enter__(self):
+        return self
 
-    def fake_upgrade(cfg, rev):
-        calls["url"] = cfg.get_main_option("sqlalchemy.url")
-        calls["rev"] = rev
+    def __exit__(self, *a):
+        return False
 
-    monkeypatch.setattr(migrations.command, "upgrade", fake_upgrade)
-    return calls
+
+class _FakeEngine:
+    def __init__(self):
+        self.disposed = False
+
+    def connect(self):
+        return _FakeConn()
+
+    def dispose(self):
+        self.disposed = True
 
 
 def test_local_sqlite_url_when_turso_unset(monkeypatch, tmp_path):
     monkeypatch.setattr(migrations._config, "TURSO_DATABASE_URL", "")
-    calls = _capture_url(monkeypatch)
+    calls = {}
+    monkeypatch.setattr(
+        migrations.command, "upgrade",
+        lambda cfg, rev: calls.update(url=cfg.get_main_option("sqlalchemy.url"), rev=rev),
+    )
     migrations.upgrade_to_head(str(tmp_path / "s.db"))
     assert calls["url"].startswith("sqlite:///")
     assert "libsql" not in calls["url"]
     assert calls["rev"] == "head"
 
 
-def test_turso_url_when_set(monkeypatch):
+def test_turso_uses_connect_args_auth_token(monkeypatch):
     monkeypatch.setattr(migrations._config, "TURSO_DATABASE_URL", "libsql://mydb-org.turso.io")
     monkeypatch.setattr(migrations._config, "TURSO_AUTH_TOKEN", "sekrit-token")
-    calls = _capture_url(monkeypatch)
+    captured = {}
+
+    def fake_create_engine(url, connect_args=None):
+        captured["url"] = url
+        captured["connect_args"] = connect_args
+        return _FakeEngine()
+
+    monkeypatch.setattr(migrations, "create_engine", fake_create_engine)
+    monkeypatch.setattr(
+        migrations.command, "upgrade",
+        lambda cfg, rev: captured.update(injected=cfg.attributes.get("connection")),
+    )
     migrations.upgrade_to_head("ignored")
-    url = calls["url"]
-    assert url.startswith("sqlite+libsql://")
-    assert "mydb-org.turso.io" in url
+
+    # remote URL WITHOUT the token; token is in connect_args; live connection injected into Alembic.
+    assert captured["url"].startswith("sqlite+libsql://")
+    assert "mydb-org.turso.io" in captured["url"]
+    assert "authToken" not in captured["url"] and "sekrit-token" not in captured["url"]
+    assert captured["connect_args"] == {"auth_token": "sekrit-token"}
+    assert captured["injected"] is not None
 
 
 def test_token_never_logged(monkeypatch, caplog):
     monkeypatch.setattr(migrations._config, "TURSO_DATABASE_URL", "libsql://mydb-org.turso.io")
     monkeypatch.setattr(migrations._config, "TURSO_AUTH_TOKEN", "sekrit-token-xyz")
+    monkeypatch.setattr(migrations, "create_engine", lambda url, connect_args=None: _FakeEngine())
     monkeypatch.setattr(migrations.command, "upgrade", lambda cfg, rev: None)
     with caplog.at_level("DEBUG"):
         migrations.upgrade_to_head("ignored")
@@ -53,9 +79,10 @@ def test_exception_message_redacts_token(monkeypatch):
     token = "sekrit-token-xyz"
     monkeypatch.setattr(migrations._config, "TURSO_DATABASE_URL", "libsql://mydb-org.turso.io")
     monkeypatch.setattr(migrations._config, "TURSO_AUTH_TOKEN", token)
+    monkeypatch.setattr(migrations, "create_engine", lambda url, connect_args=None: _FakeEngine())
 
     def boom(cfg, rev):
-        raise RuntimeError(f"connection failed for url ...authToken={token}...")
+        raise RuntimeError(f"connection failed ...auth_token={token}...")
 
     monkeypatch.setattr(migrations.command, "upgrade", boom)
     with pytest.raises(Exception) as exc:
