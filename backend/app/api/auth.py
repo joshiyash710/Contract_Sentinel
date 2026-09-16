@@ -303,6 +303,8 @@ async def signup(body: SignupRequest, request: Request, response: Response):
         row = user_store.create(body.email, pw_hash, body.name, body.title)
     except EmailExists:
         raise HTTPException(status_code=409, detail="Email already registered")
+    except Exception as exc:  # TEMP DEBUG — remove after diagnosing
+        raise HTTPException(status_code=500, detail=f"{type(exc).__name__}: {exc}")
 
     user = AuthUser(id=row.id, email=row.email, name=row.name, title=row.title)
     # feature 032: pass the UserRow so the JWT carries the user's session_epoch (AuthUser has none).
