@@ -86,7 +86,7 @@ export const reportFixture: ContractReport = {
       suggested_rewrite:
         "The Provider's aggregate liability shall not exceed the total fees paid in the twelve (12) " +
         "months preceding the claim.",
-      path_taken: "corrective",
+      path_taken: "local_kb",
       confidence_score: 0.82,
       evidence: [
         {
@@ -105,7 +105,7 @@ export const reportFixture: ContractReport = {
       clause_text: "The Customer shall indemnify and hold harmless the Provider from all claims.",
       rewrite_state: "unavailable",
       suggested_rewrite: null,
-      path_taken: "corrective",
+      path_taken: "web_fallback",
       confidence_score: 0.6,
       evidence: [
         {
@@ -124,7 +124,7 @@ export const reportFixture: ContractReport = {
       clause_text: "This Agreement is governed by the laws of the State of Delaware.",
       rewrite_state: "not_eligible",
       suggested_rewrite: null,
-      path_taken: "direct",
+      path_taken: "web_fallback",
       confidence_score: null,
       evidence: [],
     },

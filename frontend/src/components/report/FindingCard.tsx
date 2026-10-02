@@ -5,6 +5,7 @@ import { ChevronDown, Sparkles, FileText, Quote, BookOpen, Columns2 } from "luci
 import type { ReportFinding } from "@/lib/api/types";
 import { findingTitle } from "@/lib/reportFormat";
 import { FindingRiskBadge } from "./FindingRiskBadge";
+import { EvidenceSourceBadge, evidenceSourceLabel } from "./EvidenceSourceBadge";
 
 const CLAUSE_PREVIEW_CHARS = 240;
 
@@ -54,6 +55,7 @@ export function FindingCard({
       : finding.clause_text;
   const accent = (finding.risk_level && ACCENT[finding.risk_level]) || "before:bg-card-raised";
   const hasRewrite = finding.rewrite_state === "rewritten" && !!finding.suggested_rewrite;
+  const srcLabel = evidenceSourceLabel(finding.path_taken);
 
   return (
     <div
@@ -83,6 +85,7 @@ export function FindingCard({
             <span className="ml-2 text-small text-text-tertiary">§ {finding.section_number}</span>
           )}
         </span>
+        <EvidenceSourceBadge path={finding.path_taken} />
         {finding.confidence_score != null && (
           <span className="hidden shrink-0 text-small text-text-tertiary sm:inline">
             {Math.round(finding.confidence_score * 100)}% confidence
@@ -182,7 +185,9 @@ export function FindingCard({
           {/* Evidence */}
           {finding.evidence.length > 0 && (
             <section>
-              <SectionLabel icon={<BookOpen size={13} />}>Supporting sources</SectionLabel>
+              <SectionLabel icon={<BookOpen size={13} />}>
+                {srcLabel ? `Supporting sources · ${srcLabel}` : "Supporting sources"}
+              </SectionLabel>
               <ul className="space-y-2">
                 {finding.evidence.map((e, i) => (
                   <li key={i} className="rounded-input bg-white/5 px-3 py-2 text-small">
