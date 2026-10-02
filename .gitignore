@@ -29,6 +29,9 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Large demo media — kept out of the repo (too large to version/push; distribute separately)
+ContractSentinel_Demo.mp4
+
 # Generated report artifacts (ReportAgent / Node 7 output — runtime-created, never committed)
 backend/data/reports/
 
