@@ -276,6 +276,18 @@ CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD: int = 5
 # clauses straight to web (skipping the per-clause embed timeout). Resets on
 # any successful embedding. Routing-semantics guarantee (spec §4.13, AC-16).
 
+# ── Live per-clause CRAG progress (feature 059) ──────────────────────────────────
+# Observability only: CRAG emits one per-clause progress payload via LangGraph's get_stream_writer()
+# custom stream; the runner forwards it to the job's in-memory JobRecord, surfaced on the polled
+# GET /jobs/{id} (JobStatus.clause_progress). NO graph/ContractState/route/SSE change. Reversible.
+CRAG_LIVE_CLAUSE_PROGRESS_ENABLED: bool = _env_bool("CRAG_LIVE_CLAUSE_PROGRESS_ENABLED", False)
+# Master switch (feature 059, D4). False (default) ⇒ CRAG emits no payloads, the worker passes no
+# on_clause, and run_pipeline streams "values" only ⇒ byte-identical to pre-059. Shipped OFF per the
+# project pattern (042/044/045/047); flip on after a live smoke.
+CRAG_PROGRESS_RECENT_MAX: int = _env_int("CRAG_PROGRESS_RECENT_MAX", 8)
+# Cap on the JobRecord's rolling "recent clauses" ring buffer (feature 059, D5) so a large document does
+# not bloat the polled status payload. Cumulative counters keep counting all clauses regardless.
+
 # ── Self-RAG validation thresholds ─────────────────────────────────────────────
 # Source: specs/006-self-rag-validation/spec.md §6
 

@@ -59,6 +59,7 @@ def run_pipeline(
     resume: bool = False,
     already_completed: Optional[List[str]] = None,
     drive_token_json: Optional[str] = None,
+    on_clause: Optional[Callable[[dict], None]] = None,
 ) -> RunResult:
     """Run the full pipeline graph for a contract document.
 
@@ -89,7 +90,21 @@ def run_pipeline(
     final_state: dict = {}
     last_node: Optional[str] = None
 
-    for state in graph.stream(stream_input, stream_mode="values", config=config):
+    # Feature 059: when an on_clause callback is provided, also request the "custom" stream so CRAG's
+    # per-clause progress payloads are forwarded. Each yield is then a (mode, chunk) tuple. Without a
+    # callback the stream stays single-mode "values" (plain-state yields) — byte-identical to pre-059.
+    live = on_clause is not None
+    stream_mode = ["values", "custom"] if live else "values"
+
+    for item in graph.stream(stream_input, stream_mode=stream_mode, config=config):
+        if live:
+            mode, chunk = item
+            if mode == "custom":
+                on_clause(chunk)  # separate branch — never touches the node seen/last_node dedup (AC-4)
+                continue
+            state = chunk
+        else:
+            state = item
         final_state = state
         node = state.get("current_node")
         if node and node != last_node and node not in seen:

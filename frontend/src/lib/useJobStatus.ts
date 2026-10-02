@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { getApiClient } from "@/lib/api/provider";
 import { ApiError } from "@/lib/api/client";
-import type { JobStatus } from "@/lib/api/types";
+import type { JobStatus, ClauseProgress } from "@/lib/api/types";
 import { nodeIndex, TOTAL_STEPS } from "@/lib/jobProgress";
 
 export type JobPhase = "connecting" | "running" | "completed" | "failed" | "error";
@@ -16,6 +16,7 @@ export interface JobEventsState {
   completedNodes: string[];
   final?: JobStatus | null; // set on completed/failed
   errorMessage?: string; // connection-phase text only (EC-3/5/6)
+  clauseProgress?: ClauseProgress | null; // feature 059: live CRAG per-clause progress (from the poll)
 }
 
 export const POLL_INTERVAL_MS = 2500;
@@ -40,6 +41,7 @@ function mapStatus(js: JobStatus): JobEventsState {
     total: TOTAL_STEPS,
     completedNodes: js.completed_nodes ?? [],
     final: terminal ? js : null,
+    clauseProgress: js.clause_progress ?? null,
   };
 }
 

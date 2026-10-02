@@ -4,6 +4,7 @@ import type {
   AnalyzeAccepted,
   AuthResponse,
   AuthUser,
+  ClauseProgress,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -179,6 +180,14 @@ export function runningStatus(currentNode: string, completed: string[] = []): Jo
 
 export function queuedStatus(): JobStatus {
   return { ...runningStatus("", []), status: "queued", current_node: null };
+}
+
+/** Feature 059: a running status carrying live CRAG clause-progress (for ProcessingView feed tests). */
+export function runningStatusWithClauseProgress(
+  clauseProgress: ClauseProgress,
+  currentNode = "crag_retrieval",
+): JobStatus {
+  return { ...runningStatus(currentNode, ["ingest_agent", "clause_splitter"]), clause_progress: clauseProgress };
 }
 
 /** Build a ContractReport from the rich fixture, overriding findings/top-level fields. Summary

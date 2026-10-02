@@ -10,6 +10,8 @@ import { REPORT_REDIRECT_DELAY_MS } from "@/lib/reportConstants";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Button } from "@/components/ui/Button";
 import { ProcessingArt } from "./ProcessingArt";
+import { evidenceSourceLabel } from "@/components/report/EvidenceSourceBadge";
+import type { ClauseProgressLine } from "@/lib/api/types";
 
 /**
  * Live processing screen (spec 015 §2.4 / plan §3.6). Driven by useJobEvents(jobId) → renders by
@@ -153,6 +155,23 @@ export function ProcessingView({ jobId }: { jobId: string }) {
             );
           })}
         </ul>
+
+        {/* Feature 059 — live per-clause CRAG feed (shown while CRAG is emitting progress) */}
+        {state.clauseProgress && (
+          <div data-testid="clause-feed" className="mt-5 border-t border-subtle pt-4">
+            <p className="mb-2 text-small font-medium text-text-secondary tabular-nums">
+              {state.clauseProgress.clauses_done}/{state.clauseProgress.clauses_total} clauses ·{" "}
+              {state.clauseProgress.web_fallbacks} web-fallbacks
+            </p>
+            <ul className="space-y-1">
+              {state.clauseProgress.recent.map((c, i) => (
+                <li key={`${c.clause_index}-${i}`} className={clauseLineClass(c)}>
+                  {clauseLineText(c)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       <p className="flex items-center gap-2 text-small text-text-tertiary">
@@ -175,6 +194,24 @@ const STAGES: { idx: number; label: string }[] = [
   { idx: 6, label: "Redlining" },
   { idx: 7, label: "Report" },
 ];
+
+// Feature 059 — one live clause line: "Clause {i}/{N} · {type?} — {source} ({conf}%)". Source wording
+// reused from 058's evidenceSourceLabel. clause_type and (conf%) shown only when present.
+function clauseLineText(c: ClauseProgressLine): string {
+  const typePart = c.clause_type ? ` · ${c.clause_type}` : "";
+  const label = evidenceSourceLabel(c.retrieval_path);
+  const sourcePart = label ? ` — ${label}` : "";
+  const confPart = c.confidence != null ? ` (${Math.round(c.confidence * 100)}%)` : "";
+  return `Clause ${c.clause_index}/${c.clause_total}${typePart}${sourcePart}${confPart}`;
+}
+
+// Tone (theme tokens, no hex — AC-13), mirroring 058's StatusBadge tones: web-fallback emphasized
+// (warning), local-kb calmer.
+function clauseLineClass(c: ClauseProgressLine): string {
+  const base = "text-small tabular-nums";
+  if (c.retrieval_path === "web_fallback") return `${base} font-medium text-risk-medium`;
+  return `${base} text-text-secondary`;
+}
 
 function chipState(idx: number, currentIndex?: number | null): "done" | "active" | "upcoming" {
   if (currentIndex == null) return "upcoming";

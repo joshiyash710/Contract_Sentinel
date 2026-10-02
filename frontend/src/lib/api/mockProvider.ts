@@ -11,12 +11,17 @@ import type {
 import {
   acceptedFixture,
   authUserFixture,
+  clauseProgressFixture,
   completedStatusFixture,
   dashboardMetricsFixture,
   jobListFixture,
   reportFixture,
   scriptedEvents,
 } from "./fixtures";
+
+// Feature 059: per-jobId poll counter so the mock's getJob scripts a short queued → running (with
+// growing CRAG clause_progress) → completed sequence, letting the live processing feed show offline.
+const _mockPollCounts = new Map<string, number>();
 
 /**
  * Mock ApiClient (spec AC-14): resolves from static fixtures with ZERO network calls. Used by
@@ -29,6 +34,25 @@ export const mockClient: ApiClient = {
   },
 
   async getJob(jobId: string): Promise<JobStatus> {
+    const n = (_mockPollCounts.get(jobId) ?? 0) + 1;
+    _mockPollCounts.set(jobId, n);
+    if (n === 1) {
+      return {
+        ...completedStatusFixture, job_id: jobId, status: "queued",
+        current_node: null, completed_nodes: [], report_available: false, finished_at: null,
+      };
+    }
+    if (n <= 3) {
+      const clause_progress =
+        n === 2
+          ? { ...clauseProgressFixture, clauses_done: 3, web_fallbacks: 1, recent: clauseProgressFixture.recent.slice(0, 1) }
+          : clauseProgressFixture;
+      return {
+        ...completedStatusFixture, job_id: jobId, status: "running",
+        current_node: "crag_retrieval", completed_nodes: ["ingest_agent", "clause_splitter"],
+        report_available: false, finished_at: null, clause_progress,
+      };
+    }
     return { ...completedStatusFixture, job_id: jobId };
   },
 

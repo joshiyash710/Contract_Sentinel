@@ -39,6 +39,23 @@ export interface AnalyzeAccepted {
 }
 
 // 011 §2.3 — GET /api/jobs/{id}. ALL nine fields, verbatim.
+// Feature 059 — live per-clause CRAG progress carried on the polled JobStatus. Mirrors
+// app/runner/models.py ClauseProgressLine / ClauseProgress.
+export interface ClauseProgressLine {
+  clause_index: number;
+  clause_total: number;
+  clause_type?: string | null;
+  retrieval_path?: string | null; // "local_kb" | "web_fallback" | null
+  confidence?: number | null;
+}
+
+export interface ClauseProgress {
+  clauses_done: number;
+  clauses_total: number;
+  web_fallbacks: number;
+  recent: ClauseProgressLine[];
+}
+
 export interface JobStatus {
   job_id: string;
   status: JobState;
@@ -50,6 +67,8 @@ export interface JobStatus {
   report_available: boolean;
   mcp_delivery_status: Record<string, MCPDeliveryInfo>;
   error?: ErrorInfo | null;
+  // Feature 059: present while CRAG is emitting per-clause progress; null/absent otherwise.
+  clause_progress?: ClauseProgress | null;
 }
 
 // 011 §2.4 — one SSE payload.

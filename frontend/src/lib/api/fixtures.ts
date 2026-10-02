@@ -1,6 +1,7 @@
 import type {
   AnalyzeAccepted,
   AuthUser,
+  ClauseProgress,
   ContractReport,
   DashboardMetrics,
   JobList,
@@ -44,6 +45,18 @@ export const completedStatusFixture: JobStatus = {
     gmail: { status: "success", error_message: null, delivered_at: "2026-01-01T00:01:37Z" },
   },
   error: null,
+};
+
+// Feature 059 — live per-clause CRAG progress fixture (mock provider / offline feed). Growing variants
+// are sliced from this in mockProvider's scripted getJob sequence.
+export const clauseProgressFixture: ClauseProgress = {
+  clauses_done: 7,
+  clauses_total: 12,
+  web_fallbacks: 2,
+  recent: [
+    { clause_index: 6, clause_total: 12, clause_type: "liability", retrieval_path: "local_kb", confidence: 0.82 },
+    { clause_index: 7, clause_total: 12, clause_type: "indemnification", retrieval_path: "web_fallback", confidence: 0.61 },
+  ],
 };
 
 // ── 009 ContractReport fixtures (feature 017) ────────────────────────────────

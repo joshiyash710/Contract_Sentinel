@@ -24,7 +24,13 @@ from typing import Any, Dict, List, Optional
 import app.config as _config
 from app import blob_store
 from app.runner.events import JobEventBuffer
-from app.runner.models import ErrorInfo, JobState, JobStatus
+from app.runner.models import (
+    ClauseProgress,
+    ClauseProgressLine,
+    ErrorInfo,
+    JobState,
+    JobStatus,
+)
 
 logger = logging.getLogger("contractsentinel.runner.registry")
 
@@ -76,6 +82,13 @@ class JobRecord:
     _store: Optional[Any] = field(
         default=None, init=False, repr=False, compare=False
     )
+    # Feature 059 — live per-clause CRAG progress (in-memory only; NEVER persisted to the store, so a
+    # rehydrated record shows clause_progress=None). Mutated only via update_clause_progress under _lock.
+    _clauses_done: int = field(default=0, init=False, repr=False)
+    _clauses_total: int = field(default=0, init=False, repr=False)
+    _web_fallbacks: int = field(default=0, init=False, repr=False)
+    _recent_clauses: List[Dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _has_clause_progress: bool = field(default=False, init=False, repr=False)
 
     # ── write-through helpers ──────────────────────────────────────────────────
 
@@ -123,6 +136,32 @@ class JobRecord:
             self._completed_nodes.append(node)
             self._persist()
 
+    def update_clause_progress(self, payload: Dict[str, Any]) -> None:
+        """Feature 059: apply one per-clause CRAG progress payload (in-memory, transient — not persisted).
+
+        One locked call does BOTH the counter increments and the ring-buffer append so a reader never sees
+        a half-updated projection. Not written through to the store (progress is ephemeral)."""
+        with self._lock:
+            self._has_clause_progress = True
+            self._clauses_done += 1
+            total = payload.get("clause_total")
+            if total:
+                self._clauses_total = total
+            if payload.get("retrieval_path") == "web_fallback":
+                self._web_fallbacks += 1
+            self._recent_clauses.append(
+                {
+                    "clause_index": payload.get("clause_index"),
+                    "clause_total": payload.get("clause_total"),
+                    "clause_type": payload.get("clause_type"),
+                    "retrieval_path": payload.get("retrieval_path"),
+                    "confidence": payload.get("confidence"),
+                }
+            )
+            cap = _config.CRAG_PROGRESS_RECENT_MAX
+            if len(self._recent_clauses) > cap:
+                self._recent_clauses = self._recent_clauses[-cap:]
+
     @property
     def report_path(self) -> Optional[str]:
         """Thread-safe accessor for the on-disk report path.
@@ -168,6 +207,15 @@ class JobRecord:
             # filesystem. Short-circuit so the (possibly-network) existence check only runs once
             # report_path is set — i.e. at/after completion, not on every processing poll.
             report_available = bool(report_path) and blob_store.exists(report_path)
+            # Feature 059: project live per-clause progress when CRAG has emitted any (else None).
+            clause_progress = None
+            if self._has_clause_progress:
+                clause_progress = ClauseProgress(
+                    clauses_done=self._clauses_done,
+                    clauses_total=self._clauses_total,
+                    web_fallbacks=self._web_fallbacks,
+                    recent=[ClauseProgressLine(**line) for line in self._recent_clauses],
+                )
             return JobStatus(
                 job_id=self.job_id,
                 status=self._status,
@@ -179,6 +227,7 @@ class JobRecord:
                 report_available=report_available,
                 mcp_delivery_status=_coerce_status(self._mcp_delivery_status),
                 error=self._error,
+                clause_progress=clause_progress,
             )
 
     # ── feature 012 additions ─────────────────────────────────────────────────

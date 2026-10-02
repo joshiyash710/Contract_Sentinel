@@ -30,6 +30,27 @@ class AnalyzeAccepted(BaseModel):
     submitted_at: str
 
 
+class ClauseProgressLine(BaseModel):
+    """One per-clause CRAG decision for the live processing feed (feature 059). Boundary model only;
+    never stored in ContractState (§4/§6)."""
+
+    clause_index: int
+    clause_total: int
+    clause_type: Optional[str] = None  # ClauseType.value or None
+    retrieval_path: Optional[str] = None  # RetrievalPath.value ("local_kb"|"web_fallback") or None
+    confidence: Optional[float] = None
+
+
+class ClauseProgress(BaseModel):
+    """Live CRAG per-clause progress carried on the polled JobStatus (feature 059). Cumulative counters
+    plus a bounded rolling window of the most recent clauses (CRAG_PROGRESS_RECENT_MAX)."""
+
+    clauses_done: int = 0
+    clauses_total: int = 0
+    web_fallbacks: int = 0
+    recent: List[ClauseProgressLine] = Field(default_factory=list)
+
+
 class JobStatus(BaseModel):
     job_id: str
     status: JobState
@@ -41,6 +62,9 @@ class JobStatus(BaseModel):
     report_available: bool = False
     mcp_delivery_status: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[ErrorInfo] = None
+    # Feature 059: live per-clause CRAG progress (None until CRAG starts emitting; optional → pre-059
+    # JobStatus deserializes unchanged). In-memory only on JobRecord; never persisted to the job store.
+    clause_progress: Optional[ClauseProgress] = None
 
 
 class ProgressEvent(BaseModel):

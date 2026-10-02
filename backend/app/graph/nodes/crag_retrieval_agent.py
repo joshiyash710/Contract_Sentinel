@@ -57,6 +57,25 @@ CRAG_QUERY_MAX_CHARS = _config.CRAG_QUERY_MAX_CHARS
 CRAG_EMBED_TIMEOUT_SECONDS = _config.CRAG_EMBED_TIMEOUT_SECONDS
 CRAG_WEB_TIMEOUT_SECONDS = _config.CRAG_WEB_TIMEOUT_SECONDS
 CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD = _config.CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD
+# Feature 059: re-exposed module-level so tests can monkeypatch it (same pattern as the thresholds above).
+CRAG_LIVE_CLAUSE_PROGRESS_ENABLED = _config.CRAG_LIVE_CLAUSE_PROGRESS_ENABLED
+
+
+def _clause_writer():
+    """Feature 059: acquire the LangGraph custom-stream writer for per-clause progress, defensively.
+
+    Returns None when the flag is off OR when there is no runnable context. The acquisition itself
+    (get_stream_writer → get_config) RAISES RuntimeError on a direct node call / CLI with no runnable
+    context, so the acquisition — not just the emit — is guarded; a direct call stays byte-identical
+    (spec D3/AC-2). Inside a non-custom graph run get_stream_writer returns a built-in no-op writer."""
+    if not CRAG_LIVE_CLAUSE_PROGRESS_ENABLED:
+        return None
+    try:
+        from langgraph.config import get_stream_writer
+
+        return get_stream_writer()
+    except Exception:  # noqa: BLE001 — RuntimeError (no runnable context) or any import/context issue
+        return None
 
 
 def crag_retrieval_agent(state: ContractState) -> dict:
@@ -101,7 +120,12 @@ def crag_retrieval_agent(state: ContractState) -> dict:
     # Process in document order (by position)
     ordered = sorted(clauses.items(), key=lambda kv: kv[1].get("position", 0))
 
-    for clause_id, record in ordered:
+    # Feature 059: live per-clause progress — acquire the custom-stream writer once (None when off / no
+    # runnable context), and number the pass so each emit carries clause_index/clause_total.
+    writer = _clause_writer()
+    total = len(ordered)
+
+    for idx, (clause_id, record) in enumerate(ordered, start=1):
         # ── a. Empty-text guard (spec §4.3) ──────────────────────────────────
         text = (record.get("text") or "").strip()
         if not text:
@@ -115,6 +139,18 @@ def crag_retrieval_agent(state: ContractState) -> dict:
                 "path_taken": None,
                 "evidence_snippets": None,
             }
+            if writer is not None:  # feature 059 (AC-8): unscorable clause → None path/confidence
+                ct = record.get("clause_type")
+                writer(
+                    {
+                        "kind": "clause",
+                        "clause_index": idx,
+                        "clause_total": total,
+                        "clause_type": getattr(ct, "value", ct),
+                        "retrieval_path": None,
+                        "confidence": None,
+                    }
+                )
             continue
 
         # ── b. Truncate query (spec §4.11) ───────────────────────────────────
@@ -190,6 +226,20 @@ def crag_retrieval_agent(state: ContractState) -> dict:
             "path_taken": path,
             "evidence_snippets": snippets,
         }
+
+        # ── Feature 059: emit live per-clause progress (parity with path_taken, AC-7) ──
+        if writer is not None:
+            ct = record.get("clause_type")
+            writer(
+                {
+                    "kind": "clause",
+                    "clause_index": idx,
+                    "clause_total": total,
+                    "clause_type": getattr(ct, "value", ct),
+                    "retrieval_path": (path.value if path is not None else None),
+                    "confidence": confidence,
+                }
+            )
 
         # ── h. Per-clause structured log (spec §8 — logs only, NOT state) ─────
         logger.info(

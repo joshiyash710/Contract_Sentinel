@@ -23,6 +23,7 @@ import threading
 from datetime import datetime, timezone
 from typing import Optional
 
+import app.config as _config  # feature 059: read the live-progress flag at call time (monkeypatchable)
 from app.runner.core import run_pipeline, NodeProgress
 from app.runner.models import ErrorInfo, JobState, ProgressEvent
 from app.runner.registry import JobRecord, JobRegistry
@@ -97,6 +98,13 @@ class PipelineWorker:
                 )
             )
 
+        # Feature 059: apply CRAG per-clause progress to the in-memory JobRecord (surfaced on the polled
+        # GET /jobs/{id}). Gated by the flag — off ⇒ on_clause=None ⇒ run_pipeline streams "values" only.
+        def _on_clause(payload: dict) -> None:
+            rec.update_clause_progress(payload)
+
+        on_clause = _on_clause if _config.CRAG_LIVE_CLAUSE_PROGRESS_ENABLED else None
+
         # Feature 031: resolve the uploading user's Google Drive token (if connected).
         drive_token = None
         if self._user_store is not None and rec.user_id:
@@ -113,6 +121,7 @@ class PipelineWorker:
                 resume=resume,
                 already_completed=already,
                 drive_token_json=drive_token,
+                on_clause=on_clause,
             )
 
             # Feature 031: a per-user token that fails with invalid_grant → auto-disconnect the
