@@ -77,12 +77,15 @@ def _materialize_plaintext(document_path: str, ext: str) -> tuple[str, bool]:
             raw = f.read()
 
     if _config.CONTRACT_ENCRYPTION_AT_REST_ENABLED:
-        try:
-            data = crypto.decrypt_bytes(raw)
-        except InvalidToken:
-            if not turso:
+        if turso:
+            # Feature 056: shared decrypt core — valid ciphertext → plaintext; legacy plaintext blob
+            # (InvalidToken) → raw, materialized below (AC-5). Byte-identical to the prior turso path.
+            data = crypto.decrypt_bytes_tolerant(raw)
+        else:
+            try:
+                data = crypto.decrypt_bytes(raw)
+            except InvalidToken:
                 return document_path, False  # DISK legacy plaintext — parse in place (pre-036, AC-7)
-            data = raw  # TURSO: no readable disk path → materialize the plaintext blob below (AC-5)
     else:
         data = raw  # encryption OFF + Turso (encryption OFF + disk already returned above)
 

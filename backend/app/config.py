@@ -296,6 +296,13 @@ CRAG_PROGRESS_RECENT_MAX: int = _env_int("CRAG_PROGRESS_RECENT_MAX", 8)
 # extraction (byte-identical extracted_text), no page_spans, no source_locator. Reversible. See specs/055.
 PDF_SOURCE_LOCATOR_ENABLED: bool = _env_bool("PDF_SOURCE_LOCATOR_ENABLED", False)
 
+# ── Serve-original-contract + upload retention (feature 056) ──────────────────────
+# When True, the uploaded contract is RETAINED indefinitely (the 054 terminal-delete of the Turso
+# upload_blobs row is skipped) so the 057 viewer can fetch it via GET /api/jobs/{id}/source. False
+# (default) ⇒ 054 behavior unchanged (terminal-delete on Turso); the /source endpoint still exists but
+# 404s when the source is gone. Flipped on with PDF_SOURCE_LOCATOR_ENABLED when 057 ships. See specs/056.
+UPLOAD_SOURCE_RETENTION_ENABLED: bool = _env_bool("UPLOAD_SOURCE_RETENTION_ENABLED", False)
+
 # ── Self-RAG validation thresholds ─────────────────────────────────────────────
 # Source: specs/006-self-rag-validation/spec.md §6
 

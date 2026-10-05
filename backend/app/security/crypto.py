@@ -97,6 +97,17 @@ def decrypt_bytes(token: bytes) -> bytes:
     return _fernet().decrypt(token)
 
 
+def decrypt_bytes_tolerant(raw: bytes) -> bytes:
+    """Feature 056/036: decrypt a Fernet token → bytes, tolerating legacy plaintext — if `raw` is not
+    valid ciphertext (InvalidToken) it is returned unchanged (an already-plaintext, pre-encryption
+    upload). Shared by `ingest_agent._materialize_plaintext` (Turso path) and the serve-original endpoint
+    so the decrypt-vs-plaintext semantics cannot drift. Never logs the bytes."""
+    try:
+        return decrypt_bytes(raw)
+    except InvalidToken:
+        return raw
+
+
 def looks_like_plaintext_token(value: str) -> bool:
     """True if `value` parses as JSON carrying a `refresh_token`/`token` key.
 

@@ -29,6 +29,7 @@ from sse_starlette.sse import EventSourceResponse
 
 import app.config as _cfg
 from app import blob_store
+from app.security import crypto  # feature 056: decrypt the served original contract
 from app.api.auth import AuthUser, require_auth
 from app.api.aggregate import build_dashboard_metrics, build_job_list, read_report_data
 from app.runner.events import JobEventBuffer
@@ -321,3 +322,41 @@ async def get_job_report(
         raise HTTPException(status_code=404, detail="Report file not found")
 
     return Response(content=blob_store.read(key), media_type=media_type)  # feature 052: bytes via store
+
+
+@router.get("/jobs/{job_id}/source")
+async def get_job_source(
+    job_id: str,
+    request: Request,
+    current_user: AuthUser = Depends(require_auth),
+):
+    """Feature 056: serve the owner their original uploaded contract (decrypted) for the 057 viewer.
+    Owner-scoped + auth'd (mirrors /report); PDF only; the stored source is decrypted transiently into
+    the response and never re-stored in plaintext (§036). No completed-gate — the upload exists from
+    upload time."""
+    ctx: RunnerContext = _get_ctx(request)
+    rec = _owned_or_404(ctx, job_id, current_user)  # 401 if unauth; 404 if not owner / unknown
+
+    doc_path = rec.document_path
+    # PDF only — 057 is PDF-only and only PDFs carry a source_locator (feature 055).
+    name = str(rec.original_filename or doc_path or "").lower()
+    if not name.endswith(".pdf"):
+        raise HTTPException(status_code=415, detail="Only PDF sources can be served")
+
+    # Read the stored upload bytes (Turso blob or disk), mapping a missing source to 404.
+    try:
+        if _cfg.TURSO_DATABASE_URL:
+            raw = blob_store.read(doc_path, table="upload_blobs")
+        else:
+            with open(doc_path, "rb") as f:
+                raw = f.read()
+    except (blob_store.BlobNotFound, FileNotFoundError, OSError):
+        raise HTTPException(status_code=404, detail="Source document not available")
+
+    # Decrypt transiently (tolerating legacy plaintext); a truly corrupt ciphertext → 500 (no leak).
+    try:
+        data = crypto.decrypt_bytes_tolerant(raw) if _cfg.CONTRACT_ENCRYPTION_AT_REST_ENABLED else raw
+    except Exception:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail="Could not read source document")
+
+    return Response(content=data, media_type="application/pdf")

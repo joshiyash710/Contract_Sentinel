@@ -192,7 +192,13 @@ class JobRecord:
         # durable upload source is no longer needed — best-effort delete to bound Turso growth. Done off
         # the record lock (document_path is set once at init, never mutated); a delete failure must never
         # change the job outcome. No-op on the disk backend and when document_path is unset.
-        if _config.TURSO_DATABASE_URL and self.document_path:
+        # Feature 056: when upload retention is enabled, KEEP the source (skip the delete) so the 057
+        # viewer can fetch it via GET /jobs/{id}/source.
+        if (
+            _config.TURSO_DATABASE_URL
+            and self.document_path
+            and not _config.UPLOAD_SOURCE_RETENTION_ENABLED
+        ):
             try:
                 blob_store.delete(self.document_path, table="upload_blobs")
             except Exception:  # noqa: BLE001
