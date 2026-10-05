@@ -55,6 +55,10 @@ class ReportFinding(BaseModel):
     # fail-safe path (LLM failure/unparseable/circuit-open/empty text) rather than a genuine
     # model judgment. Defaults False so legacy report JSON deserializes unchanged.
     is_failsafe: bool = False
+    # Feature 055: where this clause sits in the original PDF —
+    # {"pages": [int], "spans": [{"page": int, "bbox": [x0,y0,x1,y1]}]} or None (DOCX/OCR/flag-off).
+    # Pass-through metadata for the 057 click-to-highlight viewer; defaults None (legacy JSON unchanged).
+    source_locator: Optional[dict] = None
 
 
 class ReportSummary(BaseModel):

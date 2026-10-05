@@ -106,6 +106,14 @@ class ContractState(TypedDict):
     #   risk_level: Optional[RiskLevel]  # Low/Medium/High risk level
     #   risk_rationale: Optional[str]  # Explanation for risk level assignment
     #   suggested_rewrite: Optional[str]  # New text if risk found, None if clean
+    #   source_locator: Optional[dict]  # Feature 055 — where the clause sits in the original PDF:
+    #     {"pages": List[int], "spans": [{"page": int, "bbox": [x0,y0,x1,y1]}, ...]} or None. Written by
+    #     ClauseSplitterAgent from page_spans (below); read by no graph node; serialized into the report.
+
+    # Added by IngestAgent (feature 055) — TRANSIENT char->(page,bbox) map over cleaned extracted_text,
+    # consumed and set to None by ClauseSplitterAgent (rides only the ingest->splitter hop; §6). No
+    # reducer (last-write-wins). Each entry: {"start": int, "end": int, "page": int, "bbox": [floats]}.
+    page_spans: Optional[List[Dict[str, Any]]]
 
     # Added by ReportAgent
     report_path: Optional[str]  # Path to final report file

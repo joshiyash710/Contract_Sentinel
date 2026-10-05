@@ -25,10 +25,47 @@ from typing import List
 import fitz  # pymupdf
 import pytesseract
 
+import app.config as _config
 from app.config import MIN_CHAR_DENSITY_THRESHOLD, MIN_TEXT_LENGTH_THRESHOLD
 from app.graph.nodes.parsers import ParseResult
 
 logger = logging.getLogger("contractsentinel.ingest.pdf_parser")
+
+# Feature 055 — re-exposed module-level so tests can monkeypatch it.
+PDF_SOURCE_LOCATOR_ENABLED = _config.PDF_SOURCE_LOCATOR_ENABLED
+
+
+def _extract_text_with_spans(doc) -> tuple:
+    """Feature 055: build extracted_text AND a char->(page,bbox) span map from one get_text('dict')
+    pass, so offsets and bboxes are exact by construction. Returns (text, page_spans). Lines are joined
+    with '\\n' (spans within a line concatenated directly); image blocks (no 'lines') contribute no
+    spans. NOTE (OQ-2): this text may differ slightly from plain get_text() — accepted under the flag."""
+    buf = []
+    spans = []
+    offset = 0
+    for pageno, page in enumerate(doc, start=1):
+        data = page.get_text("dict")
+        for block in data.get("blocks", []):
+            for line in block.get("lines", []):
+                for span in line.get("spans", []):
+                    t = span.get("text", "")
+                    if not t:
+                        continue
+                    start = offset
+                    buf.append(t)
+                    offset += len(t)
+                    bbox = span.get("bbox", [0.0, 0.0, 0.0, 0.0])
+                    spans.append(
+                        {
+                            "start": start,
+                            "end": offset,
+                            "page": pageno,
+                            "bbox": [float(c) for c in bbox],
+                        }
+                    )
+                buf.append("\n")  # line separator (mirrors get_text() line breaks)
+                offset += 1
+    return "".join(buf), spans
 
 
 def parse_pdf(file_path: str, timeout_seconds: float) -> ParseResult:
@@ -83,7 +120,12 @@ def _parse_pdf_inner(file_path: str) -> ParseResult:
 
     try:
         page_count = len(doc)
-        extracted_text = "\n".join(page.get_text() for page in doc)
+        # Feature 055: flag ON → build text + char->(page,bbox) map together (offsets exact). Flag OFF
+        # → the current plain join, no span map (byte-identical extracted_text, AC-2).
+        if PDF_SOURCE_LOCATOR_ENABLED:
+            extracted_text, page_spans = _extract_text_with_spans(doc)
+        else:
+            extracted_text, page_spans = "\n".join(page.get_text() for page in doc), None
         char_density = len(extracted_text) / max(1, page_count)
 
         needs_ocr = (
@@ -105,6 +147,7 @@ def _parse_pdf_inner(file_path: str) -> ParseResult:
                 page_count=page_count,
                 ocr_used=False,
                 ocr_confidence=None,
+                page_spans=page_spans,  # feature 055 (None when flag off)
             )
 
         # ── OCR path ────────────────────────────────────────────────────────────

@@ -288,6 +288,14 @@ CRAG_PROGRESS_RECENT_MAX: int = _env_int("CRAG_PROGRESS_RECENT_MAX", 8)
 # Cap on the JobRecord's rolling "recent clauses" ring buffer (feature 059, D5) so a large document does
 # not bloat the polled status payload. Cumulative counters keep counting all clauses regardless.
 
+# ── PDF clause source-locator capture (feature 055) ──────────────────────────────
+# When True, IngestAgent captures a char->(page,bbox) map from the PDF text layer (get_text("dict")) and
+# ClauseSplitterAgent stamps each clause record with a `source_locator` (page(s)+bbox(es)) — pure
+# metadata that rides unread into the report for the 057 click-to-highlight viewer. PDF text layer only;
+# DOCX / OCR / the text-re-emit splitter path leave source_locator None. False (default) ⇒ plain
+# extraction (byte-identical extracted_text), no page_spans, no source_locator. Reversible. See specs/055.
+PDF_SOURCE_LOCATOR_ENABLED: bool = _env_bool("PDF_SOURCE_LOCATOR_ENABLED", False)
+
 # ── Self-RAG validation thresholds ─────────────────────────────────────────────
 # Source: specs/006-self-rag-validation/spec.md §6
 

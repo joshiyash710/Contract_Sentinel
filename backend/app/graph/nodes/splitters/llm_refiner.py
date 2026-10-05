@@ -328,12 +328,18 @@ def _build_grouped_clause(position: int, indices: list, item, by_index: dict) ->
             if (raw_type is not None and raw_type in _VALID_CLAUSE_TYPES)
             else None
         )
+    # Feature 055: the merged clause's char range spans its grouped segments (document order preserved);
+    # None when no segment carried a range.
+    starts = [s.char_start for s in segments if s.char_start is not None]
+    ends = [s.char_end for s in segments if s.char_end is not None]
     return ClauseBoundary(
         clause_id=f"clause_{position:03d}",
         text=text,
         position=position,
         section_number=section_number,
         clause_type=validated_type,
+        char_start=min(starts) if starts else None,
+        char_end=max(ends) if ends else None,
     )
 
 

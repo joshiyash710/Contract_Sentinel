@@ -112,6 +112,19 @@ class ContractState(TypedDict):
     #     empty-or-oversize clause text) rather than a genuine model judgment.
     #     Written by RiskScoreAgent only. See §6 decision 9.
     #   suggested_rewrite: Optional[str]  # New text if risk found, None if clean
+    #   source_locator: Optional[dict]  # Feature 055 — where this clause physically sits in the
+    #     original PDF: {"pages": List[int], "spans": [{"page": int, "bbox": [x0,y0,x1,y1]}, ...]}
+    #     or None. Written by ClauseSplitterAgent (from the transient page_spans map, below); read by
+    #     NO graph node (CRAG/Self-RAG/RiskScore/Redline pass it through unread via
+    #     merge_nested_clause_dicts); serialized into the report for the 057 viewer. PDF text layer
+    #     only — DOCX / OCR / the text-re-emit splitter path leave it None. See §6 decision 10.
+    
+    # Added by IngestAgent (feature 055) — TRANSIENT: written by IngestAgent, CONSUMED and set to None
+    # by ClauseSplitterAgent (rides only the ingest→splitter hop, not the whole run). No reducer
+    # (last-write-wins). Present only when PDF_SOURCE_LOCATOR_ENABLED and a text-PDF was parsed; else
+    # absent/None. See §6 decision 10.
+    page_spans: Optional[List[Dict[str, Any]]]  # char->(page,bbox) map over cleaned extracted_text:
+    #   each entry: {"start": int, "end": int, "page": int, "bbox": [float, float, float, float]}
     
     # Added by ReportAgent
     report_path: Optional[str]  # Path to final report file
@@ -228,5 +241,21 @@ Based on the revision, the following decisions have been made for the open quest
    rides the existing `merge_nested_clause_dicts` reducer on `clauses`; no reducer change and no
    new top-level field. Reversible at the source (feature flag `HONEST_FAILURE_SURFACING_ENABLED`
    — when off the field is simply not written, and old records without it read as absent/None).
+
+10. ~~PDF clause source-locator (feature 055)~~
+   **DECISION**: Added (a) the per-clause record field `source_locator: Optional[dict]` and (b) the
+   transient top-level key `page_spans: Optional[List[Dict[str, Any]]]` (§3). `source_locator`
+   records where a clause physically sits in the original PDF (`{"pages":[int],
+   "spans":[{"page","bbox"}]}`); it is written by ClauseSplitterAgent (Node 2), read by NO graph
+   node (CRAG/Self-RAG/RiskScore/Redline pass it through unread via `merge_nested_clause_dicts`), and
+   serialized into the report for the 057 click-to-highlight viewer. `page_spans` is the ingest→
+   splitter char→(page,bbox) map: written by IngestAgent (Node 1), CONSUMED and set to `None` by
+   ClauseSplitterAgent, so it rides only one hop (state-minimality, constitution §6) — a simple
+   last-write-wins top-level field, no reducer. Added per the spec-first-change rule (§10) as
+   specified in specs/055-pdf-source-locator/. PDF text layer only — DOCX / OCR / the text-re-emit
+   splitter path leave `source_locator` None. Reversible at the source (feature flag
+   `PDF_SOURCE_LOCATOR_ENABLED` — when off neither field is written and extracted_text is
+   byte-identical; old records without the fields read as absent/None). No LangGraph node/edge
+   change; no DB migration (both fields live only in checkpointed state / the report JSON).
 
 No remaining open questions. This spec is considered final.

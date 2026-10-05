@@ -146,6 +146,7 @@ def assemble_report(
                 confidence_score=record.get("confidence_score"),
                 evidence=evidence,
                 is_failsafe=finding_failsafe,
+                source_locator=record.get("source_locator"),  # feature 055 (pass-through)
             )
         )
 

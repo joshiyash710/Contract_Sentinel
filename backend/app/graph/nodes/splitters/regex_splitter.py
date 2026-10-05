@@ -99,6 +99,8 @@ def split_by_regex(text: str) -> list:
             position=1,
             section_number=None,
             clause_type=None,
+            char_start=0,
+            char_end=len(text),
         )
     ]
 
@@ -113,13 +115,16 @@ def _extract_section_number(match: re.Match) -> str:
 
 def _build_clauses_from_matches(text: str, matches: list) -> list:
     """Build clauses from structural marker match positions."""
+    # Feature 055: thread each clause's (start, end) char span through `raw` — the empty-clause filter
+    # below decouples the match index from the final clause index, so carry the offsets in the tuple
+    # (do NOT zip the match index to the clause index).
     raw = []
     for i, match in enumerate(matches):
         start = match.start()
         end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
         clause_text = text[start:end].strip()
         if clause_text:
-            raw.append((clause_text, _extract_section_number(match)))
+            raw.append((clause_text, _extract_section_number(match), start, end))
 
     if not raw:
         return [
@@ -129,6 +134,8 @@ def _build_clauses_from_matches(text: str, matches: list) -> list:
                 position=1,
                 section_number=None,
                 clause_type=None,
+                char_start=0,
+                char_end=len(text),
             )
         ]
 
@@ -139,8 +146,10 @@ def _build_clauses_from_matches(text: str, matches: list) -> list:
             position=i,
             section_number=section_number,
             clause_type=None,
+            char_start=start,
+            char_end=end,
         )
-        for i, (clause_text, section_number) in enumerate(raw, start=1)
+        for i, (clause_text, section_number, start, end) in enumerate(raw, start=1)
     ]
 
 
@@ -159,6 +168,8 @@ def _build_clauses_from_paragraph_splits(text: str, splits: list) -> list:
                     position=position,
                     section_number=None,
                     clause_type=None,
+                    char_start=positions[i],  # feature 055
+                    char_end=positions[i + 1],
                 )
             )
             position += 1
@@ -171,6 +182,8 @@ def _build_clauses_from_paragraph_splits(text: str, splits: list) -> list:
                 position=1,
                 section_number=None,
                 clause_type=None,
+                char_start=0,
+                char_end=len(text),
             )
         ]
     return clauses

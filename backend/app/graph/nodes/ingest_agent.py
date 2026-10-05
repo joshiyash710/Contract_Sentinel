@@ -37,10 +37,16 @@ import app.config as _config  # Import module, not names, to allow monkeypatchin
 from app.graph.state import ContractState
 from app.graph.nodes.parsers.pdf_parser import parse_pdf
 from app.graph.nodes.parsers.docx_parser import parse_docx
-from app.graph.nodes.ingest.text_cleaner import strip_document_chrome
+from app.graph.nodes.ingest.text_cleaner import (
+    strip_document_chrome,
+    strip_document_chrome_tracked,
+    remap_spans,
+)
 
 # Re-expose as a module-level name so tests can monkeypatch it (feature 044).
 INGEST_STRIP_DOCUMENT_CHROME_ENABLED = _config.INGEST_STRIP_DOCUMENT_CHROME_ENABLED
+# Feature 055 — re-exposed module-level for monkeypatching.
+PDF_SOURCE_LOCATOR_ENABLED = _config.PDF_SOURCE_LOCATOR_ENABLED
 
 
 def _materialize_plaintext(document_path: str, ext: str) -> tuple[str, bool]:
@@ -237,12 +243,23 @@ def ingest_agent(state: ContractState) -> dict:
 
     # Feature 044: strip recognizable EDGAR page-footer chrome from the parsed text before it flows
     # into clause segmentation (removes artifact-driven false flags / broken segments). Reversible.
-    extracted_text = result.text
-    if INGEST_STRIP_DOCUMENT_CHROME_ENABLED:
-        extracted_text = strip_document_chrome(result.text)
+    # Feature 055: when the source-locator flag is on AND the parser produced a span map (PDF text
+    # layer only — None for DOCX/OCR/flag-off), track the chrome-strip deletions and remap the map to
+    # cleaned-text coords so downstream clause char-ranges (also cleaned coords) can look up bboxes.
+    page_spans = None
+    if PDF_SOURCE_LOCATOR_ENABLED and result.page_spans:
+        if INGEST_STRIP_DOCUMENT_CHROME_ENABLED:
+            extracted_text, _deletions = strip_document_chrome_tracked(result.text)
+        else:
+            extracted_text, _deletions = result.text, []
+        page_spans = remap_spans(result.page_spans, _deletions)
+    else:
+        extracted_text = result.text
+        if INGEST_STRIP_DOCUMENT_CHROME_ENABLED:
+            extracted_text = strip_document_chrome(result.text)
 
     # Partial-update: return only keys this node owns (constitution §5)
-    return {
+    out = {
         "document_id": document_id,
         "document_path": document_path,
         "original_filename": original_filename,
@@ -255,6 +272,9 @@ def ingest_agent(state: ContractState) -> dict:
         "node_timings": {"ingest_agent": elapsed},
         # error_count intentionally OMITTED on success (partial-update rule)
     }
+    if page_spans is not None:  # feature 055 — only add the transient key when a map exists
+        out["page_spans"] = page_spans
+    return out
 
 
 def _error_return(

@@ -24,6 +24,9 @@ class ClauseBoundary:
             or None if no section marker detected.
         clause_type: Raw string clause type before enum conversion
             (e.g. "definitions", "payment"), or None if not inferred.
+        char_start/char_end: Feature 055 — the clause's half-open character range in the cleaned
+            extracted_text, used to look up its source_locator (page+bboxes). None when unknown
+            (e.g. the text-re-emit splitter path, where the LLM rewrote the text).
     """
 
     clause_id: str
@@ -31,3 +34,5 @@ class ClauseBoundary:
     position: int
     section_number: Optional[str]
     clause_type: Optional[str]  # raw string before ClauseType enum conversion
+    char_start: Optional[int] = None  # feature 055
+    char_end: Optional[int] = None  # feature 055

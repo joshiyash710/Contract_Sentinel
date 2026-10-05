@@ -118,6 +118,9 @@ export interface ReportFinding {
   evidence: ReportEvidence[];
   // Feature 038: true when this finding's severity was auto-assigned by the fail-safe path.
   is_failsafe?: boolean;
+  // Feature 055: where this clause sits in the original PDF (for the 057 click-to-highlight viewer),
+  // or null for DOCX/OCR/flag-off. Pass-through metadata.
+  source_locator?: { pages: number[]; spans: { page: number; bbox: number[] }[] } | null;
 }
 
 export interface ReportSummary {

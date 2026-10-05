@@ -43,6 +43,24 @@ MIN_CLAUSE_LENGTH = _config.MIN_CLAUSE_LENGTH
 MAX_CLAUSES_LIMIT = _config.MAX_CLAUSES_LIMIT
 CLAUSE_SPLITTER_LLM_MAX_CLAUSES = _config.CLAUSE_SPLITTER_LLM_MAX_CLAUSES
 DETERMINISTIC_CLAUSE_TYPING_ENABLED = _config.DETERMINISTIC_CLAUSE_TYPING_ENABLED
+PDF_SOURCE_LOCATOR_ENABLED = _config.PDF_SOURCE_LOCATOR_ENABLED  # feature 055
+
+
+def locator_from_range(char_start, char_end, page_spans):
+    """Feature 055: build a clause's source_locator from its cleaned-text char range + the page_spans
+    map. Collects every span intersecting [char_start, char_end) into {"pages": sorted-unique,
+    "spans": [{"page","bbox"}, ...]}. Returns None when the range/map is missing or nothing intersects."""
+    if char_start is None or char_end is None or not page_spans:
+        return None
+    spans = []
+    pages = set()
+    for s in page_spans:
+        if s["start"] < char_end and char_start < s["end"]:  # half-open intersection
+            spans.append({"page": s["page"], "bbox": list(s["bbox"])})
+            pages.add(s["page"])
+    if not spans:
+        return None
+    return {"pages": sorted(pages), "spans": spans}
 
 
 def clause_splitter_agent(state: ContractState) -> dict:
@@ -51,6 +69,7 @@ def clause_splitter_agent(state: ContractState) -> dict:
     start_time = time.monotonic()
     current_node = "clause_splitter"
     document_id = state.get("document_id", "unknown")
+    page_spans = state.get("page_spans")  # feature 055 — transient ingest map (None unless flag on + PDF)
 
     # ── Defensive: skip if IngestAgent reported an error ──────────────────────
     if state.get("ingest_error") is not None:
@@ -85,13 +104,18 @@ def clause_splitter_agent(state: ContractState) -> dict:
                 position=1,
                 section_number=None,
                 clause_type=None,
+                char_start=0,  # feature 055 — single short-doc clause spans the whole text
+                char_end=len(extracted_text),
             )
         ]
         # Still run through LLM for clause_type inference
         refined = refine_with_llm(
             regex_clauses, CLAUSE_SPLITTER_TIMEOUT_SECONDS, OLLAMA_MODEL_NAME
         )
-        return _build_return(refined, start_time, current_node, llm_used=refined is not regex_clauses)
+        return _build_return(
+            refined, start_time, current_node,
+            llm_used=refined is not regex_clauses, page_spans=page_spans,
+        )
 
     # ── Normal path ───────────────────────────────────────────────────────────
     regex_clauses = split_by_regex(extracted_text)
@@ -131,7 +155,9 @@ def clause_splitter_agent(state: ContractState) -> dict:
         refined = _renumber(refined)
 
     llm_used = refined is not regex_clauses
-    return _build_return(refined, start_time, current_node, llm_used=llm_used)
+    return _build_return(
+        refined, start_time, current_node, llm_used=llm_used, page_spans=page_spans,
+    )
 
 
 def _to_clause_type(raw: Optional[str]) -> Optional[ClauseType]:
@@ -154,17 +180,22 @@ def _renumber(clauses: list) -> list:
                 position=i,
                 section_number=c.section_number,
                 clause_type=c.clause_type,
+                char_start=c.char_start,  # feature 055 (EC-9)
+                char_end=c.char_end,
             )
         )
     return renumbered
 
 
 def _build_return(
-    clauses: list, start_time: float, current_node: str, llm_used: bool
+    clauses: list, start_time: float, current_node: str, llm_used: bool, page_spans=None
 ) -> dict:
     """Convert ClauseBoundary list to the partial-update return dict."""
     clauses_dict = {}
     type_counts: dict = {}
+    # Feature 055: stamp source_locator from each clause's char range + the transient page_spans map,
+    # only when the flag is on and a map was produced (PDF text layer). None otherwise.
+    stamp_locator = PDF_SOURCE_LOCATOR_ENABLED and bool(page_spans)
 
     for c in clauses:
         converted_type = _to_clause_type(c.clause_type)
@@ -174,12 +205,15 @@ def _build_return(
         # on large docs. Reversible via DETERMINISTIC_CLAUSE_TYPING_ENABLED.
         if converted_type is None and DETERMINISTIC_CLAUSE_TYPING_ENABLED:
             converted_type = infer_clause_type(c.text)
-        clauses_dict[c.clause_id] = {
+        record = {
             "text": c.text,
             "position": c.position,
             "section_number": c.section_number,
             "clause_type": converted_type,
         }
+        if stamp_locator:
+            record["source_locator"] = locator_from_range(c.char_start, c.char_end, page_spans)
+        clauses_dict[c.clause_id] = record
         type_key = converted_type.value if converted_type is not None else None
         type_counts[type_key] = type_counts.get(type_key, 0) + 1
 
@@ -203,8 +237,11 @@ def _build_return(
         },
     )
 
-    return {
+    out = {
         "clauses": clauses_dict,
         "current_node": current_node,
         "node_timings": {current_node: elapsed},
     }
+    if PDF_SOURCE_LOCATOR_ENABLED:  # feature 055 (AC-9): clear the transient map after consuming it
+        out["page_spans"] = None
+    return out
