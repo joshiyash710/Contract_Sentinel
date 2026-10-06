@@ -80,6 +80,10 @@ export const mockClient: ApiClient = {
     return `/api/jobs/${jobId}/report?format=${format}`;
   },
 
+  getSourceUrl(_jobId: string): string {
+    return "/mock/sample.pdf";  // stub; the viewer placeholder handles a non-loading mock in dev
+  },
+
   async getReport(jobId: string): Promise<ContractReport> {
     return { ...reportFixture, document_id: jobId };
   },

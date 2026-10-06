@@ -33,12 +33,16 @@ export function FindingCard({
   open: openProp,
   onToggle,
   active = false,
+  onViewInContract,
 }: {
   finding: ReportFinding;
   defaultOpen?: boolean;
   open?: boolean;
   onToggle?: () => void;
   active?: boolean;
+  // Feature 057: present only in the workspace; renders a "View in contract" action when this finding
+  // has a source_locator (PDF reports analyzed with the chain on). Omitted elsewhere (017 standalone).
+  onViewInContract?: (finding: ReportFinding) => void;
 }) {
   const controlled = openProp !== undefined;
   const [openState, setOpenState] = useState(defaultOpen);
@@ -131,6 +135,18 @@ export function FindingCard({
               </button>
             )}
           </section>
+
+          {/* Feature 057: jump to the clause in the original PDF (only when a locator exists + wired). */}
+          {finding.source_locator && onViewInContract && (
+            <button
+              type="button"
+              data-testid="view-in-contract"
+              onClick={() => onViewInContract(finding)}
+              className="inline-flex items-center gap-1.5 rounded-input border border-subtle px-2.5 py-1 text-small font-medium text-accent hover:bg-white/5"
+            >
+              View in contract →
+            </button>
+          )}
 
           {/* Suggested rewrite — stacked, with an optional before/after Compare (spec 022 AC-6) */}
           {hasRewrite && (

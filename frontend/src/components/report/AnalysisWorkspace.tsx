@@ -1,14 +1,22 @@
 "use client";
 
 import { useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { CheckCircle2 } from "lucide-react";
-import type { ContractReport } from "@/lib/api/types";
+import type { ContractReport, ReportFinding } from "@/lib/api/types";
 import { ReportHeader } from "./ReportHeader";
 import { DegradedBanner } from "./DegradedBanner";
 import { SummaryStrip } from "./SummaryStrip";
 import { RiskOverview } from "./RiskOverview";
 import { FindingCard } from "./FindingCard";
 import { ClauseNavigator } from "./ClauseNavigator";
+
+// Feature 057: the pdf.js viewer is client-only — load it lazily (and never during SSR) so pdf.js stays
+// out of the server bundle and only loads when a user opens "View in contract" (AC-7).
+const ContractViewer = dynamic(
+  () => import("./ContractViewer").then((m) => m.ContractViewer),
+  { ssr: false },
+);
 
 /**
  * The "Analysis Workspace" (spec 022) — the restyled happy-path layout for a loaded report.
@@ -25,6 +33,7 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
     () => new Set(findings[0] ? [findings[0].clause_id] : []),
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [viewerFinding, setViewerFinding] = useState<ReportFinding | null>(null); // feature 057
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const toggle = (id: string) =>
@@ -87,12 +96,21 @@ export function AnalysisWorkspace({ jobId, report }: { jobId: string; report: Co
                   open={openIds.has(f.clause_id)}
                   onToggle={() => toggle(f.clause_id)}
                   active={activeId === f.clause_id}
+                  onViewInContract={setViewerFinding}
                 />
               </div>
             ))}
           </section>
         </div>
       )}
+
+      {/* Feature 057: on-demand original-contract viewer (opened by a finding's "View in contract"). */}
+      <ContractViewer
+        jobId={jobId}
+        locator={viewerFinding?.source_locator ?? null}
+        open={!!viewerFinding}
+        onClose={() => setViewerFinding(null)}
+      />
     </div>
   );
 }

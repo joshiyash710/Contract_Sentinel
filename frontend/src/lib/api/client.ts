@@ -27,6 +27,8 @@ export interface ApiClient {
   /** Opens the SSE stream; returns an unsubscribe function. */
   openJobEvents(jobId: string, handlers: JobEventHandlers): () => void;
   getReportUrl(jobId: string, format: "md" | "json"): string;
+  /** Feature 057: URL of the original uploaded PDF (056 GET /jobs/{id}/source) for the viewer. */
+  getSourceUrl(jobId: string): string;
   /** Fetches the report JSON (009 ContractReport). Rejects with ApiError (status preserved:
    * 409 not-ready, 404 unknown/artifact-missing) so callers can branch (spec 017 D7). */
   getReport(jobId: string): Promise<ContractReport>;

@@ -86,6 +86,7 @@ export function makeFakeClient(opts: FakeClientOpts = {}): ApiClient {
     })(),
     openJobEvents,
     getReportUrl: (id: string, fmt: "md" | "json") => `/api/jobs/${id}/report?format=${fmt}`,
+    getSourceUrl: (id: string) => `/api/jobs/${id}/source`,
     getReport: vi.fn(async (): Promise<ContractReport> => {
       if (opts.getReportError) throw opts.getReportError;
       return opts.report ?? reportFixture;

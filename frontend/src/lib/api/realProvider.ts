@@ -127,6 +127,10 @@ export const realClient: ApiClient = {
     return `${base()}/api/jobs/${jobId}/report?format=${format}`;
   },
 
+  getSourceUrl(jobId: string): string {
+    return `${base()}/api/jobs/${jobId}/source`;
+  },
+
   async getReport(jobId: string): Promise<ContractReport> {
     try {
       const res = await fetch(`${base()}/api/jobs/${jobId}/report?format=json`, {
