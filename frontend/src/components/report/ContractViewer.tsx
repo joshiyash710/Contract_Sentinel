@@ -41,8 +41,9 @@ export function ContractViewer({
 }) {
   const [numPages, setNumPages] = useState(0);
   const [error, setError] = useState(false);
-  const pageRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const highlightRef = useRef<HTMLDivElement | null>(null);
   const fileUrl = getApiClient().getSourceUrl(jobId);
+  const targetPage = locator?.pages?.[0];
 
   // Close on Escape while open.
   useEffect(() => {
@@ -54,12 +55,16 @@ export function ContractViewer({
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  // Jump to the clause's first page when the selection changes (once the doc is loaded).
-  const targetPage = locator?.pages?.[0];
+  // Center the SELECTED clause's highlight in view (not just the page) so the user never has to hunt
+  // for it. Fires when the target page finishes rendering (first open) and when the selection changes
+  // to an already-rendered page.
+  const scrollToHighlight = () =>
+    requestAnimationFrame(() =>
+      highlightRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
   useEffect(() => {
-    if (!open || !targetPage || !numPages) return;
-    pageRefs.current[targetPage]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [open, targetPage, numPages]);
+    if (open && targetPage) scrollToHighlight();
+  }, [open, targetPage, locator]);
 
   if (!open) return null;
 
@@ -105,26 +110,29 @@ export function ContractViewer({
               {Array.from({ length: numPages }, (_, i) => i + 1).map((n) => {
                 const spans = (locator?.spans ?? []).filter((s) => s.page === n);
                 return (
-                  <div
-                    key={n}
-                    ref={(el) => {
-                      pageRefs.current[n] = el;
-                    }}
-                    className="relative mx-auto mb-4 w-fit"
-                  >
+                  <div key={n} className="relative mx-auto mb-4 w-fit">
                     <Page
                       pageNumber={n}
                       scale={SCALE}
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
+                      onRenderSuccess={() => {
+                        if (n === targetPage) scrollToHighlight();
+                      }}
                     />
                     {spans.map((s, idx) => {
                       const r = bboxToRect(s.bbox, SCALE);
+                      // The selected clause's first span is the "primary" highlight: it gets the scroll
+                      // ref + a prominent pulsing ring so it's immediately obvious on the page.
+                      const isPrimary = n === targetPage && idx === 0;
                       return (
                         <div
                           key={idx}
+                          ref={isPrimary ? highlightRef : undefined}
                           data-testid="clause-highlight"
-                          className="pointer-events-none absolute rounded-sm bg-accent/30 ring-1 ring-accent"
+                          className={`pointer-events-none absolute z-10 rounded-sm bg-accent/30 ${
+                            isPrimary ? "animate-pulse ring-2 ring-accent" : "ring-1 ring-accent/60"
+                          }`}
                           style={{ left: r.left, top: r.top, width: r.width, height: r.height }}
                         />
                       );
