@@ -88,6 +88,8 @@ def test_mark_terminal_deletes_upload_blob_on_turso(db, store, loop, monkeypatch
     from app.runner.registry import JobRegistry
 
     monkeypatch.setattr(registry_mod._config, "TURSO_DATABASE_URL", "libsql://x")
+    # Feature 060: retention now defaults ON — pin OFF so the 054 terminal-delete this test asserts runs.
+    monkeypatch.setattr(registry_mod._config, "UPLOAD_SOURCE_RETENTION_ENABLED", False)
     calls = []
     monkeypatch.setattr(
         registry_mod.blob_store, "delete", lambda key, *, table: calls.append((key, table))
@@ -121,6 +123,8 @@ def test_mark_terminal_delete_failure_does_not_change_status(db, store, loop, mo
     registry.add(rec)
     # Enable the Turso delete-gate only AFTER add() so the shared local `store` connection is untouched.
     monkeypatch.setattr(registry_mod._config, "TURSO_DATABASE_URL", "libsql://x")
+    # Feature 060: retention now defaults ON — pin OFF so the delete path (and its failure) is exercised.
+    monkeypatch.setattr(registry_mod._config, "UPLOAD_SOURCE_RETENTION_ENABLED", False)
     rec.mark_terminal(
         status=JobState.completed,
         finished_at="2026-01-01T00:02:00+00:00",

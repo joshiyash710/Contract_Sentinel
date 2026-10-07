@@ -174,9 +174,11 @@ known coordinates; mock the splitter LLM as existing tests do; enable the flag p
 ---
 
 ## Task 12: Measurement (OQ-2 — NOT a merge blocker)
-- [ ] A small offline run over the real corpus comparing flag-on dict-built `extracted_text` vs the plain
+- [x] A small offline run over the real corpus comparing flag-on dict-built `extracted_text` vs the plain
   path (diff rate + whether clause counts change). Record it for the eventual default-flip decision. Does not
-  gate the merge (flag ships OFF).
+  gate the merge (flag ships OFF). **DONE (feature 060):** `backend/eval/measure_055_extraction_diff.py` over
+  the 30-contract corpus → min 99.71% char similarity, 100% whitespace-collapsed, 0/30 clause-count change.
+  Recorded in `backend/eval/RESULTS_055.md`; the measurement gated the 060 default-flip.
 
 ---
 

@@ -144,6 +144,10 @@ def test_splitter_partial_update_only(monkeypatch):
     monkeypatch.setattr(
         clause_splitter_agent_module, "refine_with_llm", lambda c, t, m: c
     )
+    # Feature 060: locator now defaults ON (the splitter then returns page_spans:None — a key it owns, 055
+    # AC-9). Pin OFF to assert the plain-path partial-update shape this test targets; the on-path clearing
+    # is covered by test_pdf_source_locator.py.
+    monkeypatch.setattr(clause_splitter_agent_module, "PDF_SOURCE_LOCATOR_ENABLED", False)
 
     result = clause_splitter_agent(make_state(LONG_TEXT))
 

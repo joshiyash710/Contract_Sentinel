@@ -289,6 +289,9 @@ def _fake_parse_with_footer(*args, **kwargs):
 def test_ingest_strips_edgar_footer_when_enabled(monkeypatch, sample_pdf_path):
     """AC-5: with the flag ON, the EDGAR footer is removed from extracted_text."""
     monkeypatch.setattr(ingest_agent_module, "INGEST_STRIP_DOCUMENT_CHROME_ENABLED", True)
+    # Feature 060: locator now defaults ON, but this fake ParseResult has no page_spans; pin OFF — this test
+    # targets strip-chrome on the plain path (the locator-on path is covered by test_pdf_source_locator.py).
+    monkeypatch.setattr(ingest_agent_module, "PDF_SOURCE_LOCATOR_ENABLED", False)
     monkeypatch.setattr(ingest_agent_module, "parse_pdf", _fake_parse_with_footer)
 
     result = ingest_agent({"document_path": sample_pdf_path})
@@ -302,6 +305,9 @@ def test_ingest_strips_edgar_footer_when_enabled(monkeypatch, sample_pdf_path):
 def test_ingest_strip_reversible_when_disabled(monkeypatch, sample_pdf_path):
     """AC-5 reversibility: flag OFF ⇒ extracted_text is the raw parser text (footer intact)."""
     monkeypatch.setattr(ingest_agent_module, "INGEST_STRIP_DOCUMENT_CHROME_ENABLED", False)
+    # Feature 060: locator now defaults ON, but this fake ParseResult has no page_spans; pin OFF — this test
+    # targets strip-reversibility on the plain path (the locator-on path is covered by test_pdf_source_locator.py).
+    monkeypatch.setattr(ingest_agent_module, "PDF_SOURCE_LOCATOR_ENABLED", False)
     monkeypatch.setattr(ingest_agent_module, "parse_pdf", _fake_parse_with_footer)
 
     result = ingest_agent({"document_path": sample_pdf_path})

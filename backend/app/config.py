@@ -292,16 +292,19 @@ CRAG_PROGRESS_RECENT_MAX: int = _env_int("CRAG_PROGRESS_RECENT_MAX", 8)
 # When True, IngestAgent captures a char->(page,bbox) map from the PDF text layer (get_text("dict")) and
 # ClauseSplitterAgent stamps each clause record with a `source_locator` (page(s)+bbox(es)) — pure
 # metadata that rides unread into the report for the 057 click-to-highlight viewer. PDF text layer only;
-# DOCX / OCR / the text-re-emit splitter path leave source_locator None. False (default) ⇒ plain
-# extraction (byte-identical extracted_text), no page_spans, no source_locator. Reversible. See specs/055.
-PDF_SOURCE_LOCATOR_ENABLED: bool = _env_bool("PDF_SOURCE_LOCATOR_ENABLED", False)
+# DOCX / OCR / the text-re-emit splitter path leave source_locator None. Default True (feature 060): the dict
+# extraction path + source_locator capture are ON — the 055 Task 12 measurement (eval/RESULTS_055.md) showed
+# the dict path is content-identical to the plain path (min 99.71% char similarity, 0/30 clause-count change).
+# Set PDF_SOURCE_LOCATOR_ENABLED=False to opt out (plain extraction, no locators). See specs/055, 060.
+PDF_SOURCE_LOCATOR_ENABLED: bool = _env_bool("PDF_SOURCE_LOCATOR_ENABLED", True)
 
 # ── Serve-original-contract + upload retention (feature 056) ──────────────────────
 # When True, the uploaded contract is RETAINED indefinitely (the 054 terminal-delete of the Turso
-# upload_blobs row is skipped) so the 057 viewer can fetch it via GET /api/jobs/{id}/source. False
-# (default) ⇒ 054 behavior unchanged (terminal-delete on Turso); the /source endpoint still exists but
-# 404s when the source is gone. Flipped on with PDF_SOURCE_LOCATOR_ENABLED when 057 ships. See specs/056.
-UPLOAD_SOURCE_RETENTION_ENABLED: bool = _env_bool("UPLOAD_SOURCE_RETENTION_ENABLED", False)
+# upload_blobs row is skipped) so the 057 viewer can fetch it via GET /api/jobs/{id}/source. Default True
+# (feature 060): the chain is ON so the viewer can serve originals by default. Set
+# UPLOAD_SOURCE_RETENTION_ENABLED=False to opt out (054 terminal-delete on Turso; the /source endpoint still
+# exists but 404s when the source is gone). See specs/056, 060.
+UPLOAD_SOURCE_RETENTION_ENABLED: bool = _env_bool("UPLOAD_SOURCE_RETENTION_ENABLED", True)
 
 # ── Self-RAG validation thresholds ─────────────────────────────────────────────
 # Source: specs/006-self-rag-validation/spec.md §6
