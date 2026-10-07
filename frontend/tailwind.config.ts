@@ -19,6 +19,7 @@ const config: Config = {
         "risk-high": "var(--risk-high)",
         "risk-medium": "var(--risk-medium)",
         "risk-low": "var(--risk-low)",
+        highlight: "var(--highlight)",
         "brand-word": "var(--brand-word)",
         "text-primary": "var(--text-primary)",
         "text-secondary": "var(--text-secondary)",

@@ -30,6 +30,9 @@
   --risk-medium: #f59e0b; /* RiskLevel.MEDIUM (a.k.a. "Amber") */
   --risk-low: #22c55e; /* RiskLevel.LOW */
 
+  /* ── Clause highlighter (057) — yellow marker wash over the PDF clause text ── */
+  --highlight: #fde047;
+
   /* ── File-type brand colors (upload chips) ── */
   --brand-word: #2b579a; /* MS Word blue — DOCX chip */
 

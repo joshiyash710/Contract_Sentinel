@@ -123,15 +123,17 @@ export function ContractViewer({
                     {spans.map((s, idx) => {
                       const r = bboxToRect(s.bbox, SCALE);
                       // The selected clause's first span is the "primary" highlight: it gets the scroll
-                      // ref + a prominent pulsing ring so it's immediately obvious on the page.
+                      // ref + a stronger wash so it's immediately obvious on the page.
                       const isPrimary = n === targetPage && idx === 0;
+                      // Yellow highlighter marker: mix-blend-multiply lets the black clause text show
+                      // through the translucent yellow, exactly like a physical highlighter over paper.
                       return (
                         <div
                           key={idx}
                           ref={isPrimary ? highlightRef : undefined}
                           data-testid="clause-highlight"
-                          className={`pointer-events-none absolute z-10 rounded-sm bg-accent/30 ${
-                            isPrimary ? "animate-pulse ring-2 ring-accent" : "ring-1 ring-accent/60"
+                          className={`pointer-events-none absolute z-10 rounded-sm bg-highlight mix-blend-multiply ${
+                            isPrimary ? "opacity-70 animate-pulse" : "opacity-50"
                           }`}
                           style={{ left: r.left, top: r.top, width: r.width, height: r.height }}
                         />

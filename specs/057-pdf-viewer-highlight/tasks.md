@@ -108,8 +108,10 @@ pdfjs: { GlobalWorkerOptions: {} } }))`.
 ---
 
 ## Task 9: Live smoke (manual, env override — flags stay OFF in the repo)
-- [ ] **NOT YET DONE** — manual step; requires a running backend + a real PDF upload + a human to
-  visually confirm the bbox y-origin orientation. Not performed during the automated completion gate.
+- [x] **DONE (owner, 2026-10-07)** — ran backend with the chain flags on + `npm run dev`, uploaded a
+  real PDF, opened a finding's "View in contract", and visually confirmed the clause highlight renders
+  on the correct clause (bbox y-origin orientation correct — no flip; `bboxToRect` unchanged). The
+  highlight was also restyled to a yellow highlighter wash (confirmed visually).
   Run backend with `PDF_SOURCE_LOCATOR_ENABLED=True UPLOAD_SOURCE_RETENTION_ENABLED=True
   AUTH_COOKIE_SECURE=False MCP_DELIVERY_ENABLED=False` + `npm run dev`; upload a real multi-clause PDF; open
   a finding's "View in contract" → confirm the original renders and the clause highlights on the correct
