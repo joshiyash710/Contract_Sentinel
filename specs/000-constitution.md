@@ -156,6 +156,44 @@ wrap in the upload route + a decrypt-to-tempfile shim at ingest. **No LangGraph 
 `ContractState` field; no DB migration** (files on disk; `document_path` reference unchanged). Fully
 reversible via a config flag.
 
+**AMENDMENT (2026-10-07, feature 061) — a per-user, append-updated local clause KB ("learned clause
+memory") is now IN scope.** Today the local clause KB (§2 node 3) is a single, curated, **read-only** FAISS
+index shared by every account. This amendment makes the KB **learn from analyzed contracts**: when a user's
+analysis produces **validated findings** (Self-RAG-passed clauses only — never raw/boilerplate clauses), the
+text of those clauses is embedded (BGE-M3, the §8 embedding model) and **appended to an index private to
+that user**, so their KB grows with every run. CRAG retrieval (node 3) then searches **both** the shared
+base KB **and** the requesting user's private index and takes the best match — raising the local-hit rate so
+fewer clauses fall below the 0.73 cutoff to web fallback. Rationale (owner request): maintain isolation
+*and* improve judgment quality by building a private, high-signal memory of each account's real contracts.
+
+**IN scope:**
+- A **per-user** FAISS clause index (+ metadata sidecar), private to and owned by the uploading account,
+  stored like the base KB but under a per-user path.
+- An **append-on-completion** write of the run's **validated-finding** clauses to the uploading user's index
+  — performed as a **runner post-run side-effect**, AFTER the graph finishes, over `final_state`.
+- CRAG **augmentation**: node 3 additionally searches the requesting user's index and takes the better
+  match (max score) across it and the base KB. The base curated KB is unchanged and still serves accounts
+  with no private index.
+
+**Stays within the Fixed Architecture (§2) — no violation:**
+- **No new node and no new edge.** The write is a runner side-effect outside the 7-node graph; the read is
+  an in-node augmentation of node 3's existing FAISS search. The 7 nodes + 2 conditional edges are unchanged.
+- **No `ContractState` field (§4/§10).** The user context CRAG needs is passed through the LangGraph run
+  **`config` (`configurable`) channel**, not the graph state — so `specs/001` is unchanged.
+
+**Stays PERMANENTLY CUT / honored:** RBAC, roles, teams/orgs, cross-account sharing or collaboration, and any
+tenant-admin surface — a user's learned KB is **private to them and never shared or cross-read** (reinforces
+the §019 per-user-isolation amendment; one account can never retrieve another's clauses). Writing only
+**validated** findings (not arbitrary uploaded text) bounds the data-poisoning surface that feature 035
+hardens. The feature is **reversible via a config flag** (default off): off ⇒ the KB is read-only and
+shared exactly as today, no per-user index is written or read.
+
+**Mechanics:** adds a per-user KB path + an append/persist helper (embed + `faiss` add + metadata append,
+with a write lock and the 050 provider marker) + a `user_id` kwarg on `run_pipeline` that is both written
+post-run and forwarded via run `config` to CRAG. **No LangGraph node/edge change; no `ContractState` field;
+no DB migration** (FAISS/JSONL files on disk/blob, like the base KB). Encryption-at-rest of the stored
+learned-clause text is a noted follow-up under the existing Tier-3 deferral (per 036), not this amendment.
+
 ## 3. Configurable Thresholds Rule
 
 CRAG confidence thresholds (e.g. the 0.73 cutoff) and Self-RAG pass/fail criteria must always be defined as named, configurable constants in a single shared config module — never hardcoded inline in node logic — since these will be tuned against real sample contracts after implementation.
