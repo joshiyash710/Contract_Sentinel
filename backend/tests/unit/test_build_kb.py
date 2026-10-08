@@ -60,3 +60,9 @@ def test_provider_marker_ollama(monkeypatch):
     monkeypatch.setattr(build_kb.config, "EMBED_PROVIDER", "ollama")
     marker = json.loads(build_kb._provider_marker())
     assert marker == {"provider": "ollama", "model": build_kb.config.OLLAMA_EMBED_MODEL_NAME}
+
+
+def test_provider_marker_cloudflare(monkeypatch):  # feature 062
+    monkeypatch.setattr(build_kb.config, "EMBED_PROVIDER", "cloudflare")
+    monkeypatch.setattr(build_kb.config, "CF_EMBED_MODEL", "@cf/baai/bge-m3")
+    assert json.loads(build_kb._provider_marker()) == {"provider": "cloudflare", "model": "@cf/baai/bge-m3"}

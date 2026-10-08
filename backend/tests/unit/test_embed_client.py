@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 import app.llm.embed_client as embed_client
-from app.llm.embed_client import get_embed_client, HFEmbedClient
+from app.llm.embed_client import get_embed_client, HFEmbedClient, CloudflareEmbedClient
 
 DIM = 1024
 
@@ -148,4 +148,103 @@ def test_token_never_logged(monkeypatch, caplog):
     monkeypatch.setattr(embed_client.httpx, "post", MagicMock(return_value=_FakeResp(200, [0.0] * DIM)))
     with caplog.at_level("DEBUG"):
         HFEmbedClient(30).embeddings(prompt="x")
+    assert secret not in caplog.text
+
+
+# ── Feature 062: Cloudflare Workers AI embedding provider ─────────────────────
+def _cf_body(vec):
+    """The Workers AI feature-extraction response shape (probed): result.data is a list-of-vectors."""
+    return {"result": {"shape": [1, len(vec)], "data": [vec]}, "success": True, "errors": [], "messages": []}
+
+
+def _patch_cf(monkeypatch, account="acct123", token="cf_teststub", retries=2):
+    monkeypatch.setattr(embed_client, "EMBED_PROVIDER", "cloudflare")
+    monkeypatch.setattr(embed_client, "CF_ACCOUNT_ID", account)
+    monkeypatch.setattr(embed_client, "CF_API_TOKEN", token)
+    monkeypatch.setattr(embed_client, "CF_EMBED_MODEL", "@cf/baai/bge-m3")
+    monkeypatch.setattr(embed_client, "CF_EMBED_MAX_RETRIES", retries)
+    monkeypatch.setattr(embed_client, "EMBED_DIM", DIM)
+    monkeypatch.setattr(embed_client.time, "sleep", lambda *_: None)
+
+
+def test_factory_returns_cloudflare_client_when_configured(monkeypatch):  # AC-1
+    _patch_cf(monkeypatch)
+    assert isinstance(get_embed_client(30), CloudflareEmbedClient)
+
+
+def test_cf_embeddings_returns_ollama_shape_and_posts_correctly(monkeypatch):  # AC-2/AC-3
+    _patch_cf(monkeypatch)
+    vec = [0.02] * DIM
+    post = MagicMock(return_value=_FakeResp(200, _cf_body(vec)))
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+
+    out = CloudflareEmbedClient(45).embeddings(model="bge-m3", prompt="the clause text")
+
+    assert out == {"embedding": vec}
+    url = post.call_args.args[0] if post.call_args.args else post.call_args.kwargs["url"]
+    assert "acct123" in url and "@cf/baai/bge-m3" in url
+    assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer cf_teststub"
+    assert post.call_args.kwargs["json"] == {"text": "the clause text"}
+    assert post.call_args.kwargs["timeout"] == 45.0
+
+
+def test_cf_ignores_passed_model(monkeypatch):  # §8 — embedding model only
+    _patch_cf(monkeypatch)
+    post = MagicMock(return_value=_FakeResp(200, _cf_body([0.01] * DIM)))
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+    CloudflareEmbedClient(30).embeddings(model="qwen3:8b", prompt="x")
+    url = post.call_args.args[0] if post.call_args.args else post.call_args.kwargs["url"]
+    assert "@cf/baai/bge-m3" in url and "qwen3" not in url
+
+
+def test_cf_transport_error_retried_then_raised(monkeypatch):  # AC-5 — only transport retries
+    _patch_cf(monkeypatch, retries=2)
+    post = MagicMock(side_effect=httpx.ConnectError("boom"))
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+    with pytest.raises(httpx.RequestError):
+        CloudflareEmbedClient(30).embeddings(prompt="x")
+    assert post.call_count == 3  # initial + 2 retries
+
+
+@pytest.mark.parametrize("status", [401, 402, 429, 500, 503])
+def test_cf_non2xx_raises_immediately(monkeypatch, status):  # AC-5 — non-2xx NOT retried (unlike HF 503)
+    _patch_cf(monkeypatch, retries=2)
+    post = MagicMock(return_value=_FakeResp(status, None))
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+    with pytest.raises(httpx.HTTPStatusError):
+        CloudflareEmbedClient(30).embeddings(prompt="x")
+    assert post.call_count == 1
+
+
+def test_cf_wrong_shape_raises(monkeypatch):  # AC-5
+    _patch_cf(monkeypatch)
+    post = MagicMock(return_value=_FakeResp(200, {"success": True}))  # no result.data
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+    with pytest.raises(ValueError):
+        CloudflareEmbedClient(30).embeddings(prompt="x")
+
+
+def test_cf_dim_mismatch_rejected(monkeypatch):  # AC-5 / dimension parity
+    _patch_cf(monkeypatch)
+    post = MagicMock(return_value=_FakeResp(200, _cf_body([0.0] * (DIM + 1))))
+    monkeypatch.setattr(embed_client.httpx, "post", post)
+    with pytest.raises(ValueError):
+        CloudflareEmbedClient(30).embeddings(prompt="x")
+
+
+def test_cf_missing_creds_raises_without_leaking(monkeypatch):  # AC-4
+    monkeypatch.setattr(embed_client, "CF_ACCOUNT_ID", "acct")
+    monkeypatch.setattr(embed_client, "CF_API_TOKEN", "")
+    with pytest.raises(ValueError) as exc:
+        CloudflareEmbedClient(30)
+    assert "CF_API_TOKEN" in str(exc.value) or "CF_ACCOUNT_ID" in str(exc.value)
+    assert "cf_" not in str(exc.value)  # never echoes token material
+
+
+def test_cf_token_never_logged(monkeypatch, caplog):  # AC-4
+    secret = "cf_supersecret_value_1234567890"
+    _patch_cf(monkeypatch, token=secret)
+    monkeypatch.setattr(embed_client.httpx, "post", MagicMock(return_value=_FakeResp(200, _cf_body([0.0] * DIM))))
+    with caplog.at_level("DEBUG"):
+        CloudflareEmbedClient(30).embeddings(prompt="x")
     assert secret not in caplog.text

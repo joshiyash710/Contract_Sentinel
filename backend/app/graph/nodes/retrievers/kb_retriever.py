@@ -54,10 +54,12 @@ def _warn_on_provider_mismatch(index_path: Path) -> None:
         stamp = json.loads(marker_path.read_text(encoding="utf-8"))
     except Exception:
         return  # unreadable marker → never block the KB load
-    active_model = (
-        _config.HF_EMBED_MODEL if _config.EMBED_PROVIDER == "hf"
-        else _config.OLLAMA_EMBED_MODEL_NAME
-    )
+    if _config.EMBED_PROVIDER == "hf":
+        active_model = _config.HF_EMBED_MODEL
+    elif _config.EMBED_PROVIDER == "cloudflare":  # feature 062
+        active_model = _config.CF_EMBED_MODEL
+    else:
+        active_model = _config.OLLAMA_EMBED_MODEL_NAME
     if stamp.get("provider") != _config.EMBED_PROVIDER or stamp.get("model") != active_model:
         logger.warning(
             "CRAG KB: index %s was built for provider=%r model=%r but the active EMBED_PROVIDER=%r "

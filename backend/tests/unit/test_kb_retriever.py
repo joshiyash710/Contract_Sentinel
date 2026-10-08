@@ -269,6 +269,26 @@ def test_load_kb_provider_match_no_warn(tmp_path, monkeypatch, caplog):
     assert _provider_warnings(caplog) == []
 
 
+def test_load_kb_cloudflare_provider_match_no_warn(tmp_path, monkeypatch, caplog):  # feature 062
+    """A cloudflare-marked index under active cloudflare → no warn (the 3-way pick resolves CF_EMBED_MODEL,
+    not falling through to the ollama model which would falsely mismatch)."""
+    v = _make_unit_vec(1.0, 0.0)
+    meta = [{"snippet_text": "row 0", "source_reference": "ref://0"}]
+    idx_p, meta_p = _write_kb(tmp_path, [v], meta)
+    Path(str(idx_p) + ".provider").write_text(
+        json.dumps({"provider": "cloudflare", "model": "@cf/baai/bge-m3"}), encoding="utf-8"
+    )
+    monkeypatch.setattr(kb_retriever_mod._config, "EMBED_PROVIDER", "cloudflare")
+    monkeypatch.setattr(kb_retriever_mod._config, "CF_EMBED_MODEL", "@cf/baai/bge-m3")
+    _redirect_kb(monkeypatch, idx_p, meta_p)
+
+    with caplog.at_level("WARNING"):
+        kb = load_kb()
+
+    assert kb is not None
+    assert _provider_warnings(caplog) == []
+
+
 def test_load_kb_absent_marker_no_warn(tmp_path, monkeypatch, caplog):
     """A legacy index with no .provider marker → tolerated silently (no provider warning)."""
     v = _make_unit_vec(1.0, 0.0)

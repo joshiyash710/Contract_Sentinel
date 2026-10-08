@@ -235,11 +235,19 @@ OLLAMA_EMBED_MODEL_NAME: str = "bge-m3"
 # "ollama" ⇒ byte-for-byte today. NEVER log HF_API_TOKEN. Switching provider REQUIRES rebuilding the
 # FAISS index through the same provider (index/query vectors must share the model). See specs/050 +
 # docs/DEPLOYMENT.md.
-EMBED_PROVIDER: str = os.getenv("EMBED_PROVIDER", "ollama").strip().lower()  # "ollama" | "hf"
+EMBED_PROVIDER: str = os.getenv("EMBED_PROVIDER", "ollama").strip().lower()  # "ollama" | "hf" | "cloudflare"
 HF_API_TOKEN: str = os.getenv("HF_API_TOKEN", "")
 HF_EMBED_MODEL: str = os.getenv("HF_EMBED_MODEL", "BAAI/bge-m3")
 HF_EMBED_MAX_RETRIES: int = _env_int("HF_EMBED_MAX_RETRIES", 2)
 EMBED_DIM: int = _env_int("EMBED_DIM", 1024)  # bge-m3 vector length; adapter shape guard (050 AC-8)
+
+# Feature 062: EMBED_PROVIDER="cloudflare" → bge-m3 via Cloudflare Workers AI (@cf/baai/bge-m3), a free,
+# card-free tier — the $0 embedding path after HF serverless went credit-gated (402). Same model as the
+# index (no geometry change), embedding-only (§8). NEVER log CF_API_TOKEN. See specs/062 + docs/DEPLOYMENT.md.
+CF_ACCOUNT_ID: str = os.getenv("CF_ACCOUNT_ID", "")
+CF_API_TOKEN: str = os.getenv("CF_API_TOKEN", "")
+CF_EMBED_MODEL: str = os.getenv("CF_EMBED_MODEL", "@cf/baai/bge-m3")
+CF_EMBED_MAX_RETRIES: int = _env_int("CF_EMBED_MAX_RETRIES", 2)
 
 CRAG_KB_INDEX_PATH: str = "data/kb/clauses.faiss"
 # Filesystem path to the prebuilt FAISS index for the local clause KB.
@@ -873,6 +881,8 @@ def validate_prod_config() -> None:
     errs = []
     if EMBED_PROVIDER == "hf" and not HF_API_TOKEN:
         errs.append("EMBED_PROVIDER=hf but HF_API_TOKEN is empty")
+    if EMBED_PROVIDER == "cloudflare" and (not CF_ACCOUNT_ID or not CF_API_TOKEN):
+        errs.append("EMBED_PROVIDER=cloudflare but CF_ACCOUNT_ID or CF_API_TOKEN is empty")
     if LLM_PROVIDER == "groq" and not GROQ_API_KEY:
         errs.append("LLM_PROVIDER=groq but GROQ_API_KEY is empty")
     if TURSO_DATABASE_URL and not TURSO_AUTH_TOKEN:

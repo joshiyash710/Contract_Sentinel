@@ -16,11 +16,11 @@ services:
       - key: LLM_PROVIDER
         value: groq
       - key: EMBED_PROVIDER
-        value: hf
+        value: cloudflare            # feature 062: bge-m3 via Cloudflare Workers AI (free, card-free)
       - key: GROQ_MODEL
         value: openai/gpt-oss-120b
-      - key: HF_EMBED_MODEL
-        value: BAAI/bge-m3
+      - key: CF_EMBED_MODEL
+        value: "@cf/baai/bge-m3"
       - key: AUTH_COOKIE_SECURE
         value: "true"
       - key: AUTH_COOKIE_SAMESITE
@@ -39,7 +39,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      - key: HF_API_TOKEN
+      - key: CF_ACCOUNT_ID         # feature 062: Cloudflare account id for Workers AI
+        sync: false
+      - key: CF_API_TOKEN          # feature 062: Workers AI API token (NEVER logged)
         sync: false
       - key: TURSO_DATABASE_URL
         sync: false

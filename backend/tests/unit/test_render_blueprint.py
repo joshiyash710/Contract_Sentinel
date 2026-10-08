@@ -29,10 +29,10 @@ def test_required_env_and_secrets():
     for k in ("LLM_PROVIDER", "EMBED_PROVIDER", "AUTH_COOKIE_SECURE", "AUTH_COOKIE_SAMESITE"):
         assert k in env and "value" in env[k], f"non-secret {k} must be inline"
     assert env["LLM_PROVIDER"]["value"] == "groq"
-    assert env["EMBED_PROVIDER"]["value"] == "hf"
+    assert env["EMBED_PROVIDER"]["value"] == "cloudflare"  # feature 062
     for k in (
         "AUTH_SECRET", "CONTRACTSENTINEL_ENCRYPTION_KEY", "GROQ_API_KEY",
-        "HF_API_TOKEN", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN",
+        "CF_ACCOUNT_ID", "CF_API_TOKEN", "TURSO_DATABASE_URL", "TURSO_AUTH_TOKEN",
     ):
         assert k in env, f"missing secret key {k}"
         assert env[k].get("sync") is False, f"secret {k} must be sync:false"
