@@ -13,8 +13,9 @@ Reversible: `CRAG_USER_KB_ENABLED` default off ⇒ byte-identical to today.
 ```
 specs/000-constitution.md                               (the 061 amendment — already added)
 backend/app/config.py                                   (CRAG_USER_KB_ENABLED, CRAG_USER_KB_DIR)
-backend/app/graph/nodes/retrievers/user_kb.py           (NEW — per-user load/append/lock/cache helper)
-backend/app/graph/nodes/retrievers/kb_retriever.py      (expose _resolve_backend_path / provider-marker reuse; no base-KB behavior change)
+backend/app/rag/__init__.py                             (NEW — app.rag package init; see Location note)
+backend/app/rag/user_kb.py                              (NEW — per-user load/append/lock/cache helper; see Location note)
+backend/app/graph/nodes/retrievers/kb_retriever.py      (REUSE-ONLY, UNMODIFIED — _resolve_backend_path / _warn_on_provider_mismatch were already module-level)
 backend/app/graph/nodes/crag_retrieval_agent.py         (read user_id via config; augment search with user KB)
 backend/app/runner/core.py                              (user_id kwarg; forward via config; post-run append)
 backend/app/runner/worker.py                            (pass rec.user_id into run_pipeline)
@@ -26,6 +27,17 @@ specs/061-learned-clause-kb/{spec,plan,tasks}.md
 ```
 **NOT touched:** `backend/app/graph/builder.py` (no node/edge); `specs/001`/`ContractState`; any Alembic
 migration; the base KB files `data/kb/clauses.*`; the report renderers / delivery; any frontend file.
+
+**Location note (as-built; differs from this plan's first draft):** `user_kb` lives in the **`app/rag/`**
+package, NOT `app/graph/nodes/retrievers/`. The runner-isolation guard
+(`tests/unit/test_runner_core.py::test_only_public_entrypoints_imported` and
+`tests/integration/test_runner_graph_untouched.py::test_builder_not_modified_by_runner`) asserts that
+`app/runner/core.py`'s source contains no `app.graph.nodes.` reference at all (even in a comment). Since the
+runner must call the KB writer, the KB store had to be a **shared `app/rag` library** that BOTH CRAG (a node)
+and the runner can import without crossing that boundary — which is also the home the spec (§2) hinted at
+("an `app/rag`-style helper"). `kb_retriever.py` is unchanged (its `_resolve_backend_path` /
+`_warn_on_provider_mismatch` were already module-level and are imported as-is). Merged to main in commit
+`1ea50f86`; full backend suite 1182 passed.
 
 ## 1. `config.py` (§3, D5)
 - `CRAG_USER_KB_ENABLED: bool = _env_bool("CRAG_USER_KB_ENABLED", False)` — gates BOTH the write and the read
@@ -114,7 +126,7 @@ A small module mirroring `kb_retriever` conventions (faiss + numpy + json + a `_
       try:
           items = _validated_finding_items(final_state)   # [] when none
           if items:
-              from app.graph.nodes.retrievers import user_kb
+              from app.rag import user_kb
               user_kb.append_clauses(user_id, items)
       except Exception:
           logger.warning("user-KB append failed (best-effort, run unaffected)", exc_info=True)
