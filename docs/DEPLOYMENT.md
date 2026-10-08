@@ -109,6 +109,63 @@ to `GET https://<your-service>.onrender.com/api/health` every ~10 min so the ins
 
 ---
 
+## 3b. Post-deploy: turn on email + real embeddings (two things that silently no-op)
+
+The app runs fine without either of these — it just quietly **doesn't send email** and **under-reports risky
+clauses**. Both are easy to miss; walk this checklist after the first deploy.
+
+### Email — password reset AND report delivery (one shared dependency)
+
+Both emails send through the **same** central-Gmail path: `password_reset_email.send_reset_email` and the
+report delivery both call `send_report_via_gmail(...)` with the **central Google token**
+(`materialize_central_token_tempfile()` → `GOOGLE_OAUTH_TOKEN_PATH`, default
+`data/secrets/google_token.json`). If that token file is absent the helper returns `None` and the send
+"fails naturally"; the reset task **swallows the failure** and still returns the generic
+"if an account exists…" 200 — so a missing token is invisible to the user. On Render's **ephemeral disk**
+that file does not exist unless you provide it as a Secret File.
+
+- [ ] Mint a **plaintext** central token locally (one-time; opens a browser for consent):
+      `cd backend && .venv/Scripts/python.exe scripts/mint_plain_token.py` → writes
+      `data/secrets/google_token_plain.json`. (Plaintext avoids the encryption-key-mismatch failure mode:
+      a Fernet-encrypted token only decrypts if Render's `CONTRACTSENTINEL_ENCRYPTION_KEY` matches the
+      machine that wrote it.)
+- [ ] Render dashboard → add a **Secret File** named `google_token.json` containing that file's contents.
+- [ ] Set env **`GOOGLE_OAUTH_TOKEN_PATH=/etc/secrets/google_token.json`**.
+- [ ] Set env **`FRONTEND_RESET_URL=https://<your-vercel-app>/reset`** — the default is
+      `http://localhost:3000/reset`, so the email would send but the link would be dead in prod.
+- [ ] Redeploy, then test: trigger a password reset (email should arrive) and run an analysis (the report
+      email should arrive). If not, check logs for `reset email send failed`, Gmail `invalid_grant`
+      (token expired/revoked → re-mint), or `no recipient configured`.
+
+`MCP_DELIVERY_ENABLED` / `MCP_GMAIL_ENABLED` already default **True** — the token is the only missing piece.
+Gmail stays central (031 amendment); per-user Drive is a separate connection.
+
+### Embeddings — why prod finds fewer risky clauses than local
+
+`render.yaml` sets `EMBED_PROVIDER=hf`. HuggingFace **serverless inference is now credit-gated** — a free
+read token returns **`402 Payment Required`** on every embed. CRAG then opens its embedding **circuit
+breaker** and routes every clause to **web search**; the thin web evidence makes **Self-RAG discard the
+findings**, so a contract that surfaced medium-risk clauses locally can return a **clean "no risky clauses"**
+report in prod. This is NOT the LLM — generation (Groq) is unaffected, and the service couldn't even boot
+with an empty `GROQ_API_KEY` (startup guard). It is purely the embedding/evidence path.
+
+- [ ] Confirm the symptom in Render logs on a fresh run: `402` on HF embeds + `embedding circuit breaker
+      OPENED`, then all clauses `web_fallback`.
+- [ ] Fix — pick one:
+      - **Add HF credits** (a small usage-priced plan at huggingface.co; a corpus's worth of embeds is cents).
+        `EMBED_PROVIDER=hf` then returns real vectors → local-KB retrieval + findings restored. **No redeploy
+        needed** — the index already ships in the image.
+      - **Move embeddings to Ollama** (the Oracle-VM alternative in §0): `EMBED_PROVIDER=ollama` with Ollama
+        running on a host that has the RAM. Render free (512 MB) can't run Ollama, so this means a different
+        host.
+- [ ] (Optional, for diagnosis) Set `CRAG_LIVE_CLAUSE_PROGRESS_ENABLED=True` to watch the web-fallback
+      indicator fire live in the processing view.
+
+Until embeddings work, prod judges clauses on **web evidence only** and will under-report vs local — an
+accepted interim posture (deploy "option C"), fully reversible by either fix above.
+
+---
+
 ## 4. Go-live checklist (the deferred Linux/Turso validations)
 
 Run these in the Render container (or a Linux/WSL/Docker env) before trusting the deploy:
