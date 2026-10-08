@@ -52,6 +52,29 @@ unset while `TURSO_DATABASE_URL` is set, and hard-fails on a missing HF/Groq/Tur
 
 ---
 
+## 1b. Feature-flag defaults you inherit (features 057–061)
+
+The source-locator traceability chain is **ON by default** as of feature 060 — neither flag is in
+`render.yaml`, so prod gets:
+
+- **`PDF_SOURCE_LOCATOR_ENABLED=True`** → findings carry PDF clause locators; the in-workspace PDF viewer +
+  click-to-highlight (057) work out of the box. (055 Task 12 measured the dict-extraction path as
+  content-identical to the plain path: min 99.71% char similarity, 0/30 clause-count change —
+  `backend/eval/RESULTS_055.md`.)
+- **`UPLOAD_SOURCE_RETENTION_ENABLED=True`** → uploaded contracts are **kept in Turso indefinitely** (so
+  `GET /api/jobs/{id}/source` can serve them to the viewer). Mind Turso's 5 GB free tier; set either env var
+  to `False` in the dashboard to opt out (reverts to feature-054 terminal-delete).
+
+Two flags stay **OFF** unless you set them explicitly:
+
+- **`CRAG_LIVE_CLAUSE_PROGRESS_ENABLED`** (059) — live per-clause retrieval narration, including the
+  **"live web search" fallback indicator**. Set `True` to surface it in the processing view.
+- **`CRAG_USER_KB_ENABLED`** (061) — per-user learned clause KB. **Leave OFF on Render:** v1 stores the
+  per-user indexes on the **ephemeral** local disk (`data/kb/users/`), which Render wipes on every redeploy.
+  Enable only on a durable-disk host (e.g. the Oracle VM alternative) or after a durable-storage follow-up.
+
+---
+
 ## 2. External setup (one-time)
 
 1. **Turso** (app.turso.tech): create a database → copy its **URL** (`libsql://<db>-<org>.turso.io`)
