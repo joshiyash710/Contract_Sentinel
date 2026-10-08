@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 from typing import List
 
@@ -76,17 +77,39 @@ def _load_corpus() -> List[dict]:
     return records
 
 
+_EMBED_CLIENT = None
+
+
+def _embed_client():
+    """One reused embedding client (connection pooling across the ~1400-record build)."""
+    global _EMBED_CLIENT
+    if _EMBED_CLIENT is None:
+        _EMBED_CLIENT = get_embed_client(config.CRAG_EMBED_TIMEOUT_SECONDS)
+    return _EMBED_CLIENT
+
+
 def _embed(text: str) -> np.ndarray:
     # Feature 050: route through the embedding seam so EMBED_PROVIDER=hf builds the index via the same
-    # HuggingFace bge-m3 the runtime query embedding uses (index/query must share the model).
-    resp = get_embed_client(config.CRAG_EMBED_TIMEOUT_SECONDS).embeddings(
-        model=config.OLLAMA_EMBED_MODEL_NAME, prompt=text
-    )
-    vec = np.asarray(resp["embedding"], dtype=np.float32)
-    norm = float(np.linalg.norm(vec))
-    if norm < _MIN_NORM:
-        raise SystemExit("Embedding returned a zero-norm vector; cannot L2-normalize.")
-    return vec / norm  # L2-normalize so inner product == cosine (§7.1)
+    # HuggingFace bge-m3 the runtime query embedding uses (index/query must share the model). Each embed is
+    # retried with backoff so a transient provider drop (timeout / closed connection / 5xx) over the bulk
+    # build retries THAT record instead of aborting the whole run.
+    last_exc = None
+    for attempt in range(5):
+        try:
+            resp = _embed_client().embeddings(
+                model=config.OLLAMA_EMBED_MODEL_NAME, prompt=text
+            )
+            vec = np.asarray(resp["embedding"], dtype=np.float32)
+            norm = float(np.linalg.norm(vec))
+            if norm < _MIN_NORM:
+                raise SystemExit("Embedding returned a zero-norm vector; cannot L2-normalize.")
+            return vec / norm  # L2-normalize so inner product == cosine (§7.1)
+        except SystemExit:
+            raise
+        except Exception as exc:  # transient provider drop → backoff + retry
+            last_exc = exc
+            time.sleep(min(2.0 ** attempt, 8.0))
+    raise SystemExit(f"Embedding failed after 5 attempts: {last_exc}")
 
 
 def _provider_marker() -> str:
