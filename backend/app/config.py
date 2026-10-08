@@ -249,6 +249,18 @@ CRAG_KB_METADATA_PATH: str = "data/kb/clauses_meta.jsonl"
 # Sidecar mapping each FAISS vector row -> {snippet_text, source_reference}.
 # Row order is 1:1 with vector IDs in the index. Same backend/-relative anchor.
 
+# ── Per-user learned clause KB (feature 061) ──────────────────────────────────────
+# When True, each analysis appends its VALIDATED-finding clauses to an index PRIVATE to the uploading
+# account, and CRAG (node 3) additionally searches that user's index (max score vs the base KB) to raise
+# the local-hit rate. Default False ⇒ the base KB is read-only and shared exactly as today (no per-user
+# write/read). Gates BOTH the runner post-run write and the CRAG read augmentation. See specs/061.
+CRAG_USER_KB_ENABLED: bool = _env_bool("CRAG_USER_KB_ENABLED", False)
+
+CRAG_USER_KB_DIR: str = "data/kb/users"
+# Base dir for per-user learned indexes; a user's index is
+# {CRAG_USER_KB_DIR}/{user_id}/clauses.faiss (+ clauses_meta.jsonl + clauses.faiss.provider),
+# resolved backend/-relative like the base KB.
+
 CRAG_TOP_K: int = 5
 # Number of nearest neighbors to retrieve from the local FAISS KB per clause.
 

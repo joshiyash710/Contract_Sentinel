@@ -41,6 +41,7 @@ import app.config as _config
 from app.graph.state import ContractState, RetrievalPath
 from app.graph.nodes.retrievers.embeddings import embed_query
 from app.graph.nodes.retrievers.kb_retriever import load_kb, search_kb
+from app.rag.user_kb import load_user_kb
 from app.graph.nodes.retrievers.web_retriever import web_search
 
 logger = logging.getLogger("contractsentinel.crag_retrieval")
@@ -59,6 +60,27 @@ CRAG_WEB_TIMEOUT_SECONDS = _config.CRAG_WEB_TIMEOUT_SECONDS
 CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD = _config.CRAG_EMBED_CIRCUIT_BREAKER_THRESHOLD
 # Feature 059: re-exposed module-level so tests can monkeypatch it (same pattern as the thresholds above).
 CRAG_LIVE_CLAUSE_PROGRESS_ENABLED = _config.CRAG_LIVE_CLAUSE_PROGRESS_ENABLED
+# Feature 061: re-exposed module-level so tests can monkeypatch it.
+CRAG_USER_KB_ENABLED = _config.CRAG_USER_KB_ENABLED
+
+
+def _run_user_id():
+    """Feature 061: read the requesting user's id from the LangGraph run config, guarded.
+
+    Returns None when the flag is off, when there is no runnable context (a direct node call / CLI —
+    get_config raises RuntimeError), or when no user_id was forwarded. Analogous to feature 059's guarded
+    stream-writer acquisition (but a different API: langgraph.config.get_config)."""
+    if not CRAG_USER_KB_ENABLED:
+        return None
+    try:
+        from langgraph.config import get_config
+
+        cfg = get_config()
+    except RuntimeError:  # no runnable context (direct call / CLI)
+        return None
+    except Exception:  # noqa: BLE001 — any import/context issue → no user KB
+        return None
+    return (cfg or {}).get("configurable", {}).get("user_id")
 
 
 def _clause_writer():
@@ -110,6 +132,10 @@ def crag_retrieval_agent(state: ContractState) -> dict:
 
     # ── Load KB once (None if unavailable — AC-14 warning is inside load_kb) ─
     kb = load_kb()
+    # Feature 061: per-user learned KB augmentation. None when the flag is off / no user_id / no runnable
+    # context (guarded) — then CRAG behaves exactly as before (base KB only).
+    uid = _run_user_id()
+    user_kb_handle = load_user_kb(uid) if uid else None
 
     # ── Circuit-breaker state (spec §4.13 / AC-16) ───────────────────────────
     consecutive_failures = 0
@@ -165,6 +191,7 @@ def crag_retrieval_agent(state: ContractState) -> dict:
 
         # ── c. Embed (skip if circuit open) ──────────────────────────────────
         kb_result = None  # initialize up front to avoid UnboundLocalError
+        user_result = None  # feature 061: per-user KB result (None unless augmenting)
         query_vec = None
 
         if not circuit_open:
@@ -188,27 +215,44 @@ def crag_retrieval_agent(state: ContractState) -> dict:
             else:
                 consecutive_failures = 0  # reset on success
 
-        # ── d. Decide confidence + path (None-vs-0.0 rule from plan §2) ─────
-        if kb is None:
-            # KB unavailable: confidence 0.0 if we have a vector, else None
-            confidence = 0.0 if query_vec is not None else None
-            path = RetrievalPath.WEB_FALLBACK
-        elif query_vec is None:
+        # ── d. Decide confidence + path (None-vs-0.0 rule from plan §2). Feature 061: consult the base KB
+        #       AND the per-user KB (when present) and take the better match; base-only semantics preserved. ─
+        if query_vec is None:
             # Could not embed (embed failure or circuit open)
             confidence = None
             path = RetrievalPath.WEB_FALLBACK
         else:
-            kb_result = search_kb(kb, query_vec, CRAG_TOP_K)
-            confidence = kb_result.top_score  # max(0.0, top-1 cosine)
-            if confidence >= CRAG_CONFIDENCE_THRESHOLD:  # inclusive >= (AC-4)
-                path = RetrievalPath.LOCAL_KB
-            else:
+            kb_result = search_kb(kb, query_vec, CRAG_TOP_K) if kb is not None else None
+            user_result = (
+                search_kb(user_kb_handle, query_vec, CRAG_TOP_K) if user_kb_handle is not None else None
+            )
+            scores = [
+                r.top_score for r in (kb_result, user_result)
+                if r is not None and r.top_score is not None
+            ]
+            if not scores:
+                # No KB available at all (base missing, no user KB); a vector exists ⇒ 0.0 (unchanged).
+                confidence = 0.0
                 path = RetrievalPath.WEB_FALLBACK
+            else:
+                confidence = max(scores)  # best of base + user KB
+                if confidence >= CRAG_CONFIDENCE_THRESHOLD:  # inclusive >= (AC-4)
+                    path = RetrievalPath.LOCAL_KB
+                else:
+                    path = RetrievalPath.WEB_FALLBACK
 
         # ── e. Gather evidence for the chosen path ────────────────────────────
         web_latency = None
         if path == RetrievalPath.LOCAL_KB:
-            snippets = kb_result.snippets
+            # Feature 061: merge base + user-KB snippets, the stronger source first; capped in step f.
+            base_snips = kb_result.snippets if kb_result is not None else []
+            user_snips = user_result.snippets if user_result is not None else []
+            base_top = kb_result.top_score if kb_result is not None else None
+            user_top = user_result.top_score if user_result is not None else None
+            if user_result is not None and (base_top is None or (user_top or 0.0) >= (base_top or 0.0)):
+                snippets = user_snips + base_snips
+            else:
+                snippets = base_snips + user_snips
         else:
             web_start = time.monotonic()
             web_result = web_search(

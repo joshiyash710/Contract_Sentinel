@@ -122,6 +122,7 @@ class PipelineWorker:
                 already_completed=already,
                 drive_token_json=drive_token,
                 on_clause=on_clause,
+                user_id=rec.user_id,  # feature 061: grow this user's private learned KB
             )
 
             # Feature 031: a per-user token that fails with invalid_grant → auto-disconnect the
