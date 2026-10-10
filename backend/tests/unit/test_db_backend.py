@@ -143,3 +143,102 @@ def test_turso_missing_token_raises_without_leaking(monkeypatch):
         db_backend.connect("ignored")
     assert "TURSO_AUTH_TOKEN" in str(exc.value)  # names the missing var
     assert "hf_" not in str(exc.value) and "eyJ" not in str(exc.value)  # no token material
+
+
+# ── Feature 063: reconnect-and-retry on dropped Hrana connections ─────────────
+_DROP = ValueError("Hrana: http error: connection closed before message completed")
+
+
+class _RaiseConn:
+    """Raw conn whose execute/commit always raise `exc` (a dropped connection)."""
+
+    def __init__(self, exc):
+        self._exc = exc
+        self.closed = False
+
+    def execute(self, sql, params=()):
+        raise self._exc
+
+    def commit(self):
+        raise self._exc
+
+    def close(self):
+        self.closed = True
+
+
+def test_reconnect_then_retry_succeeds(monkeypatch):  # AC-1
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    good = FakeRawConn(cursor=FakeRawCursor(rows=[(1,)]))
+    reconnect = MagicMock(return_value=good)
+    conn = db_backend._LibsqlConn(_RaiseConn(_DROP), reconnect=reconnect)
+    cur = conn.execute("SELECT 1")
+    assert isinstance(cur, db_backend._LibsqlCursor)
+    assert reconnect.call_count == 1          # dead conn replaced once
+    assert good.executed == [("SELECT 1", ())]
+
+
+def test_retry_budget_exhausted_raises(monkeypatch):  # AC-2
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    reconnect = MagicMock(side_effect=lambda: _RaiseConn(_DROP))  # every reconnect still drops
+    conn = db_backend._LibsqlConn(_RaiseConn(_DROP), reconnect=reconnect)
+    with pytest.raises(ValueError):
+        conn.execute("SELECT 1")
+    assert reconnect.call_count == 2          # reconnect tried exactly the budget, then raised
+
+
+def test_non_drop_error_not_retried(monkeypatch):  # AC-3
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    reconnect = MagicMock()
+    conn = db_backend._LibsqlConn(_RaiseConn(ValueError("UNIQUE constraint failed")), reconnect=reconnect)
+    with pytest.raises(ValueError) as exc:
+        conn.execute("INSERT INTO t VALUES (1)")
+    assert "UNIQUE" in str(exc.value)
+    assert reconnect.call_count == 0          # non-drop error propagates immediately, no retry
+
+
+def test_executemany_and_commit_retry_on_drop(monkeypatch):  # AC-4
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    good_em = FakeRawConn()
+    db_backend._LibsqlConn(_RaiseConn(_DROP), reconnect=MagicMock(return_value=good_em)).executemany(
+        "DELETE FROM jobs WHERE job_id=?", [("a",), ("b",)]
+    )
+    assert good_em.executed == [
+        ("DELETE FROM jobs WHERE job_id=?", ("a",)),
+        ("DELETE FROM jobs WHERE job_id=?", ("b",)),
+    ]
+    good_commit = FakeRawConn()
+    db_backend._LibsqlConn(_RaiseConn(_DROP), reconnect=MagicMock(return_value=good_commit)).commit()
+    assert good_commit.committed == 1
+
+
+def test_reconnect_warning_omits_token_and_params(monkeypatch, caplog):  # AC-6
+    sleeps = []
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: sleeps.append(1))
+    monkeypatch.setattr(db_backend._config, "TURSO_DATABASE_URL", "libsql://x.turso.io")
+    monkeypatch.setattr(db_backend._config, "TURSO_AUTH_TOKEN", "sekrettoken123")
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    good = FakeRawConn(cursor=FakeRawCursor(rows=[(1,)]))
+    # connect() builds the wrapper with the real _turso_raw_connect reconnect factory; first raw drops,
+    # the reconnect returns a good conn.
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(side_effect=[_RaiseConn(_DROP), good]))
+    conn = db_backend.connect("ignored")
+    with caplog.at_level("WARNING"):
+        conn.execute("UPDATE users SET x=? WHERE token=?", ("userdata", "usersecret"))
+    assert any("reconnect" in r.getMessage().lower() for r in caplog.records)  # a reconnect was logged
+    assert "sekrettoken123" not in caplog.text                                 # token never logged
+    assert "usersecret" not in caplog.text and "userdata" not in caplog.text   # SQL params never logged
+    assert sleeps                                                              # backoff sleep (stubbed) ran
+
+
+def test_retry_count_honors_config(monkeypatch):  # AC-7
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 1)
+    reconnect = MagicMock(side_effect=lambda: _RaiseConn(_DROP))
+    conn = db_backend._LibsqlConn(_RaiseConn(_DROP), reconnect=reconnect)
+    with pytest.raises(ValueError):
+        conn.execute("SELECT 1")
+    assert reconnect.call_count == 1          # budget=1 → exactly one reconnect, then raise

@@ -667,6 +667,9 @@ JOB_STORE_DB_PATH: str = "data/job_store.db"
 # local SQLite. NEVER log TURSO_AUTH_TOKEN. See specs/051 + docs/DEPLOYMENT.md.
 TURSO_DATABASE_URL: str = os.getenv("TURSO_DATABASE_URL", "").strip()   # "" ⇒ local SQLite (default)
 TURSO_AUTH_TOKEN: str = os.getenv("TURSO_AUTH_TOKEN", "")               # DB auth token; NEVER logged
+# Feature 063: on a dropped Hrana connection, _LibsqlConn reconnects + retries this many times after the
+# first failure (≤ this+1 total tries) before propagating. Bounded; env-overridable. See specs/063.
+TURSO_RECONNECT_MAX_RETRIES: int = _env_int("TURSO_RECONNECT_MAX_RETRIES", 2)
 
 CHECKPOINTER_DB_PATH: str = "data/checkpoints.db"
 # LangGraph SqliteSaver file (spec D1). Owned by SqliteSaver.setup(), NEVER by
