@@ -1,1 +1,1 @@
-{"provider": "ollama", "model": "bge-m3"}
+{"provider": "cloudflare", "model": "@cf/baai/bge-m3"}

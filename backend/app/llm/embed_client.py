@@ -105,7 +105,8 @@ class HFEmbedClient:
 def _cf_extract_vector(body):
     """Normalize the Workers AI feature-extraction response to a flat float list (feature 062).
 
-    Probed shape (@cf/baai/bge-m3): {"result": {"shape": [1, 1024], "data": [[...1024 floats...]]}}.
+    Probed shape (@cf/baai/bge-m3, confirmed 2026-10-09): {"result": {"data": [[...1024 floats...]], "shape":
+    [1, 1024], "meta": …, "pooling": …}, "success": true, "errors": []} → vector = result.data[0].
     Defensive: result.data as a list-of-lists → take [0]; as a flat float list → as-is; else fall back to a
     top-level `data`. Any other shape raises ValueError (the adapter's caller turns it into None/a loud
     failure). Never echoes the token (no secrets are in the body)."""

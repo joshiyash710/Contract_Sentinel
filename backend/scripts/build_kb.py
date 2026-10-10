@@ -123,9 +123,15 @@ def main() -> None:
     records = _load_corpus()
     print(f"Embedding {len(records)} clauses with '{config.OLLAMA_EMBED_MODEL_NAME}'...")
 
+    # Throttle network providers (hf/cloudflare) to avoid a burst of fresh HTTPS handshakes tripping a
+    # connection reset (WinError 10054) / rate limiter; local Ollama needs no throttle.
+    _throttle = 0.0 if config.EMBED_PROVIDER == "ollama" else 0.2
+
     vectors: List[np.ndarray] = []
     for i, rec in enumerate(records, 1):
         vectors.append(_embed(rec["snippet_text"]))
+        if _throttle:
+            time.sleep(_throttle)
         if i % 20 == 0 or i == len(records):
             print(f"  embedded {i}/{len(records)}")
 
