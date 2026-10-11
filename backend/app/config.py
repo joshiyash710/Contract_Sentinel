@@ -671,6 +671,14 @@ TURSO_AUTH_TOKEN: str = os.getenv("TURSO_AUTH_TOKEN", "")               # DB aut
 # first failure (≤ this+1 total tries) before propagating. Bounded; env-overridable. See specs/063.
 TURSO_RECONNECT_MAX_RETRIES: int = _env_int("TURSO_RECONNECT_MAX_RETRIES", 2)
 
+# Feature 064: open the store DB as a libSQL EMBEDDED REPLICA (local synced SQLite file) when True AND
+# TURSO_DATABASE_URL is set — reads served locally (instant), writes forward to the remote primary (durable).
+# Fixes cross-region latency (Oregon backend ↔ India primary) the Free tier can't co-locate. Default False ⇒
+# pure-remote (byte-identical). See specs/064 + docs/DEPLOYMENT.md.
+TURSO_EMBEDDED_REPLICA_ENABLED: bool = _env_bool("TURSO_EMBEDDED_REPLICA_ENABLED", False)
+TURSO_REPLICA_PATH: str = "data/turso_replica.db"  # local replica file (backend-relative; on the data volume)
+TURSO_SYNC_INTERVAL_SECONDS: int = _env_int("TURSO_SYNC_INTERVAL_SECONDS", 60)  # 0 ⇒ bootstrap-on-connect only
+
 CHECKPOINTER_DB_PATH: str = "data/checkpoints.db"
 # LangGraph SqliteSaver file (spec D1). Owned by SqliteSaver.setup(), NEVER by
 # Alembic. Serialized ContractState per super-step, keyed by thread_id

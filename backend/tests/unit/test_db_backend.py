@@ -242,3 +242,73 @@ def test_retry_count_honors_config(monkeypatch):  # AC-7
     with pytest.raises(ValueError):
         conn.execute("SELECT 1")
     assert reconnect.call_count == 1          # budget=1 → exactly one reconnect, then raise
+
+
+# ── Feature 064: Turso embedded replica (local-synced reads) ──────────────────
+def _patch_embedded(monkeypatch, tmp_path, enabled=True, interval=60, token="tok", replica=None):
+    monkeypatch.setattr(db_backend._config, "TURSO_DATABASE_URL", "libsql://x.turso.io")
+    monkeypatch.setattr(db_backend._config, "TURSO_AUTH_TOKEN", token)
+    monkeypatch.setattr(db_backend._config, "TURSO_EMBEDDED_REPLICA_ENABLED", enabled)
+    monkeypatch.setattr(db_backend._config, "TURSO_SYNC_INTERVAL_SECONDS", interval)
+    monkeypatch.setattr(db_backend._config, "TURSO_REPLICA_PATH", replica or str(tmp_path / "sub" / "replica.db"))
+
+
+def test_embedded_replica_connect_shape(monkeypatch, tmp_path):  # AC-1 / AC-4
+    replica = tmp_path / "sub" / "replica.db"
+    _patch_embedded(monkeypatch, tmp_path, replica=str(replica))
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(return_value=FakeRawConn()))
+    conn = db_backend.connect("ignored")
+    assert isinstance(conn, db_backend._LibsqlConn)
+    call = db_backend.libsql.connect.call_args
+    assert call.args[0] == str(replica)             # database = local replica path
+    assert call.kwargs["sync_url"] == "libsql://x.turso.io"
+    assert call.kwargs["auth_token"] == "tok"
+    assert call.kwargs["sync_interval"] == 60
+    assert call.kwargs["_check_same_thread"] is False
+    assert replica.parent.exists()                  # parent dir created BEFORE connect
+
+
+def test_flag_off_pure_remote_byte_identical(monkeypatch, tmp_path):  # AC-2
+    _patch_embedded(monkeypatch, tmp_path, enabled=False)
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(return_value=FakeRawConn()))
+    db_backend.connect("ignored")
+    call = db_backend.libsql.connect.call_args
+    assert call.args[0] == "libsql://x.turso.io"     # pure-remote: URL is the database
+    assert call.kwargs.get("auth_token") == "tok"
+    assert "sync_url" not in call.kwargs and "sync_interval" not in call.kwargs
+
+
+def test_local_sqlite_ignores_replica_flag(monkeypatch, tmp_path):  # AC-3
+    monkeypatch.setattr(db_backend._config, "TURSO_DATABASE_URL", "")
+    monkeypatch.setattr(db_backend._config, "TURSO_EMBEDDED_REPLICA_ENABLED", True)
+    conn = db_backend.connect(str(tmp_path / "x.db"))
+    assert isinstance(conn, sqlite3.Connection)
+    conn.close()
+
+
+def test_embedded_missing_token_raises(monkeypatch, tmp_path):  # AC-5
+    _patch_embedded(monkeypatch, tmp_path, token="")
+    with pytest.raises(ValueError) as exc:
+        db_backend.connect("ignored")
+    assert "TURSO_AUTH_TOKEN" in str(exc.value)
+    assert "eyJ" not in str(exc.value)
+
+
+def test_embedded_reconnect_reopens_replica_mode(monkeypatch, tmp_path):  # AC-6 (063 reuse)
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    _patch_embedded(monkeypatch, tmp_path)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    good = FakeRawConn(cursor=FakeRawCursor(rows=[(1,)]))
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(side_effect=[_RaiseConn(_DROP), good]))
+    conn = db_backend.connect("ignored")   # 1st connect → raising conn
+    cur = conn.execute("SELECT 1")         # drop → reconnect (2nd connect → good) → succeeds
+    assert isinstance(cur, db_backend._LibsqlCursor)
+    assert db_backend.libsql.connect.call_count == 2
+    assert all("sync_url" in c.kwargs for c in db_backend.libsql.connect.call_args_list)  # both embedded mode
+
+
+def test_sync_interval_zero_becomes_none(monkeypatch, tmp_path):  # AC-7
+    _patch_embedded(monkeypatch, tmp_path, interval=0)
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(return_value=FakeRawConn()))
+    db_backend.connect("ignored")
+    assert db_backend.libsql.connect.call_args.kwargs["sync_interval"] is None

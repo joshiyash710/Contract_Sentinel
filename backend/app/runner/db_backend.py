@@ -15,6 +15,7 @@ but Alembic migrations against Turso need `sqlalchemy-libsql`, which builds only
 import logging
 import sqlite3
 import time
+from pathlib import Path
 
 import libsql  # cross-platform core dep; module-level so tests can patch db_backend.libsql.connect
 
@@ -35,13 +36,35 @@ def connect(db_path: str):
     return conn
 
 
+def _resolve_replica_path() -> str:
+    """Feature 064: resolve TURSO_REPLICA_PATH against the backend/ dir (an absolute path passes through)."""
+    base = Path(_config.__file__).resolve().parent.parent  # …/backend/app/config.py → …/backend
+    return str(base / _config.TURSO_REPLICA_PATH)
+
+
 def _turso_raw_connect():
-    """Open a fresh raw libsql connection (feature 063: also the reconnect factory for _LibsqlConn)."""
+    """Open a fresh raw libsql connection (feature 063: also the reconnect factory for _LibsqlConn).
+
+    Feature 064: when TURSO_EMBEDDED_REPLICA_ENABLED, open a local EMBEDDED REPLICA (database = local file,
+    sync_url = remote primary) so reads are local/instant and writes forward to the primary; else today's
+    pure-remote connection (byte-identical)."""
     if not _config.TURSO_AUTH_TOKEN:
         # The token is empty here; the message must never echo any token material.
         raise ValueError(
             "TURSO_DATABASE_URL is set but TURSO_AUTH_TOKEN is empty. Set it in backend/.env "
             "(see docs/DEPLOYMENT.md). The token value is intentionally not shown."
+        )
+    if _config.TURSO_EMBEDDED_REPLICA_ENABLED:
+        path = _resolve_replica_path()
+        Path(path).parent.mkdir(parents=True, exist_ok=True)  # ensure the dir BEFORE connect
+        interval = _config.TURSO_SYNC_INTERVAL_SECONDS or None  # 0 → None (no periodic sync)
+        logger.info("store DB: embedded-replica mode (path=%s, sync_interval=%s)", path, interval)  # no token
+        return libsql.connect(
+            path,
+            sync_url=_config.TURSO_DATABASE_URL,
+            auth_token=_config.TURSO_AUTH_TOKEN,
+            sync_interval=interval,
+            _check_same_thread=False,  # shared across the worker + request threads (matches current model)
         )
     return libsql.connect(_config.TURSO_DATABASE_URL, auth_token=_config.TURSO_AUTH_TOKEN)
 
