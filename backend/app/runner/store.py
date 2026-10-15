@@ -19,6 +19,17 @@ from app.runner.models import ErrorInfo, JobState
 _TERMINAL = (JobState.completed, JobState.failed)
 
 
+def _decode_risk_by_type(r) -> Optional[dict]:
+    """Feature 066: decode the `risk_by_type` JSON column (defensive — malformed/absent → None)."""
+    if "risk_by_type" not in r.keys() or r["risk_by_type"] is None:
+        return None
+    try:
+        val = json.loads(r["risk_by_type"])
+        return val if isinstance(val, dict) else None
+    except (ValueError, TypeError):
+        return None
+
+
 @dataclass
 class JobRow:
     """Durable projection of JobRecord (spec §2.2).
@@ -44,6 +55,15 @@ class JobRow:
     # Owning account (feature 019 — per-user data isolation). NULL = legacy/unowned row,
     # hidden from every scoped read. Set once at create; never mutated.
     user_id: Optional[str] = None
+    # Feature 066 — denormalized risk summary (stamped at completion). NULL ⇒ no stored summary ⇒ the
+    # dashboard/jobs read path falls back to reading the report BLOB (legacy rows).
+    risk_high: Optional[int] = None
+    risk_medium: Optional[int] = None
+    risk_low: Optional[int] = None
+    validated_findings: Optional[int] = None
+    total_clauses: Optional[int] = None
+    analysis_degraded: Optional[bool] = None
+    risk_by_type: Optional[dict] = None
 
 
 class JobStore:
@@ -64,8 +84,10 @@ class JobStore:
                 """INSERT INTO jobs (job_id, document_path, recipient, status,
                        submitted_at, started_at, finished_at, current_node,
                        completed_nodes, report_path, mcp_delivery_status, error,
-                       original_filename, user_id)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                       original_filename, user_id,
+                       risk_high, risk_medium, risk_low, validated_findings,
+                       total_clauses, analysis_degraded, risk_by_type)
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                    ON CONFLICT(job_id) DO UPDATE SET
                        status=excluded.status,
                        started_at=excluded.started_at,
@@ -75,7 +97,14 @@ class JobStore:
                        report_path=excluded.report_path,
                        mcp_delivery_status=excluded.mcp_delivery_status,
                        error=excluded.error,
-                       original_filename=excluded.original_filename""",
+                       original_filename=excluded.original_filename,
+                       risk_high=excluded.risk_high,
+                       risk_medium=excluded.risk_medium,
+                       risk_low=excluded.risk_low,
+                       validated_findings=excluded.validated_findings,
+                       total_clauses=excluded.total_clauses,
+                       analysis_degraded=excluded.analysis_degraded,
+                       risk_by_type=excluded.risk_by_type""",
                 self._encode(row),
             )
             self._conn.commit()
@@ -170,6 +199,14 @@ class JobStore:
             error_json,
             row.original_filename,
             row.user_id,
+            # Feature 066 — risk summary (NULL when unset; bool→0/1; dict→JSON)
+            row.risk_high,
+            row.risk_medium,
+            row.risk_low,
+            row.validated_findings,
+            row.total_clauses,
+            (None if row.analysis_degraded is None else (1 if row.analysis_degraded else 0)),
+            (None if row.risk_by_type is None else json.dumps(row.risk_by_type)),
         )
 
     def _decode(self, r: sqlite3.Row) -> JobRow:
@@ -194,4 +231,18 @@ class JobStore:
                 r["original_filename"] if "original_filename" in r.keys() else None
             ),
             user_id=(r["user_id"] if "user_id" in r.keys() else None),
+            # Feature 066 — risk summary (backward-compat guard like original_filename/user_id)
+            risk_high=(r["risk_high"] if "risk_high" in r.keys() else None),
+            risk_medium=(r["risk_medium"] if "risk_medium" in r.keys() else None),
+            risk_low=(r["risk_low"] if "risk_low" in r.keys() else None),
+            validated_findings=(
+                r["validated_findings"] if "validated_findings" in r.keys() else None
+            ),
+            total_clauses=(r["total_clauses"] if "total_clauses" in r.keys() else None),
+            analysis_degraded=(
+                bool(r["analysis_degraded"])
+                if "analysis_degraded" in r.keys() and r["analysis_degraded"] is not None
+                else None
+            ),
+            risk_by_type=_decode_risk_by_type(r),
         )

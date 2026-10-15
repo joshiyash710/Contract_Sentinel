@@ -32,11 +32,23 @@ from app.runner.models import (
     UsageBucket,
 )
 from app.runner.store import JobRow
+from app.runner import risk_summary as _rs
+from app.runner.risk_summary import RiskSummary
 
 logger = logging.getLogger("contractsentinel.dashboard")
 
 _UNCATEGORIZED = "Uncategorized"
 _SEVERITIES = ("low", "medium", "high")
+
+# Feature 066 — the dashboard/jobs read a RiskSummary per completed row: from the stored row columns when
+# present, else (legacy) via this fallback seam (prod wires `risk_summary.load_report_summary`).
+SummaryReadFn = Callable[[Optional[str]], Optional[RiskSummary]]
+
+
+def _row_summary(row: JobRow, read: "SummaryReadFn") -> Optional[RiskSummary]:
+    """RiskSummary for a completed row: the stored summary (no I/O) or the legacy BLOB-read fallback."""
+    stored = _rs.from_row(row)
+    return stored if stored is not None else read(row.report_path)
 
 
 @dataclass
@@ -118,10 +130,13 @@ def _display_name(row: JobRow) -> str:
 
 
 def build_job_list(
-    rows: List[JobRow], read: ReadFn, limit: int, offset: int, total: int
+    rows: List[JobRow], read: "SummaryReadFn", limit: int, offset: int, total: int
 ) -> JobList:
     """Map an already-paginated `rows` slice into JobListItems (spec §2.2). `limit`/`offset`
-    are accepted for symmetry but the caller has already paged; `total` is the store count."""
+    are accepted for symmetry but the caller has already paged; `total` is the store count.
+
+    Feature 066: a completed row's risk fields come from its stored summary (no I/O); `read` is the legacy
+    fallback, invoked only for rows without a stored summary."""
     items: List[JobListItem] = []
     for row in rows:
         item = JobListItem(
@@ -133,12 +148,12 @@ def build_job_list(
             report_available=False,
         )
         if _is_completed(row):
-            rd = read(row.report_path)
-            if rd is not None:
+            s = _row_summary(row, read)
+            if s is not None:
                 item.report_available = True
-                item.high, item.medium, item.low = rd.high, rd.medium, rd.low
-                item.risk_band = derive_band(rd.high, rd.medium, rd.low, rd.validated_findings)
-                item.analysis_degraded = rd.analysis_degraded
+                item.high, item.medium, item.low = s.high, s.medium, s.low
+                item.risk_band = derive_band(s.high, s.medium, s.low, s.validated_findings)
+                item.analysis_degraded = s.analysis_degraded
         items.append(item)
     return JobList(items=items, total=total)
 
@@ -149,32 +164,30 @@ def _day(submitted_at: str) -> str:
 
 
 def build_dashboard_metrics(
-    rows: List[JobRow], read: ReadFn, *, today: date
+    rows: List[JobRow], read: "SummaryReadFn", *, today: date
 ) -> DashboardMetrics:
     total_contracts = len(rows)
     completed_rows = [r for r in rows if _is_completed(r)]
 
-    # Fold each completed report's risk (skip missing/malformed — EC-3).
-    reports: List[ReportData] = []
+    # Feature 066: fold a RiskSummary per completed row — the stored summary (no I/O) or the legacy BLOB-read
+    # fallback (skip missing/malformed — EC-3). `read` is invoked only for rows without a stored summary.
+    summaries: List[RiskSummary] = []
     for r in completed_rows:
-        rd = read(r.report_path)
-        if rd is not None:
-            reports.append(rd)
+        s = _row_summary(r, read)
+        if s is not None:
+            summaries.append(s)
 
-    high = sum(r.high for r in reports)
-    medium = sum(r.medium for r in reports)
-    low = sum(r.low for r in reports)
+    high = sum(s.high for s in summaries)
+    medium = sum(s.medium for s in summaries)
+    low = sum(s.low for s in summaries)
     pct, band = portfolio_health(high, medium, low)
 
-    # Per-clause-type severity counts (D4/D5/D14).
+    # Per-clause-type severity counts (D4/D5/D14) — merge each report's per-type map.
     by_type: dict = defaultdict(lambda: {"low": 0, "medium": 0, "high": 0})
-    for rd in reports:
-        for f in rd.findings:
-            sev = f.get("risk_level")
-            if sev not in _SEVERITIES:  # null / unknown severity excluded (D14)
-                continue
-            ctype = f.get("clause_type") or _UNCATEGORIZED
-            by_type[ctype][sev] += 1
+    for s in summaries:
+        for ctype, counts in s.risk_by_type.items():
+            for sev in _SEVERITIES:
+                by_type[ctype][sev] += int(counts.get(sev, 0))
 
     ordered_types = sorted(by_type.keys())
     risk_by_clause_type = [

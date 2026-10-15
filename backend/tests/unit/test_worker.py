@@ -164,6 +164,35 @@ def test_completed_status_and_terminal_event():
     loop.close()
 
 
+def test_risk_summary_failure_does_not_break_completion():  # feature 066 EC-3 (best-effort)
+    """A raising load_report_summary must NOT alter the terminal outcome — job still COMPLETED."""
+    from app.runner.worker import PipelineWorker
+    import app.runner.worker as worker_mod
+    from app.runner.registry import JobRegistry, JobRecord
+    from app.runner.events import JobEventBuffer
+
+    loop = asyncio.new_event_loop()
+    buf = JobEventBuffer(loop)
+    reg = JobRegistry(store=None, saver=None, loop=None, max_jobs=50)
+    rec = JobRecord(job_id="jbad", document_path="c.pdf", submitted_at="t", buffer=buf)
+    reg.add(rec)
+
+    def _boom(_path):
+        raise RuntimeError("summary blew up")
+
+    with patch.object(worker_mod, "run_pipeline", return_value=_happy_run_result()), \
+            patch.object(worker_mod, "load_report_summary", side_effect=_boom):
+        worker = PipelineWorker(reg, concurrency=1)
+        worker.start()
+        try:
+            worker.submit("jbad")
+            assert _wait_for_status(rec, "completed")  # swallowed → still completes
+        finally:
+            worker.stop()
+    assert rec.to_status().status.value == "completed"
+    loop.close()
+
+
 def test_ingest_error_marks_completed_with_error():
     """Ingest error → record COMPLETED with error.kind == 'ingest_error'."""
     from app.runner.worker import PipelineWorker

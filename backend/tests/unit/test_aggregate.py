@@ -6,8 +6,11 @@ aggregates, null-bucketing, dense usage timeline, and missing-report handling.
 
 from datetime import date
 
+from unittest.mock import MagicMock
+
 from app.runner.models import JobState
 from app.runner.store import JobRow
+from app.runner.risk_summary import summarize_report, to_row_fields
 from app.api.aggregate import (
     ReportData,
     derive_band,
@@ -27,12 +30,24 @@ def _row(job_id, submitted_at, *, status=JobState.completed, report_path="/r/x.m
     )
 
 
-def _rd(high=0, medium=0, low=0, findings=None):
+def _rd(high=0, medium=0, low=0, findings=None, analysis_degraded=False):
+    """Feature 066: the injected reader now returns a RiskSummary (built via the shared helper)."""
     total = high + medium + low
-    return ReportData(
-        high=high, medium=medium, low=low, total_clauses=total,
-        validated_findings=total, findings=findings or [],
-    )
+    return summarize_report({
+        "summary": {"high": high, "medium": medium, "low": low,
+                    "total_clauses": total, "validated_findings": total},
+        "findings": findings or [],
+        "analysis_degraded": analysis_degraded,
+    })
+
+
+def _summarized_row(job_id, submitted_at, *, high=0, medium=0, low=0, findings=None,
+                    analysis_degraded=False, **kw):
+    """A completed JobRow carrying a STORED risk summary (feature 066) — no report read needed."""
+    row = _row(job_id, submitted_at, **kw)
+    for k, v in to_row_fields(_rd(high, medium, low, findings, analysis_degraded)).items():
+        setattr(row, k, v)
+    return row
 
 
 # ── derive_band (must match 017 TS deriveRiskBand) ──────────────────────────────
@@ -186,9 +201,41 @@ def test_read_report_data_defaults_degraded_false(tmp_path):
 
 def test_job_list_copies_analysis_degraded():
     rows = [_row("j1", "2026-01-10T00:00:00+00:00")]
-    read = lambda path: ReportData(
-        high=3, medium=0, low=0, total_clauses=3, validated_findings=3,
-        findings=[], analysis_degraded=True,
-    )
+    read = lambda path: _rd(high=3, analysis_degraded=True)
     jl = build_job_list(rows, read, limit=20, offset=0, total=1)
     assert jl.items[0].analysis_degraded is True
+
+
+# ── Feature 066: stored summary → no report-BLOB read (N+1 killed) ───────────────
+def test_dashboard_reads_stored_summary_no_blob(  # AC-4
+):
+    rows = [
+        _summarized_row("j1", "2026-01-10T00:00:00+00:00", high=2, medium=1,
+                        findings=[{"clause_type": "liability", "risk_level": "high"},
+                                  {"clause_type": "liability", "risk_level": "high"}]),
+        _summarized_row("j2", "2026-01-10T00:00:00+00:00", low=3),
+    ]
+    reader = MagicMock(return_value=None)
+    m = build_dashboard_metrics(rows, reader, today=date(2026, 1, 10))
+    assert (m.risk_distribution.high, m.risk_distribution.medium, m.risk_distribution.low) == (2, 1, 3)
+    assert next(c for c in m.risk_by_clause_type if c.clause_type == "liability").high == 2
+    reader.assert_not_called()  # stored summaries → ZERO report-BLOB reads
+
+
+def test_job_list_reads_stored_summary_no_blob():  # AC-5
+    rows = [_summarized_row("j1", "2026-01-10T00:00:00+00:00", high=1, low=2,
+                            finished_at="2026-01-10T00:05:00+00:00")]
+    reader = MagicMock(return_value=None)
+    jl = build_job_list(rows, reader, limit=20, offset=0, total=1)
+    it = jl.items[0]
+    assert it.report_available and it.high == 1 and it.low == 2 and it.risk_band == "high"
+    reader.assert_not_called()
+
+
+def test_mixed_batch_reads_only_legacy_rows():  # AC-6
+    summarized = _summarized_row("new", "2026-01-10T00:00:00+00:00", high=1, report_path="/r/new.md")
+    legacy = _row("old", "2026-01-10T00:00:00+00:00", report_path="/r/old.md")  # no stored summary
+    reader = MagicMock(side_effect=lambda p: _rd(medium=2) if p == "/r/old.md" else None)
+    m = build_dashboard_metrics([summarized, legacy], reader, today=date(2026, 1, 10))
+    assert (m.risk_distribution.high, m.risk_distribution.medium) == (1, 2)  # both folded
+    reader.assert_called_once_with("/r/old.md")  # ONLY the legacy row triggered a read

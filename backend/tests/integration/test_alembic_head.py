@@ -35,6 +35,14 @@ def test_upgrade_creates_jobs_table(tmp_path):
         "error",
         "original_filename",  # migration 0002 (feature 018)
         "user_id",  # migration 0004 (feature 019 — per-user data isolation)
+        # migration 0011 (feature 066 — denormalized risk summary on the job row)
+        "risk_high",
+        "risk_medium",
+        "risk_low",
+        "validated_findings",
+        "total_clauses",
+        "analysis_degraded",
+        "risk_by_type",
     }
     assert col_names == expected
 
@@ -66,8 +74,8 @@ def test_upgrade_is_idempotent(tmp_path):
     conn.close()
 
 
-def test_current_head_is_0010(tmp_path):
-    """Feature 054: migration 0010 (upload_blobs) is the current Alembic head."""
+def test_current_head_is_0011(tmp_path):
+    """Feature 066: migration 0011 (job risk summary) is the current Alembic head."""
     from pathlib import Path
     from alembic.config import Config
     from alembic.script import ScriptDirectory
@@ -75,7 +83,7 @@ def test_current_head_is_0010(tmp_path):
     alembic_dir = Path(__file__).resolve().parents[2] / "alembic"
     cfg = Config()
     cfg.set_main_option("script_location", str(alembic_dir))
-    assert ScriptDirectory.from_config(cfg).get_current_head() == "0010"
+    assert ScriptDirectory.from_config(cfg).get_current_head() == "0011"
 
 
 def test_migration_0008_creates_password_reset_tokens(tmp_path):

@@ -31,6 +31,7 @@ from app.runner.models import (
     JobState,
     JobStatus,
 )
+from app.runner.risk_summary import RiskSummary, from_row as _risk_from_row, to_row_fields
 
 logger = logging.getLogger("contractsentinel.runner.registry")
 
@@ -76,6 +77,8 @@ class JobRecord:
         default_factory=dict, init=False, repr=False
     )
     _error: Optional[ErrorInfo] = field(default=None, init=False, repr=False)
+    # Feature 066 — risk summary stamped at completion (None ⇒ not summarized → row cols stay NULL).
+    _risk_summary: Optional[RiskSummary] = field(default=None, init=False, repr=False)
     _lock: threading.Lock = field(
         default_factory=threading.Lock, init=False, repr=False, compare=False
     )
@@ -110,6 +113,8 @@ class JobRecord:
             report_path=self._report_path,
             mcp_delivery_status=dict(self._mcp_delivery_status),
             error=self._error,
+            # Feature 066 — spread the risk-summary columns when summarized (else they default to None)
+            **(to_row_fields(self._risk_summary) if self._risk_summary is not None else {}),
         )
 
     def _persist(self) -> None:
@@ -180,6 +185,7 @@ class JobRecord:
         report_path: Optional[str],
         mcp_delivery_status: Optional[Dict[str, Any]] = None,
         error: Optional[ErrorInfo] = None,
+        risk_summary: Optional[RiskSummary] = None,
     ) -> None:
         with self._lock:
             self._status = status
@@ -187,6 +193,7 @@ class JobRecord:
             self._report_path = report_path
             self._mcp_delivery_status = mcp_delivery_status or {}
             self._error = error
+            self._risk_summary = risk_summary  # feature 066 (None ⇒ row cols stay NULL)
             self._persist()
         # Feature 054: a terminal job is never re-run (012 resume touches only nonterminal rows), so its
         # durable upload source is no longer needed — best-effort delete to bound Turso growth. Done off
@@ -279,6 +286,7 @@ class JobRecord:
         rec._report_path = row.report_path
         rec._mcp_delivery_status = dict(row.mcp_delivery_status)
         rec._error = row.error
+        rec._risk_summary = _risk_from_row(row)  # feature 066 — preserve on re-persist
         rec._store = store
         return rec
 

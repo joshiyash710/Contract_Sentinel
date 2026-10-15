@@ -27,6 +27,7 @@ import app.config as _config  # feature 059: read the live-progress flag at call
 from app.runner.core import run_pipeline, NodeProgress
 from app.runner.models import ErrorInfo, JobState, ProgressEvent
 from app.runner.registry import JobRecord, JobRegistry
+from app.runner.risk_summary import load_report_summary
 
 logger = logging.getLogger(__name__)
 
@@ -137,12 +138,22 @@ class PipelineWorker:
                 msg = result.ingest_error.get("message", str(result.ingest_error))
                 error = ErrorInfo(kind="ingest_error", message=msg)
 
+            # Feature 066 — compute the compact risk summary ONCE at completion (best-effort: a failure
+            # must never alter the terminal outcome; mirrors the 061 KB-write guard).
+            risk_summary = None
+            try:
+                if result.report_path:
+                    risk_summary = load_report_summary(result.report_path)
+            except Exception:  # noqa: BLE001 — best-effort; summary is optional
+                logger.warning("risk-summary computation failed (best-effort)", exc_info=True)
+
             rec.mark_terminal(
                 status=JobState.completed,
                 finished_at=_now_iso(),
                 report_path=result.report_path,
                 mcp_delivery_status=result.mcp_delivery_status,
                 error=error,
+                risk_summary=risk_summary,
             )
             rec.buffer.publish(
                 ProgressEvent(

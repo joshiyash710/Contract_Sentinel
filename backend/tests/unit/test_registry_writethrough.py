@@ -82,6 +82,36 @@ def test_report_available_uses_blob_store(db, store, loop, monkeypatch):
     assert calls["n"] == 0
 
 
+def test_mark_terminal_persists_risk_summary(db, store, loop):  # feature 066 AC-3(a)
+    from app.runner.registry import JobRegistry
+    from app.runner.risk_summary import RiskSummary
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    rec = _make_record("jsum")
+    registry.add(rec)
+    rs = RiskSummary(high=2, medium=1, low=3, validated_findings=6, total_clauses=10,
+                     analysis_degraded=True, risk_by_type={"liability": {"low": 0, "medium": 1, "high": 1}})
+    rec.mark_terminal(status=JobState.completed, finished_at="2026-01-01T00:02:00+00:00",
+                      report_path="/data/reports/jsum.md", mcp_delivery_status={}, error=None,
+                      risk_summary=rs)
+    got = store.get("jsum")  # persisted to the durable row
+    assert (got.risk_high, got.risk_medium, got.risk_low) == (2, 1, 3)
+    assert got.analysis_degraded is True
+    assert got.risk_by_type == {"liability": {"low": 0, "medium": 1, "high": 1}}
+
+
+def test_mark_terminal_without_summary_stores_null(db, store, loop):  # feature 066 AC-3(b)
+    from app.runner.registry import JobRegistry
+
+    registry = JobRegistry(store=store, saver=None, loop=loop, max_jobs=100)
+    rec = _make_record("jnosum")
+    registry.add(rec)
+    rec.mark_terminal(status=JobState.failed, finished_at="2026-01-01T00:02:00+00:00",
+                      report_path=None, mcp_delivery_status={}, error=None)  # no risk_summary
+    got = store.get("jnosum")
+    assert got.risk_high is None and got.risk_by_type is None and got.analysis_degraded is None
+
+
 def test_mark_terminal_deletes_upload_blob_on_turso(db, store, loop, monkeypatch):
     """Feature 054 (AC-4): a terminal job best-effort deletes its upload blob under Turso."""
     import app.runner.registry as registry_mod

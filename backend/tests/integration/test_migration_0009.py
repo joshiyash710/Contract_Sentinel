@@ -16,11 +16,11 @@ def _cfg(db_path: str) -> Config:
     return cfg
 
 
-def test_head_is_0010(tmp_path):
+def test_head_is_0011(tmp_path):
     from alembic.script import ScriptDirectory
 
     script = ScriptDirectory.from_config(_cfg(str(tmp_path / "x.db")))
-    assert script.get_current_head() == "0010"
+    assert script.get_current_head() == "0011"
 
 
 def test_0009_down_revision_is_0008(tmp_path):

@@ -31,7 +31,8 @@ import app.config as _cfg
 from app import blob_store
 from app.security import crypto  # feature 056: decrypt the served original contract
 from app.api.auth import AuthUser, require_auth
-from app.api.aggregate import build_dashboard_metrics, build_job_list, read_report_data
+from app.api.aggregate import build_dashboard_metrics, build_job_list
+from app.runner.risk_summary import load_report_summary  # feature 066 — legacy-row fallback reader
 from app.runner.events import JobEventBuffer
 from app.runner.models import (
     AnalyzeAccepted,
@@ -230,7 +231,7 @@ async def list_jobs(
     reg = _get_ctx(request).registry
     return build_job_list(
         reg.list_jobs(current_user.id, limit, offset),
-        read_report_data,
+        load_report_summary,
         limit,
         offset,
         reg.count(current_user.id),
@@ -244,7 +245,7 @@ async def dashboard(
 ) -> DashboardMetrics:
     reg = _get_ctx(request).registry
     return build_dashboard_metrics(
-        reg.all_rows(current_user.id), read_report_data, today=_utc_today()
+        reg.all_rows(current_user.id), load_report_summary, today=_utc_today()
     )
 
 

@@ -47,6 +47,26 @@ def _make_row(job_id="j1"):
     )
 
 
+def test_risk_summary_roundtrip(store):  # feature 066 AC-2
+    row = _make_row("rs1")
+    row.risk_high, row.risk_medium, row.risk_low = 2, 1, 3
+    row.validated_findings, row.total_clauses = 6, 10
+    row.analysis_degraded = True
+    row.risk_by_type = {"liability": {"low": 0, "medium": 1, "high": 1}}
+    store.upsert(row)
+    got = store.get("rs1")
+    assert (got.risk_high, got.risk_medium, got.risk_low) == (2, 1, 3)
+    assert got.validated_findings == 6 and got.total_clauses == 10
+    assert got.analysis_degraded is True  # stored 0/1, decoded back to bool
+    assert got.risk_by_type == {"liability": {"low": 0, "medium": 1, "high": 1}}  # JSON round-trip
+
+
+def test_no_risk_summary_stores_null(store):  # feature 066 AC-2 (legacy)
+    store.upsert(_make_row("nors"))  # _make_row sets no risk fields
+    got = store.get("nors")
+    assert got.risk_high is None and got.risk_by_type is None and got.analysis_degraded is None
+
+
 def test_upsert_get_roundtrip(store):
     row = _make_row()
     store.upsert(row)
