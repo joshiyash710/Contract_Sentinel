@@ -312,3 +312,71 @@ def test_sync_interval_zero_becomes_none(monkeypatch, tmp_path):  # AC-7
     monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(return_value=FakeRawConn()))
     db_backend.connect("ignored")
     assert db_backend.libsql.connect.call_args.kwargs["sync_interval"] is None
+
+
+# ── Feature 065: single shared connection for the embedded replica ────────────
+@pytest.fixture(autouse=True)
+def _reset_shared_embedded():
+    # Keep the embedded-replica singleton from leaking across tests (guarded so the red step is clean
+    # before _reset_shared_for_tests exists).
+    reset = getattr(db_backend, "_reset_shared_for_tests", None)
+    if reset:
+        reset()
+    yield
+    if reset:
+        reset()
+
+
+def test_embedded_shared_singleton_one_syncer(monkeypatch, tmp_path):  # AC-1 / AC-6 shape
+    replica = tmp_path / "r.db"
+    _patch_embedded(monkeypatch, tmp_path, replica=str(replica))
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(return_value=FakeRawConn()))
+    c1 = db_backend.connect("p")
+    c2 = db_backend.connect("p")
+    c3 = db_backend.connect("p")
+    assert c1 is c2 is c3                                  # one shared instance
+    assert db_backend.libsql.connect.call_count == 1       # one syncer (the wal_insert_begin fix)
+    call = db_backend.libsql.connect.call_args
+    assert call.args[0] == str(replica)
+    assert call.kwargs["sync_url"] == "libsql://x.turso.io"
+    assert call.kwargs["_check_same_thread"] is False
+
+
+def test_pure_remote_distinct_connections(monkeypatch, tmp_path):  # AC-2
+    _patch_embedded(monkeypatch, tmp_path, enabled=False)
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(side_effect=lambda *a, **k: FakeRawConn()))
+    conns = [db_backend.connect("p") for _ in range(3)]
+    assert conns[0] is not conns[1] and conns[1] is not conns[2]   # distinct per-call
+    assert db_backend.libsql.connect.call_count == 3
+
+
+def test_local_sqlite_distinct_connections(monkeypatch, tmp_path):  # AC-3
+    monkeypatch.setattr(db_backend._config, "TURSO_DATABASE_URL", "")
+    monkeypatch.setattr(db_backend._config, "TURSO_EMBEDDED_REPLICA_ENABLED", True)
+    a = db_backend.connect(str(tmp_path / "a.db"))
+    b = db_backend.connect(str(tmp_path / "b.db"))
+    assert isinstance(a, sqlite3.Connection) and isinstance(b, sqlite3.Connection) and a is not b
+    a.close()
+    b.close()
+
+
+def test_lock_entered_on_execute(monkeypatch):  # AC-4
+    lock = MagicMock()
+    conn = db_backend._LibsqlConn(FakeRawConn(cursor=FakeRawCursor(rows=[(1,)])), reconnect=None, lock=lock)
+    conn.execute("SELECT 1")
+    assert lock.__enter__.called and lock.__exit__.called     # _run ran under `with self._lock`
+    # lock=None → no-op context, still works (pure-remote path unaffected)
+    assert db_backend._LibsqlConn(FakeRawConn(cursor=FakeRawCursor(rows=[(1,)])), lock=None).execute("SELECT 1")
+
+
+def test_shared_reconnect_under_lock(monkeypatch, tmp_path):  # AC-5 (063 reuse, shared + locked)
+    monkeypatch.setattr(db_backend.time, "sleep", lambda *_: None)
+    _patch_embedded(monkeypatch, tmp_path)
+    monkeypatch.setattr(db_backend._config, "TURSO_RECONNECT_MAX_RETRIES", 2)
+    good = FakeRawConn(cursor=FakeRawCursor(rows=[(1,)]))
+    monkeypatch.setattr(db_backend.libsql, "connect", MagicMock(side_effect=[_RaiseConn(_DROP), good]))
+    conn = db_backend.connect("p")          # shared singleton; 1st libsql.connect → raising conn
+    cur = conn.execute("SELECT 1")          # drop → reconnect (2nd) → good → succeeds
+    assert isinstance(cur, db_backend._LibsqlCursor)
+    assert db_backend.libsql.connect.call_count == 2
+    assert conn._lock is not None            # the shared embedded conn is lock-serialized

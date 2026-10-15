@@ -14,7 +14,9 @@ but Alembic migrations against Turso need `sqlalchemy-libsql`, which builds only
 
 import logging
 import sqlite3
+import threading
 import time
+from contextlib import nullcontext
 from pathlib import Path
 
 import libsql  # cross-platform core dep; module-level so tests can patch db_backend.libsql.connect
@@ -23,17 +25,42 @@ import app.config as _config
 
 logger = logging.getLogger("contractsentinel.runner.db_backend")
 
+# Feature 065: the embedded replica uses ONE shared, lock-serialized connection for the whole process (every
+# store reuses it) so a single owner syncs the local file — three separate syncers caused 064's
+# `wal_insert_begin failed`. None until the first embedded connect; cleared by _reset_shared_for_tests.
+_SHARED_EMBEDDED_CONN = None
+
 
 def connect(db_path: str):
     """Return the store-DB connection for the configured backend (read live).
 
-    `TURSO_DATABASE_URL` set → a libsql wrapper; else a local `sqlite3.Connection` (byte-identical).
+    `TURSO_DATABASE_URL` set + embedded-replica flag → the SHARED embedded connection (feature 065); else
+    `TURSO_DATABASE_URL` set → a per-call pure-remote libsql wrapper; else a local `sqlite3.Connection`
+    (byte-identical).
     """
     if _config.TURSO_DATABASE_URL:
+        if _config.TURSO_EMBEDDED_REPLICA_ENABLED:
+            return _shared_embedded_conn()
         return _connect_turso()
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _shared_embedded_conn():
+    """Feature 065: lazily create ONE shared, lock-serialized embedded-replica _LibsqlConn and reuse it."""
+    global _SHARED_EMBEDDED_CONN
+    if _SHARED_EMBEDDED_CONN is None:
+        _SHARED_EMBEDDED_CONN = _LibsqlConn(
+            _turso_raw_connect(), reconnect=_turso_raw_connect, lock=threading.Lock()
+        )
+    return _SHARED_EMBEDDED_CONN
+
+
+def _reset_shared_for_tests():
+    """Test-only: clear the shared embedded connection so it can't leak across tests."""
+    global _SHARED_EMBEDDED_CONN
+    _SHARED_EMBEDDED_CONN = None
 
 
 def _resolve_replica_path() -> str:
@@ -150,32 +177,36 @@ class _LibsqlConn:
     `self._conn.row_factory = sqlite3.Row` line, and this wrapper yields `_Row` unconditionally.
     """
 
-    def __init__(self, raw, reconnect=None):
+    def __init__(self, raw, reconnect=None, lock=None):
         self._raw = raw
         self._reconnect = reconnect  # feature 063: zero-arg factory for a fresh raw conn (None ⇒ no retry)
+        self._lock = lock            # feature 065: serialize the shared embedded conn (None ⇒ no locking)
 
     def _run(self, op):
         """Feature 063: run op(raw); on a dropped-connection error, reconnect and retry (bounded by
         TURSO_RECONNECT_MAX_RETRIES). A non-drop error, or an exhausted budget, propagates. The whole op
-        re-runs against the fresh self._raw, so a reconnected handle is used."""
-        attempts = _config.TURSO_RECONNECT_MAX_RETRIES
-        last = None
-        for i in range(attempts + 1):
-            try:
-                return op(self._raw)
-            except Exception as exc:  # noqa: BLE001 — classified by _is_connection_drop below
-                if not (self._reconnect and _is_connection_drop(exc) and i < attempts):
-                    raise  # non-drop error, or retries exhausted → propagate (AC-2/AC-3)
-                last = exc
-                logger.warning(
-                    "reconnecting after a dropped Turso connection (attempt %d/%d)", i + 1, attempts
-                )  # NEVER log the token or SQL params
-                time.sleep(min(2.0 ** i, 8.0))
+        re-runs against the fresh self._raw, so a reconnected handle is used.
+
+        Feature 065: serialized under self._lock when set (the shared embedded connection) — None ⇒ no-op."""
+        with (self._lock or nullcontext()):
+            attempts = _config.TURSO_RECONNECT_MAX_RETRIES
+            last = None
+            for i in range(attempts + 1):
                 try:
-                    self._raw = self._reconnect()
-                except Exception:  # noqa: BLE001 — reconnect failed; next attempt / exhaust (EC-1)
-                    continue
-        raise last  # last op (drop) exception = connection unavailable after exhausting retries (EC-1)
+                    return op(self._raw)
+                except Exception as exc:  # noqa: BLE001 — classified by _is_connection_drop below
+                    if not (self._reconnect and _is_connection_drop(exc) and i < attempts):
+                        raise  # non-drop error, or retries exhausted → propagate (AC-2/AC-3)
+                    last = exc
+                    logger.warning(
+                        "reconnecting after a dropped Turso connection (attempt %d/%d)", i + 1, attempts
+                    )  # NEVER log the token or SQL params
+                    time.sleep(min(2.0 ** i, 8.0))
+                    try:
+                        self._raw = self._reconnect()
+                    except Exception:  # noqa: BLE001 — reconnect failed; next attempt / exhaust (EC-1)
+                        continue
+            raise last  # last op (drop) exception = connection unavailable after exhausting retries (EC-1)
 
     def execute(self, sql, params=()):
         return _LibsqlCursor(self._run(lambda raw: raw.execute(sql, params)))
